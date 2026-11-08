@@ -175,6 +175,25 @@ class CancelInputSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
 
 
+class MerchantRejectSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=200)
+
+
+class ShipInputSerializer(serializers.Serializer):
+    logistics_company = serializers.CharField(max_length=40, required=False, allow_blank=True, default="")
+    logistics_no = serializers.CharField(max_length=64, required=False, allow_blank=True, default="")
+
+
+class VerifyInputSerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=20)
+
+
+class ReviewInputSerializer(serializers.Serializer):
+    score = serializers.IntegerField(min_value=1, max_value=5)
+    content = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
+    images = serializers.ListField(child=serializers.URLField(), required=False, allow_empty=True, max_length=6)
+
+
 class OrderItemContractSerializer(serializers.ModelSerializer):
     price_amount = serializers.IntegerField(source="price")
     amount = serializers.IntegerField()

@@ -225,14 +225,48 @@ def _release_slot(order):
         slot.save(update_fields=["reserved_count", "status", "updated_at"])
 
 
+def _release_sold_stock(order):
+    need = defaultdict(int)
+    for item in order.items.all():
+        if item.sku_id:
+            need[item.sku_id] += item.quantity
+    if not need:
+        return
+    skus = {sku.id: sku for sku in ProductSku.objects.select_for_update().filter(pk__in=need)}
+    for sku_id, quantity in need.items():
+        sku = skus.get(sku_id)
+        if sku is None:
+            continue
+        sku.sold_stock = max(sku.sold_stock - quantity, 0)
+        sku.version += 1
+        sku.save(update_fields=["sold_stock", "version", "updated_at"])
+
+
+def restore_order_resources(order):
+    """拒单/待接单取消：把已售库存与预约时段退回。"""
+    _release_stock(order)
+    _release_sold_stock(order)
+    _release_slot(order)
+
+
 def cancel_order(user, order_id, reason=""):
     from apps.payments.models import PaymentOrder
+    from apps.payments.refund_services import refund_order
 
     with transaction.atomic():
         order = Order.objects.select_for_update().filter(pk=order_id, user=user).first()
         if order is None:
             raise ApiError("NOT_FOUND", "订单不存在", 404)
         if order.status == Order.Status.CLOSED:
+            return order
+        if order.status == Order.Status.PENDING_ACCEPT:
+            refund_order(
+                order.id,
+                order.paid_amount - order.refunded_amount,
+                reason or "用户取消",
+                reject_event="USER_CANCEL",
+            )
+            order.refresh_from_db()
             return order
         if order.status != Order.Status.PENDING_PAYMENT:
             raise ApiError("ORDER_STATE_CONFLICT", "当前状态不允许取消", 409)
@@ -251,6 +285,46 @@ def cancel_order(user, order_id, reason=""):
         ).update(status=PaymentOrder.Status.CLOSED)
     order.refresh_from_db()
     return order
+
+
+def confirm_order(user, order_id):
+    from apps.ledger.services import create_settlement_item
+
+    with transaction.atomic():
+        order = Order.objects.select_for_update().filter(pk=order_id, user=user).first()
+        if order is None:
+            raise ApiError("NOT_FOUND", "订单不存在", 404)
+        if order.status != Order.Status.FULFILLING:
+            raise ApiError("ORDER_STATE_CONFLICT", "当前状态不允许确认收货", 409)
+        transit_order(order.id, "CONFIRM_RECEIVE", operator_type="USER", operator_id=user.id)
+        order.refresh_from_db()
+        create_settlement_item(order)
+    return order
+
+
+def review_order(user, order_id, score, content="", images=None):
+    from datetime import timedelta
+
+    from .models import OrderReview
+
+    with transaction.atomic():
+        order = Order.objects.select_for_update().filter(pk=order_id, user=user).first()
+        if order is None:
+            raise ApiError("NOT_FOUND", "订单不存在", 404)
+        if order.status != Order.Status.COMPLETED:
+            raise ApiError("ORDER_STATE_CONFLICT", "只有已完成订单可以评价", 409)
+        if order.completed_at and timezone.now() > order.completed_at + timedelta(days=7):
+            raise ApiError("ORDER_STATE_CONFLICT", "已超出评价窗口", 409)
+        if OrderReview.objects.filter(order=order, user=user).exists():
+            raise ApiError("ORDER_STATE_CONFLICT", "该订单已评价", 409)
+        return OrderReview.objects.create(
+            order=order,
+            user=user,
+            merchant=order.merchant,
+            score=score,
+            content=content,
+            images=images or [],
+        )
 
 
 def mark_order_paid(order):

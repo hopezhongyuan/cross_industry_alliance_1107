@@ -1345,6 +1345,26 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  /api/v1/orders/{id}/confirm/:
+    post:
+      tags: [order]
+      operationId: confirmOrder
+      summary: 确认收货（完成订单并生成结算项）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /api/v1/orders/{id}/pay/:
     post:
       tags: [order]
@@ -1378,8 +1398,7 @@ paths:
     post:
       tags: [order]
       operationId: cancelOrder
-      summary: 取消待支付订单（关闭并释放库存/时段）
-      description: M1 仅支持待支付订单；待接单取消退款在 M2 实现。
+      summary: 取消待支付/待接单订单（触发退款或关闭）
       x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
@@ -1409,7 +1428,7 @@ paths:
       tags: [order]
       operationId: reviewOrder
       summary: 提交评价（完成后 7 天内，一单一评）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: id
@@ -1437,7 +1456,7 @@ paths:
       tags: [aftersale]
       operationId: createAfterSale
       summary: 申请售后（冻结结算项）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1463,7 +1482,7 @@ paths:
       tags: [aftersale]
       operationId: getAfterSale
       summary: 售后进度（商户处理、仲裁、退款）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: id
@@ -1595,7 +1614,7 @@ paths:
       tags: [merchant]
       operationId: acceptOrder
       summary: 接单（仅待接单可接，超时自动退款）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: id
@@ -1619,7 +1638,7 @@ paths:
       tags: [merchant]
       operationId: rejectOrder
       summary: 拒单（原因必填，触发全额退款）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: id
@@ -1648,7 +1667,7 @@ paths:
       tags: [merchant]
       operationId: shipOrder
       summary: 发货/备货完成（写物流或提货码）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: id
@@ -1677,7 +1696,7 @@ paths:
       tags: [merchant]
       operationId: verifyCode
       summary: 核销（校验门店、状态、有效期、预约窗口）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1702,7 +1721,7 @@ paths:
       tags: [merchant]
       operationId: decideAfterSale
       summary: 售后处理（同意/拒绝，超时转仲裁）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: id

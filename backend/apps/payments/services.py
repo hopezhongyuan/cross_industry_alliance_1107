@@ -81,6 +81,9 @@ def process_payment_success(payment_no: str, transaction_id: str, amount: int) -
         payment.paid_at = timezone.now()
         payment.save(update_fields=["status", "transaction_id", "paid_at", "updated_at"])
 
+        order.paid_amount = payment.amount
+        order.save(update_fields=["paid_amount", "updated_at"])
+
         transit_order(order.id, "PAY_SUCCESS", operator_type="SYSTEM")
         post_transaction(
             biz_type="PAYMENT",

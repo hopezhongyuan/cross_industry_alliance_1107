@@ -160,6 +160,56 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/after-sales/:
+    post:
+      operationId: v1_after_sales_create
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - aftersale
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AfterSaleInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AfterSaleInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AfterSaleInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/after-sales/{id}/:
+    get:
+      operationId: v1_after_sales_retrieve
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - aftersale
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/auth/h5/sms/:
     post:
       operationId: v1_auth_h5_sms_create
@@ -425,6 +475,169 @@ paths:
               schema:
                 $ref: '#/components/schemas/Health'
           description: ''
+  /api/v1/merchant/after-sales/{id}/decision/:
+    post:
+      operationId: v1_merchant_after_sales_decision_create
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - merchant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AfterSaleDecisionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AfterSaleDecisionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AfterSaleDecisionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/merchant/orders/{id}/accept/:
+    post:
+      operationId: v1_merchant_orders_accept_create
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - merchant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderContractRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OrderContractRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OrderContractRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/merchant/orders/{id}/reject/:
+    post:
+      operationId: v1_merchant_orders_reject_create
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - merchant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MerchantRejectRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MerchantRejectRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MerchantRejectRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/merchant/orders/{id}/ship/:
+    post:
+      operationId: v1_merchant_orders_ship_create
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - merchant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShipInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ShipInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ShipInputRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/merchant/verify/:
+    post:
+      operationId: v1_merchant_verify_create
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - merchant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VerifyInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VerifyInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/merchants/:
     get:
       operationId: v1_merchants_list
@@ -653,6 +866,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/orders/{id}/confirm/:
+    post:
+      operationId: v1_orders_confirm_create
+      description: 确认收货，完成订单并生成结算项。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - order
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderContractRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OrderContractRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OrderContractRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/orders/{id}/pay/:
     post:
       operationId: v1_orders_pay_create
@@ -676,6 +923,40 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PayInputRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/orders/{id}/review/:
+    post:
+      operationId: v1_orders_review_create
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - order
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReviewInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReviewInputRequest'
+        required: true
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -763,6 +1044,63 @@ paths:
           description: ''
 components:
   schemas:
+    AfterSaleDecisionRequest:
+      type: object
+      properties:
+        decision:
+          $ref: '#/components/schemas/DecisionEnum'
+        approved_amount:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - decision
+    AfterSaleInputRequest:
+      type: object
+      properties:
+        order_id:
+          type: integer
+          minimum: 1
+        order_item_id:
+          type: integer
+          nullable: true
+        type:
+          $ref: '#/components/schemas/AfterSaleInputTypeEnum'
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 32
+        description:
+          type: string
+          default: ''
+          maxLength: 500
+        evidence:
+          type: array
+          items:
+            type: string
+            format: uri
+            minLength: 1
+        request_amount:
+          type: integer
+          minimum: 1
+      required:
+      - order_id
+      - reason_code
+      - request_amount
+      - type
+    AfterSaleInputTypeEnum:
+      enum:
+      - REFUND_ONLY
+      - RETURN_REFUND
+      - SERVICE_ISSUE
+      type: string
+      description: |-
+        * `REFUND_ONLY` - REFUND_ONLY
+        * `RETURN_REFUND` - RETURN_REFUND
+        * `SERVICE_ISSUE` - SERVICE_ISSUE
     AppUser:
       type: object
       properties:
@@ -870,6 +1208,38 @@ components:
           maxLength: 120
       required:
       - slot_id
+    AppointmentRequest:
+      type: object
+      properties:
+        slot_date:
+          type: string
+          format: date
+          title: 预约日期
+        start_time:
+          type: string
+          format: time
+          title: 开始时间
+        end_time:
+          type: string
+          format: time
+          title: 结束时间
+        status:
+          allOf:
+          - $ref: '#/components/schemas/AppointmentStatusEnum'
+          title: 状态
+        confirmed_at:
+          type: string
+          format: date-time
+          nullable: true
+          title: 确认时间
+        remark:
+          type: string
+          title: 备注
+          maxLength: 120
+      required:
+      - end_time
+      - slot_date
+      - start_time
     AppointmentStatusEnum:
       enum:
       - PENDING_CONFIRM
@@ -994,6 +1364,14 @@ components:
       required:
       - name
       - phone
+    DecisionEnum:
+      enum:
+      - AGREE
+      - REJECT
+      type: string
+      description: |-
+        * `AGREE` - AGREE
+        * `REJECT` - REJECT
     EnvelopeResponse:
       type: object
       description: 仅用于 OpenAPI 快照描述统一响应结构。
@@ -1190,6 +1568,15 @@ components:
       - id
       - merchant_no
       - name
+    MerchantRejectRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 200
+      required:
+      - reason
     MerchantRole:
       type: object
       properties:
@@ -1229,6 +1616,75 @@ components:
         * `MERCHANT` - 商户
         * `PLATFORM` - 平台
         * `SYSTEM` - 系统
+    OrderContractRequest:
+      type: object
+      properties:
+        order_no:
+          type: string
+          minLength: 1
+          title: 订单号
+          maxLength: 32
+        order_type:
+          allOf:
+          - $ref: '#/components/schemas/OrderTypeEnum'
+          title: 订单类型
+        status:
+          allOf:
+          - $ref: '#/components/schemas/OrderStatusEnum'
+          title: 主状态
+        fulfillment_status:
+          allOf:
+          - $ref: '#/components/schemas/FulfillmentStatusEnum'
+          title: 履约状态
+        product_amount:
+          type: integer
+          title: 商品金额（分）
+        delivery_fee:
+          type: integer
+          title: 配送费（分）
+        payable_amount:
+          type: integer
+          title: 应付金额（分）
+        paid_amount:
+          type: integer
+          title: 实付金额（分）
+        refunded_amount:
+          type: integer
+          title: 累计退款（分）
+        commission_rate:
+          type: number
+          format: double
+          maximum: 10
+          minimum: -10
+          exclusiveMaximum: true
+          exclusiveMinimum: true
+        commission_amount:
+          type: integer
+          title: 佣金（分）
+        contact: {}
+        remark:
+          type: string
+          title: 用户备注
+          maxLength: 200
+        expire_at:
+          type: string
+          format: date-time
+          nullable: true
+          title: 支付超时时间
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+          title: 支付时间
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          title: 完成时间（结算起点）
+      required:
+      - commission_rate
+      - contact
+      - order_type
     OrderCreateInputOrderTypeEnum:
       enum:
       - EXPRESS
@@ -1267,6 +1723,47 @@ components:
       - merchant_id
       - order_type
     OrderDelivery:
+      type: object
+      properties:
+        type:
+          allOf:
+          - $ref: '#/components/schemas/OrderDeliveryTypeEnum'
+          title: 配送方式
+        address_snapshot:
+          title: 地址快照
+        receiver_name:
+          type: string
+          title: 收货人
+          maxLength: 40
+        receiver_phone:
+          type: string
+          title: 收货电话
+          maxLength: 20
+        logistics_company:
+          type: string
+          title: 物流公司
+          maxLength: 40
+        logistics_no:
+          type: string
+          title: 物流单号
+          maxLength: 64
+        pickup_code:
+          type: string
+          title: 提货码
+          maxLength: 12
+        shipped_at:
+          type: string
+          format: date-time
+          nullable: true
+          title: 发货时间
+        received_at:
+          type: string
+          format: date-time
+          nullable: true
+          title: 签收时间
+      required:
+      - type
+    OrderDeliveryRequest:
       type: object
       properties:
         type:
@@ -1471,6 +1968,28 @@ components:
       - product_id
       - sku_id
       - title
+    OrderItemContractRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          title: 商品标题快照
+          maxLength: 120
+        price_amount:
+          type: integer
+        quantity:
+          type: integer
+          title: 数量
+        amount:
+          type: integer
+        refund_amount:
+          type: integer
+      required:
+      - amount
+      - price_amount
+      - refund_amount
+      - title
     OrderItemInputRequest:
       type: object
       properties:
@@ -1607,6 +2126,40 @@ components:
           title: 创建时间
       required:
       - created_at
+      - event
+      - from_status
+      - to_status
+    OrderStatusLogRequest:
+      type: object
+      properties:
+        from_status:
+          type: string
+          minLength: 1
+          title: 原状态
+          maxLength: 24
+        to_status:
+          type: string
+          minLength: 1
+          title: 新状态
+          maxLength: 24
+        event:
+          type: string
+          minLength: 1
+          title: 事件
+          maxLength: 40
+        operator_type:
+          allOf:
+          - $ref: '#/components/schemas/OperatorTypeEnum'
+          title: 操作方
+        operator_name:
+          type: string
+          title: 操作人
+          maxLength: 60
+        reason:
+          type: string
+          title: 原因
+          maxLength: 200
+      required:
       - event
       - from_status
       - to_status
@@ -1880,6 +2433,26 @@ components:
       description: |-
         * `PHYSICAL` - 实物商品
         * `SERVICE` - 到店服务
+    ReviewInputRequest:
+      type: object
+      properties:
+        score:
+          type: integer
+          maximum: 5
+          minimum: 1
+        content:
+          type: string
+          default: ''
+          maxLength: 500
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+            minLength: 1
+          maxItems: 6
+      required:
+      - score
     SceneEnum:
       enum:
       - LOGIN
@@ -1888,6 +2461,17 @@ components:
       description: |-
         * `LOGIN` - LOGIN
         * `ORDER_NOTICE` - ORDER_NOTICE
+    ShipInputRequest:
+      type: object
+      properties:
+        logistics_company:
+          type: string
+          default: ''
+          maxLength: 40
+        logistics_no:
+          type: string
+          default: ''
+          maxLength: 64
     SmsLoginRequest:
       type: object
       properties:
@@ -2024,6 +2608,39 @@ components:
       required:
       - code
       - id
+    VerifyCodeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          title: 核销码
+          maxLength: 20
+        type:
+          allOf:
+          - $ref: '#/components/schemas/VerifyCodeTypeEnum'
+          title: 类型
+        status:
+          allOf:
+          - $ref: '#/components/schemas/VerifyCodeStatusEnum'
+          title: 状态
+        valid_from:
+          type: string
+          format: date-time
+          nullable: true
+          title: 生效时间
+        valid_to:
+          type: string
+          format: date-time
+          nullable: true
+          title: 失效时间
+        used_at:
+          type: string
+          format: date-time
+          nullable: true
+          title: 核销时间
+      required:
+      - code
     VerifyCodeStatusEnum:
       enum:
       - ACTIVE
@@ -2044,6 +2661,15 @@ components:
       description: |-
         * `VERIFY` - 核销码
         * `PICKUP` - 提货码
+    VerifyInputRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 20
+      required:
+      - code
     WechatLoginRequest:
       type: object
       properties:

@@ -14,18 +14,23 @@ from apps.common.utils import payload_hash
 from apps.payments.services import create_payment
 
 from .cart_services import add_cart_item, delete_cart_item, serialize_cart, update_cart_item
+from .merchant_services import accept_order, reject_order, ship_order, verify_code
 from .models import Order
-from .order_services import cancel_order, create_order
+from .order_services import cancel_order, confirm_order, create_order, review_order
 from .serializers import (
     CancelInputSerializer,
     CartItemInputSerializer,
     CartItemPatchSerializer,
     CartSerializer,
+    MerchantRejectSerializer,
     OrderContractSerializer,
     OrderCreateInputSerializer,
     OrderDetailSerializer,
     OrderListSerializer,
     PayInputSerializer,
+    ReviewInputSerializer,
+    ShipInputSerializer,
+    VerifyInputSerializer,
 )
 
 
@@ -111,6 +116,88 @@ class OrderCancelView(EnvelopeAPIView):
         serializer.is_valid(raise_exception=True)
         order = cancel_order(request.user, pk, serializer.validated_data.get("reason", ""))
         return ok(request, OrderContractSerializer(order).data)
+
+
+@extend_schema(tags=["order"], responses=EnvelopeResponse)
+class OrderConfirmView(EnvelopeAPIView):
+    """确认收货，完成订单并生成结算项。"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = OrderContractSerializer
+
+    def post(self, request, pk):
+        order = confirm_order(request.user, pk)
+        return ok(request, OrderContractSerializer(order).data)
+
+
+@extend_schema(tags=["order"], request=ReviewInputSerializer, responses=EnvelopeResponse)
+class OrderReviewView(EnvelopeAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ReviewInputSerializer
+
+    def post(self, request, pk):
+        serializer = ReviewInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        review = review_order(request.user, pk, **serializer.validated_data)
+        return ok(
+            request,
+            {"id": review.id, "score": review.score, "created_at": review.created_at.isoformat()},
+            status_code=201,
+        )
+
+
+@extend_schema(tags=["merchant"], responses=EnvelopeResponse)
+class MerchantAcceptView(EnvelopeAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = OrderContractSerializer
+
+    def post(self, request, pk):
+        order = accept_order(request.user, pk)
+        return ok(request, OrderContractSerializer(order).data)
+
+
+@extend_schema(tags=["merchant"], request=MerchantRejectSerializer, responses=EnvelopeResponse)
+class MerchantRejectView(EnvelopeAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = MerchantRejectSerializer
+
+    def post(self, request, pk):
+        serializer = MerchantRejectSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        order = reject_order(request.user, pk, serializer.validated_data["reason"])
+        return ok(request, OrderContractSerializer(order).data)
+
+
+@extend_schema(tags=["merchant"], request=ShipInputSerializer, responses=EnvelopeResponse)
+class MerchantShipView(EnvelopeAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ShipInputSerializer
+
+    def post(self, request, pk):
+        serializer = ShipInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        order = ship_order(request.user, pk, **serializer.validated_data)
+        return ok(request, OrderContractSerializer(order).data)
+
+
+@extend_schema(tags=["merchant"], request=VerifyInputSerializer, responses=EnvelopeResponse)
+class MerchantVerifyView(EnvelopeAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = VerifyInputSerializer
+
+    def post(self, request):
+        serializer = VerifyInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        order = verify_code(request.user, serializer.validated_data["code"])
+        return ok(
+            request,
+            {
+                "order_id": order.id,
+                "order_no": order.order_no,
+                "verified_at": order.completed_at.isoformat() if order.completed_at else None,
+                "order_status": order.status,
+            },
+        )
 
 
 @extend_schema(tags=["cart"], responses=EnvelopeResponse)

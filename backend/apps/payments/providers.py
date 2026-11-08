@@ -12,3 +12,9 @@ def create_prepay(payment) -> dict:
             "pay_params": {"mock": True},
         }
     raise ApiError("WECHAT_PAY_NOT_CONFIGURED", "真实微信支付未接入（M5）", 503)
+
+
+def refund_payment(payment, refund_no: str, amount: int) -> str:
+    if settings.WECHAT_MOCK_MODE:
+        return f"mock_refund_{refund_no}"
+    raise ApiError("WECHAT_REFUND_NOT_CONFIGURED", "真实微信退款未接入（M5）", 503)
