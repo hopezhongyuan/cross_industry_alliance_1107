@@ -160,6 +160,40 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/admin/arbitrations/{id}/rule/:
+    post:
+      operationId: v1_admin_arbitrations_rule_create
+      description: 平台仲裁裁定：记录责任方并执行退款（商户/平台承担）。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArbitrationRuleInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ArbitrationRuleInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ArbitrationRuleInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/after-sales/:
     post:
       operationId: v1_after_sales_create
@@ -1254,6 +1288,22 @@ components:
         * `COMPLETED` - 已完成
         * `CANCELLED` - 已取消
         * `NO_SHOW` - 爽约
+    ArbitrationRuleInputRequest:
+      type: object
+      properties:
+        ruling:
+          type: string
+          minLength: 1
+          maxLength: 500
+        liability:
+          $ref: '#/components/schemas/LiabilityEnum'
+        refund_amount:
+          type: integer
+          minimum: 0
+          default: 0
+      required:
+      - liability
+      - ruling
     CallbackAck:
       type: object
       properties:
@@ -1430,6 +1480,18 @@ components:
       - service
       - status
       - time
+    LiabilityEnum:
+      enum:
+      - MERCHANT
+      - USER
+      - PLATFORM
+      - SHARED
+      type: string
+      description: |-
+        * `MERCHANT` - MERCHANT
+        * `USER` - USER
+        * `PLATFORM` - PLATFORM
+        * `SHARED` - SHARED
     Me:
       type: object
       properties:

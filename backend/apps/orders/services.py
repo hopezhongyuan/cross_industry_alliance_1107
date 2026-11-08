@@ -31,6 +31,7 @@ ORDER_TRANSITIONS = {
     (Order.Status.COMPLETED, "APPLY_AFTER_SALE"): Order.Status.AFTER_SALE,
     (Order.Status.AFTER_SALE, "REFUND_APPROVED"): Order.Status.REFUNDING,
     (Order.Status.AFTER_SALE, "ARBITRATION_REFUND"): Order.Status.REFUNDING,
+    (Order.Status.AFTER_SALE, "ARBITRATION_REJECT"): Order.Status.COMPLETED,
     (Order.Status.AFTER_SALE, "MERCHANT_REJECT"): Order.Status.COMPLETED,
     (Order.Status.REFUNDING, "REFUND_SUCCESS_FULL"): Order.Status.REFUNDED,
     (Order.Status.REFUNDING, "REFUND_SUCCESS_PARTIAL"): Order.Status.COMPLETED,

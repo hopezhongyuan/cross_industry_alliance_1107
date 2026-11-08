@@ -23,6 +23,12 @@ class AfterSaleDecisionSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
 
 
+class ArbitrationRuleInputSerializer(serializers.Serializer):
+    ruling = serializers.CharField(max_length=500)
+    liability = serializers.ChoiceField(choices=["MERCHANT", "USER", "PLATFORM", "SHARED"])
+    refund_amount = serializers.IntegerField(min_value=0, default=0)
+
+
 class RefundBriefSerializer(serializers.ModelSerializer):
     class Meta:
         model = RefundOrder

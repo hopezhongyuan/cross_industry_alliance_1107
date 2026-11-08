@@ -3,6 +3,8 @@
 已结算订单的退款（可提现/佣金冲回）留在 M3。
 """
 
+from types import SimpleNamespace
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -17,8 +19,24 @@ from apps.orders.services import transit_order
 from .models import PaymentOrder, RefundOrder, default_refund_no
 from .providers import refund_payment
 
+Funding = SimpleNamespace(MERCHANT="MERCHANT", PLATFORM="PLATFORM")
 
-def refund_order(order_id: int, amount: int, reason: str, after_sale=None, reject_event=None):
+
+def refund_order(
+    order_id: int,
+    amount: int,
+    reason: str,
+    after_sale=None,
+    reject_event=None,
+    approve_event="REFUND_APPROVED",
+    funding=None,
+):
+    """执行退款。
+
+    funding 默认由商户待结算承担；仲裁判定为平台责任时传 "PLATFORM"，
+    费用从平台佣金收入支出，商户结算项保持原金额并解冻。
+    """
+    funding = funding or Funding.MERCHANT
     with transaction.atomic():
         order = Order.objects.select_for_update().get(pk=order_id)
         remaining = order.paid_amount - order.refunded_amount
@@ -53,7 +71,7 @@ def refund_order(order_id: int, amount: int, reason: str, after_sale=None, rejec
                 reason=reason,
             )
         elif order.status == Order.Status.AFTER_SALE:
-            transit_order(order.id, "REFUND_APPROVED", operator_type="SYSTEM", reason=reason)
+            transit_order(order.id, approve_event, operator_type="SYSTEM", reason=reason)
         elif order.status == Order.Status.COMPLETED and after_sale is not None:
             transit_order(order.id, "APPLY_AFTER_SALE", operator_type="USER")
             transit_order(order.id, "REFUND_APPROVED", operator_type="SYSTEM", reason=reason)
@@ -83,6 +101,7 @@ def refund_order(order_id: int, amount: int, reason: str, after_sale=None, rejec
                     ],
                 )
             item.status = SettlementItem.Status.PENDING
+            item.save(update_fields=["status", "updated_at"])
 
         refund = RefundOrder.objects.create(
             refund_no=default_refund_no(),
@@ -94,6 +113,9 @@ def refund_order(order_id: int, amount: int, reason: str, after_sale=None, rejec
             status=RefundOrder.Status.PROCESSING,
         )
         transaction_id = refund_payment(payment, refund.refund_no, amount)
+        debit_account = (
+            AccountType.PLATFORM_COMMISSION_REVENUE if funding == Funding.PLATFORM else AccountType.MERCHANT_PENDING
+        )
         post_transaction(
             biz_type="REFUND",
             biz_id=refund.id,
@@ -101,8 +123,8 @@ def refund_order(order_id: int, amount: int, reason: str, after_sale=None, rejec
             idempotency_key=f"refund:{refund.refund_no}",
             entries=[
                 {
-                    "account_type": AccountType.MERCHANT_PENDING,
-                    "account_id": order.merchant_id,
+                    "account_type": debit_account,
+                    "account_id": 0 if funding == Funding.PLATFORM else order.merchant_id,
                     "direction": Direction.DEBIT,
                     "amount": amount,
                 },
@@ -122,7 +144,7 @@ def refund_order(order_id: int, amount: int, reason: str, after_sale=None, rejec
         order.refunded_amount += amount
         order.save(update_fields=["refunded_amount", "updated_at"])
 
-        if item:
+        if item and funding != Funding.PLATFORM:
             item.refund_amount += amount
             item.net_amount = item.product_amount + item.delivery_fee - item.commission_amount - item.refund_amount
             if order.refunded_amount >= order.paid_amount:

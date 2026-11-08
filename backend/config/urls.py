@@ -16,6 +16,7 @@ urlpatterns = [
     path("api/v1/after-sales/", include("apps.aftersales.urls")),
     path("api/v1/merchant/", include("apps.orders.merchant_urls")),
     path("api/v1/merchant/", include("apps.aftersales.merchant_urls")),
+    path("api/v1/admin/", include("apps.aftersales.admin_urls")),
     path("api/v1/callback/wechat/", include("apps.payments.urls")),
     path("api/v1/accounts/", include("apps.accounts.urls")),
 ]

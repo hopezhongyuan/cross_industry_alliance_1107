@@ -1943,7 +1943,7 @@ paths:
       tags: [admin]
       operationId: ruleArbitration
       summary: 仲裁判定（责任方必填，执行退款）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: id
