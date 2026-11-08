@@ -1,8 +1,9 @@
 import { useLoad } from '@tarojs/taro'
 import Taro from '@tarojs/taro'
-import { View, Text } from '@tarojs/components'
+import { View, Text, Button } from '@tarojs/components'
 import { useState } from 'react'
 import { api, ApiError, type CartData } from '../../api'
+import { formatMoney } from '../../format'
 
 export default function Cart() {
   const [cart, setCart] = useState<CartData | null>(null)
@@ -28,6 +29,8 @@ export default function Cart() {
   }
 
   async function remove(itemId: number) {
+    const result = await Taro.showModal({ title: '移出购物车', content: '确定移出该商品吗？' })
+    if (!result.confirm) return
     try {
       await api.removeCart(itemId)
       await load()
@@ -44,20 +47,28 @@ export default function Cart() {
   return (
     <View className="page">
       <View className="title">购物车</View>
-      {error && <View className="muted">{error}</View>}
+      {error && <View className="muted" aria-live="polite">{error}</View>}
       {cart?.items.map((item) => (
         <View key={item.id} className="card">
           <View className="row">
-            <Text style={{ fontSize: '28px' }}>{item.title}</Text>
-            <Text className="price">¥{(item.price_amount / 100).toFixed(2)}</Text>
+            <Text className="card-title">{item.title}</Text>
+            <Text className="price">{formatMoney(item.price_amount)}</Text>
           </View>
           <View className="row">
             <View style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-              <Text className="tag" onClick={() => change(item.id, Math.max(1, item.quantity - 1))}>-</Text>
+              <Button
+                className="qty-btn"
+                aria-label="减少数量"
+                onClick={() => change(item.id, Math.max(1, item.quantity - 1))}
+              >
+                -
+              </Button>
               <Text>{item.quantity}</Text>
-              <Text className="tag" onClick={() => change(item.id, item.quantity + 1)}>+</Text>
+              <Button className="qty-btn" aria-label="增加数量" onClick={() => change(item.id, item.quantity + 1)}>
+                +
+              </Button>
             </View>
-            <Text className="muted" onClick={() => remove(item.id)}>移除</Text>
+            <Button className="link-btn" onClick={() => remove(item.id)}>移除</Button>
           </View>
         </View>
       ))}
@@ -65,12 +76,15 @@ export default function Cart() {
       <View className="card">
         <View className="row">
           <Text>合计</Text>
-          <Text className="price">¥{((cart?.total_amount ?? 0) / 100).toFixed(2)}</Text>
+          <Text className="price">{formatMoney(cart?.total_amount)}</Text>
         </View>
       </View>
-      <View className={`btn ${!cart?.items.length ? 'disabled' : ''}`} onClick={cart?.items.length ? checkout : undefined}>
+      <Button
+        className={`btn ${!cart?.items.length ? 'disabled' : ''}`}
+        onClick={cart?.items.length ? checkout : undefined}
+      >
         去结算
-      </View>
+      </Button>
     </View>
   )
 }

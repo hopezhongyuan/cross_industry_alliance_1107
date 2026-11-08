@@ -79,11 +79,17 @@ class ArbitrationFlowTests(TestCase):
         order.refresh_from_db()
         return order
 
-    def _applied_after_sale(self, amount=500):
+    def _applied_after_sale(self, amount=500, evidence=None):
         order = self._completed_order()
         response = self.client.post(
             "/api/v1/after-sales/",
-            {"order_id": order.id, "type": "REFUND_ONLY", "reason_code": "SERVICE_ISSUE", "request_amount": amount},
+            {
+                "order_id": order.id,
+                "type": "REFUND_ONLY",
+                "reason_code": "SERVICE_ISSUE",
+                "request_amount": amount,
+                "evidence": evidence or [],
+            },
             format="json",
         )
         self.assertEqual(response.status_code, 201, response.data)
@@ -111,6 +117,23 @@ class ArbitrationFlowTests(TestCase):
 
     def _assert_balanced(self):
         call_command("audit_ledger", stdout=StringIO())
+
+    def test_admin_arbitration_detail_includes_after_sale_and_evidence(self):
+        after_sale = self._applied_after_sale(amount=1000, evidence=["https://example.com/a.png"])
+        AfterSale.objects.filter(pk=after_sale.pk).update(deadline_at=timezone.now() - timedelta(minutes=5))
+        after_sale.refresh_from_db()
+        case = self._escalate(after_sale)
+        response = self.admin_client.get(f"/api/v1/admin/arbitrations/{case.id}/")
+        self.assertEqual(response.status_code, 200, response.data)
+        data = response.data["data"]
+        self.assertEqual(data["case_no"], case.case_no)
+        self.assertEqual(data["after_sale"]["after_sale_no"], after_sale.after_sale_no)
+        self.assertEqual(data["after_sale"]["request_amount"], 1000)
+        self.assertEqual(data["after_sale"]["evidence"], ["https://example.com/a.png"])
+        self.assertEqual(data["after_sale"]["merchant_name"], self.merchant.name)
+
+        forbidden = self.client.get(f"/api/v1/admin/arbitrations/{case.id}/")
+        self.assertEqual(forbidden.status_code, 403)
 
     def test_apply_after_sale_sets_merchant_deadline(self):
         after_sale = self._applied_after_sale()

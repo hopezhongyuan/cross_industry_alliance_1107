@@ -65,6 +65,36 @@ class ArbitrationCaseSerializer(serializers.ModelSerializer):
         )
 
 
+class AdminArbitrationDetailSerializer(ArbitrationCaseSerializer):
+    after_sale = serializers.SerializerMethodField()
+    decided_by_name = serializers.CharField(read_only=True)
+
+    class Meta(ArbitrationCaseSerializer.Meta):
+        fields = ArbitrationCaseSerializer.Meta.fields + ("decided_by_name", "after_sale")
+
+    def get_after_sale(self, obj):
+        after_sale = obj.after_sale
+        return {
+            "id": after_sale.id,
+            "after_sale_no": after_sale.after_sale_no,
+            "order_id": after_sale.order_id,
+            "merchant_id": after_sale.merchant_id,
+            "merchant_name": after_sale.merchant.name,
+            "user_id": after_sale.user_id,
+            "user_name": after_sale.user.nickname or "用户",
+            "type": after_sale.type,
+            "status": after_sale.status,
+            "request_amount": after_sale.request_amount,
+            "approved_amount": after_sale.approved_amount,
+            "description": after_sale.description,
+            "evidence": after_sale.evidence_json,
+            "merchant_decision": after_sale.merchant_decision,
+            "merchant_reason": after_sale.merchant_reason,
+            "deadline_at": after_sale.deadline_at,
+            "created_at": after_sale.created_at,
+        }
+
+
 class AfterSaleSerializer(serializers.ModelSerializer):
     arbitration = ArbitrationBriefSerializer(read_only=True)
     refunds = RefundBriefSerializer(many=True, read_only=True)

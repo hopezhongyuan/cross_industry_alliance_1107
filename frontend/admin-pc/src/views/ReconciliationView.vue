@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { api, ApiError, type Reconciliation } from '../api'
+import { formatMoney } from '../format'
 
 const date = ref(new Date().toISOString().slice(0, 10))
 const report = ref<Reconciliation | null>(null)
@@ -27,7 +28,7 @@ async function run() {
     <label class="field"><span>日期</span><input v-model="date" type="date" /></label>
     <button class="primary" :disabled="loading || !date" @click="run">执行对账</button>
   </div>
-  <div v-if="error" class="error">{{ error }}</div>
+  <div v-if="error" class="error" role="alert">{{ error }}</div>
   <div v-if="report" class="card" style="padding: 0; max-width: 760px">
     <div style="padding: 16px 20px; border-bottom: 1px solid var(--line)">
       对账日期 {{ report.date }} · 未解决项
@@ -44,7 +45,7 @@ async function run() {
           <td>{{ check.name }}</td>
           <td><span class="tag" :class="{ ok: check.status === 'OK', danger: check.status === 'DIFF' }">{{ check.status }}</span></td>
           <td>{{ check.diff_count }}</td>
-          <td>{{ (check.diff_amount / 100).toFixed(2) }}</td>
+          <td class="money">{{ formatMoney(check.diff_amount) }}</td>
         </tr>
       </tbody>
     </table>

@@ -9,10 +9,17 @@ const router = useRouter()
 const nav = [
   { path: '/', label: '概览' },
   { path: '/orders', label: '订单' },
+  { path: '/merchants', label: '商户管理' },
+  { path: '/categories', label: '商品类目' },
+  { path: '/products', label: '商品管理' },
+  { path: '/product-templates', label: '商品模板' },
+  { path: '/media', label: '素材库' },
+  { path: '/audits', label: '审核中心' },
   { path: '/arbitrations', label: '仲裁' },
   { path: '/settlements', label: '结算' },
   { path: '/withdrawals', label: '提现' },
   { path: '/payment-config', label: '支付配置' },
+  { path: '/rules', label: '规则配置' },
   { path: '/reconciliation', label: '对账' },
   { path: '/logs', label: '操作日志' },
 ]
@@ -30,6 +37,7 @@ function logout() {
     <router-view />
   </div>
   <div v-else class="shell">
+    <a class="skip-link" href="#main-content">跳到主要内容</a>
     <aside class="sidebar">
       <div class="brand">
         <strong>异业联盟</strong>
@@ -40,7 +48,7 @@ function logout() {
       </nav>
       <button class="ghost" @click="logout">退出登录</button>
     </aside>
-    <main class="content">
+    <main id="main-content" class="content" tabindex="-1">
       <router-view />
     </main>
   </div>

@@ -75,6 +75,11 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
   schemas:
     ErrorEnvelope:
       type: object
@@ -257,6 +262,8 @@ components:
         id: { type: integer, format: int64 }
         merchant_id: { type: integer, format: int64 }
         merchant_name: { type: string }
+        merchant_address: { type: string }
+        merchant_phone: { type: string }
         category_id: { type: integer, format: int64 }
         type: { type: string, enum: [PHYSICAL, SERVICE] }
         title: { type: string }
@@ -299,6 +306,309 @@ components:
                   type: array
                   items: { $ref: '#/components/schemas/Product' }
                 page: { $ref: '#/components/schemas/Page' }
+    MerchantSku:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        sku_code: { type: string }
+        spec_json: { type: object, additionalProperties: true }
+        price: { type: integer }
+        stock: { type: integer }
+        available_stock: { type: integer }
+    MerchantProduct:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        product_code: { type: string, description: 商户货号，商户内唯一，可为空 }
+        merchant_category_id: { type: integer, format: int64, nullable: true }
+        merchant_category_name: { type: string }
+        type: { type: string, enum: [PHYSICAL, SERVICE] }
+        title: { type: string }
+        subtitle: { type: string }
+        cover_url: { type: string }
+        price: { type: integer }
+        status: { type: string, enum: [DRAFT, PENDING_AUDIT, ON_SALE, OFF_SALE, REJECTED] }
+        reject_reason: { type: string }
+        total_stock: { type: integer }
+        sold_count: { type: integer }
+        delivery_types:
+          type: array
+          items: { type: string, enum: [EXPRESS, PICKUP, VERIFY, APPOINTMENT] }
+        submitted_at: { type: string, format: date-time, nullable: true }
+        updated_at: { type: string, format: date-time }
+        off_sale_by: { type: string, enum: ['', MERCHANT, PLATFORM] }
+        off_sale_reason: { type: string }
+        off_sale_at: { type: string, format: date-time, nullable: true }
+    MerchantProductDetail:
+      allOf:
+        - $ref: '#/components/schemas/MerchantProduct'
+        - type: object
+          properties:
+            category_id: { type: integer, format: int64, nullable: true }
+            category_name: { type: string }
+            type_label: { type: string }
+            images:
+              type: array
+              items: { type: string }
+            description: { type: string }
+            original_price: { type: integer }
+            verify_days: { type: integer }
+            appointment_required: { type: boolean }
+            skus:
+              type: array
+              items: { $ref: '#/components/schemas/MerchantSku' }
+            audited_at: { type: string, format: date-time, nullable: true }
+            version: { type: integer, description: 编辑乐观锁版本 }
+            created_at: { type: string, format: date-time }
+    MerchantProductPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/MerchantProduct' }
+                page: { $ref: '#/components/schemas/Page' }
+    MerchantProductEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/MerchantProductDetail' }
+    AdminProductDetail:
+      allOf:
+        - $ref: '#/components/schemas/MerchantProductDetail'
+        - type: object
+          properties:
+            merchant_id: { type: integer, format: int64 }
+            merchant_name: { type: string }
+            merchant_no: { type: string }
+    AdminProductDetailEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/AdminProductDetail' }
+    MediaFolder:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        sort: { type: integer }
+        asset_count: { type: integer }
+        created_at: { type: string, format: date-time }
+    MediaFolderInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 60 }
+        sort: { type: integer }
+    MediaAsset:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        original_name: { type: string }
+        kind: { type: string, enum: [IMAGE, VIDEO] }
+        url: { type: string, description: 素材访问地址，业务字段只能引用该地址 }
+        mime: { type: string }
+        size: { type: integer }
+        width: { type: integer, nullable: true }
+        height: { type: integer, nullable: true }
+        duration_ms: { type: integer, nullable: true }
+        folder: { type: integer, format: int64, nullable: true }
+        folder_name: { type: string }
+        created_by_name: { type: string }
+        created_at: { type: string, format: date-time }
+    MediaAssetUpload:
+      type: object
+      required: [file]
+      properties:
+        file: { type: string, format: binary }
+        folder_id: { type: integer, format: int64, nullable: true }
+        name: { type: string }
+    MediaFolderListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/MediaFolder' }
+    MediaFolderEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/MediaFolder' }
+    MediaAssetPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/MediaAsset' }
+                page: { $ref: '#/components/schemas/Page' }
+    MediaAssetEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/MediaAsset' }
+    ProductTemplate:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        template_no: { type: string }
+        title: { type: string }
+        subtitle: { type: string }
+        type: { type: string, enum: [PHYSICAL, SERVICE] }
+        category_id: { type: integer, format: int64 }
+        category_name: { type: string }
+        cover_url: { type: string }
+        images:
+          type: array
+          items: { type: string }
+        description: { type: string }
+        price: { type: integer }
+        original_price: { type: integer }
+        verify_days: { type: integer }
+        appointment_required: { type: boolean }
+        delivery_types:
+          type: array
+          items: { type: string, enum: [EXPRESS, PICKUP, VERIFY, APPOINTMENT] }
+        skus:
+          type: array
+          items:
+            type: object
+            properties:
+              sku_code: { type: string }
+              spec: { type: object, additionalProperties: true }
+              price_amount: { type: integer }
+              stock: { type: integer }
+        status: { type: string, enum: [DRAFT, PUBLISHED, OFFLINE] }
+        scope: { type: string, enum: [NONE, ALL, SELECTED] }
+        target_merchant_ids:
+          type: array
+          items: { type: integer, format: int64 }
+        adoption_count: { type: integer }
+        published_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    ProductTemplateInput:
+      type: object
+      required: [title, type, category_id, price_amount, delivery_types, skus]
+      properties:
+        title: { type: string }
+        subtitle: { type: string }
+        type: { type: string, enum: [PHYSICAL, SERVICE] }
+        category_id: { type: integer, format: int64 }
+        cover_url: { type: string, description: 必须是素材库地址 }
+        images:
+          type: array
+          items: { type: string }
+        description: { type: string }
+        price_amount: { type: integer, minimum: 1 }
+        original_price_amount: { type: integer }
+        verify_days: { type: integer }
+        appointment_required: { type: boolean }
+        delivery_types:
+          type: array
+          items: { type: string, enum: [EXPRESS, PICKUP, VERIFY, APPOINTMENT] }
+        skus:
+          type: array
+          items:
+            type: object
+            properties:
+              sku_code: { type: string }
+              spec: { type: object, additionalProperties: true }
+              price_amount: { type: integer }
+              stock: { type: integer }
+        status: { type: string, enum: [DRAFT, PUBLISHED, OFFLINE] }
+        scope: { type: string, enum: [NONE, ALL, SELECTED] }
+        merchant_ids:
+          type: array
+          items: { type: integer, format: int64 }
+    MerchantTemplate:
+      allOf:
+        - $ref: '#/components/schemas/ProductTemplate'
+        - type: object
+          properties:
+            adopted_product_id: { type: integer, format: int64, nullable: true }
+            adopted_status: { type: string }
+    ProductTemplatePageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/ProductTemplate' }
+                page: { $ref: '#/components/schemas/Page' }
+    ProductTemplateEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/ProductTemplate' }
+    MerchantTemplateListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/MerchantTemplate' }
+    AdminProduct:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        product_code: { type: string }
+        title: { type: string }
+        merchant_id: { type: integer, format: int64 }
+        merchant_name: { type: string }
+        category_id: { type: integer, format: int64, nullable: true }
+        category_name: { type: string }
+        type: { type: string }
+        price: { type: integer }
+        status: { type: string }
+        sold_count: { type: integer }
+        off_sale_by: { type: string }
+        off_sale_reason: { type: string }
+        updated_at: { type: string, format: date-time }
+    AdminProductPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/AdminProduct' }
+                page: { $ref: '#/components/schemas/Page' }
+    AdminProductStatusInput:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [FORCE_OFF, RESTORE] }
+        reason: { type: string, description: 强制下架必填 }
+
+    ProductStatusInput:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ON_SALE, OFF_SALE] }
     Category:
       type: object
       properties:
@@ -316,6 +626,69 @@ components:
             data:
               type: array
               items: { $ref: '#/components/schemas/Category' }
+    AdminCategory:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        parent: { type: integer, format: int64, nullable: true }
+        parent_name: { type: string }
+        name: { type: string }
+        icon_url: { type: string }
+        level: { type: integer, enum: [1, 2] }
+        sort: { type: integer }
+        status: { type: string, enum: [ENABLED, DISABLED] }
+    AdminCategoryInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 40 }
+        parent_id: { type: integer, format: int64, nullable: true, description: 为空表示一级类目，最多两级 }
+        icon_url: { type: string, format: uri }
+        sort: { type: integer }
+        status: { type: string, enum: [ENABLED, DISABLED] }
+    AdminCategoryListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/AdminCategory' }
+    AdminCategoryEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/AdminCategory' }
+    MerchantProductCategory:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        sort: { type: integer }
+        status: { type: string, enum: [ENABLED, DISABLED] }
+        product_count: { type: integer }
+    MerchantProductCategoryInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 40 }
+        sort: { type: integer }
+        status: { type: string, enum: [ENABLED, DISABLED] }
+    MerchantProductCategoryListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/MerchantProductCategory' }
+    MerchantProductCategoryEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/MerchantProductCategory' }
     CartItemInput:
       type: object
       required: [product_id, quantity]
@@ -602,7 +975,7 @@ components:
             data: { $ref: '#/components/schemas/MerchantProfile' }
     ProductInput:
       type: object
-      required: [category_id, type, title, price_amount, delivery_types]
+      required: [category_id, type, title, price_amount, delivery_types, skus]
       properties:
         category_id: { type: integer, format: int64 }
         type: { type: string, enum: [PHYSICAL, SERVICE] }
@@ -620,6 +993,8 @@ components:
         delivery_types:
           type: array
           items: { type: string, enum: [EXPRESS, PICKUP, VERIFY, APPOINTMENT] }
+        product_code: { type: string, description: 商户货号，商户内唯一，可为空 }
+        merchant_category_id: { type: integer, format: int64, nullable: true, description: 商户自有分类，仅一级 }
         skus:
           type: array
           items:
@@ -753,8 +1128,182 @@ components:
       type: object
       required: [status, reason]
       properties:
-        status: { type: string, enum: [ACTIVE, SUSPENDED, CLOSED] }
+        status: { type: string, enum: [ACTIVE, RESTING, BANNED], description: 停业 RESTING / 封禁 BANNED / 恢复 ACTIVE }
+        reason: { type: string, description: 变更原因，写入操作日志 }
+    AdminMerchant:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        merchant_no: { type: string }
+        name: { type: string }
+        short_name: { type: string }
+        category_id: { type: integer, format: int64, nullable: true }
+        category_name: { type: string }
+        contact_phone: { type: string }
+        city: { type: string }
+        district: { type: string }
+        status: { type: string, enum: [PENDING, ACTIVE, RESTING, BANNED, REJECTED] }
+        commission_rate: { type: number, description: 生效佣金率（商户覆盖优先，类目默认兜底） }
+        settlement_cycle_days: { type: integer }
+        today_orders: { type: integer, description: 今日订单数 }
+        settled_amount: { type: integer, description: 累计已结算金额（分） }
+        created_at: { type: string, format: date-time }
+    AdminMerchantPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/AdminMerchant' }
+                page: { $ref: '#/components/schemas/Page' }
+                summary:
+                  type: object
+                  description: 全量商户状态计数（不受筛选影响）
+                  properties:
+                    total: { type: integer }
+                    active: { type: integer }
+                    pending: { type: integer }
+                    resting: { type: integer }
+                    banned: { type: integer }
+                    rejected: { type: integer }
+    AdminMerchantDetail:
+      allOf:
+        - $ref: '#/components/schemas/AdminMerchant'
+        - type: object
+          properties:
+            logo_url: { type: string }
+            description: { type: string }
+            province: { type: string }
+            address: { type: string }
+            lng: { type: number, nullable: true }
+            lat: { type: number, nullable: true }
+            business_hours: { type: object, additionalProperties: true }
+            opened_at: { type: string, format: date-time, nullable: true }
+            commission_override: { type: number, nullable: true, description: 商户覆盖佣金率，空表示继承类目 }
+            gmv_total: { type: integer, description: 累计实付金额（分） }
+            bank_last4: { type: string, description: 收款账户后四位，完整卡号不出接口 }
+            balances:
+              type: object
+              properties:
+                pending_amount: { type: integer }
+                frozen_amount: { type: integer }
+                available_amount: { type: integer }
+                withdrawing_amount: { type: integer }
+            qualifications:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: integer, format: int64 }
+                  type: { type: string }
+                  type_label: { type: string }
+                  file_url: { type: string, format: uri }
+                  expire_at: { type: string, format: date, nullable: true }
+                  audit_status: { type: string, enum: [PENDING, APPROVED, REJECTED, EXPIRED] }
+                  reject_reason: { type: string }
+            staff:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: integer, format: int64 }
+                  user_id: { type: integer, format: int64 }
+                  nickname: { type: string }
+                  role: { type: string, enum: [OWNER, MANAGER, CLERK] }
+                  role_label: { type: string }
+                  status: { type: string, enum: [ACTIVE, DISABLED] }
+                  joined_at: { type: string, format: date-time, nullable: true }
+    AdminMerchantDetailEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/AdminMerchantDetail' }
+    AdminMerchantCreateInput:
+      type: object
+      required: [name, category_id, contact_phone, city, district, address, owner_phone]
+      properties:
+        name: { type: string, maxLength: 80 }
+        short_name: { type: string, maxLength: 40 }
+        category_id: { type: integer, format: int64 }
+        contact_phone: { type: string, maxLength: 20 }
+        province: { type: string, maxLength: 32 }
+        city: { type: string, maxLength: 32 }
+        district: { type: string, maxLength: 32 }
+        address: { type: string, maxLength: 200 }
+        lng: { type: number, minimum: -180, maximum: 180 }
+        lat: { type: number, minimum: -90, maximum: 90 }
+        business_hours: { type: object, additionalProperties: true }
+        commission_rate: { type: number, minimum: 0, maximum: 1, description: 商户覆盖佣金率，空则继承类目 }
+        settlement_cycle_days: { type: integer, minimum: 1, maximum: 360, default: 7 }
+        bank_info:
+          type: object
+          description: 加密存储，仅接受 bank / card_no
+          properties:
+            bank: { type: string }
+            card_no: { type: string }
+        qualifications:
+          type: array
+          items:
+            type: object
+            required: [type, file_url]
+            properties:
+              type: { type: string, enum: [BUSINESS_LICENSE, FOOD_PERMIT, HEALTH_PERMIT, OTHER] }
+              file_url: { type: string, format: uri }
+              expire_at: { type: string, format: date }
+        owner_phone: { type: string, description: 必须为已注册且状态正常的用户手机号，绑定为 OWNER }
+
+    AuditTask:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        biz_type: { type: string, enum: [MERCHANT, PRODUCT, REVIEW, QUALIFICATION] }
+        biz_id: { type: integer, format: int64 }
+        biz_name: { type: string, description: 关联业务名称（商户名/商品标题） }
+        status: { type: string, enum: [PENDING, PROCESSING, APPROVED, REJECTED, CANCELLED] }
+        decision: { type: string }
         reason: { type: string }
+        assigned_to_name: { type: string }
+        handled_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    AuditTaskPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/AuditTask' }
+                page: { $ref: '#/components/schemas/Page' }
+                summary:
+                  type: object
+                  description: 各业务类型待审核数量
+                  additionalProperties: { type: integer }
+    AuditTaskEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/AuditTask' }
+    MerchantStatusResult:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        status: { type: string, enum: [ACTIVE, RESTING, BANNED] }
+        changed: { type: boolean, description: false 表示同状态重复提交，幂等未变更 }
+    MerchantStatusResultEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/MerchantStatusResult' }
     FreezeInput:
       type: object
       required: [action, reason]
@@ -796,6 +1345,22 @@ components:
                   type: array
                   items: { $ref: '#/components/schemas/ArbitrationCase' }
                 page: { $ref: '#/components/schemas/Page' }
+    ArbitrationDetail:
+      allOf:
+        - $ref: '#/components/schemas/ArbitrationCase'
+        - type: object
+          properties:
+            decided_by_name: { type: string }
+            after_sale:
+              type: object
+              additionalProperties: true
+              description: 售后单信息、用户与商户、举证材料 evidence
+    ArbitrationDetailEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/ArbitrationDetail' }
     RuleVersionInput:
       type: object
       required: [snapshot]
@@ -1076,7 +1641,7 @@ paths:
       tags: [consumer]
       operationId: createAddress
       summary: 新增收货地址
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -1136,7 +1701,7 @@ paths:
       tags: [consumer]
       operationId: listNearbyStores
       summary: 附近门店（按距离排序，只返回营业中）
-      x-status: planned
+      x-status: implemented
       security: []
       parameters:
         - name: lat
@@ -1163,7 +1728,7 @@ paths:
       tags: [consumer]
       operationId: getStore
       summary: 门店详情与在售商品
-      x-status: planned
+      x-status: implemented
       security: []
       parameters:
         - name: id
@@ -1590,12 +2155,36 @@ paths:
               schema: { $ref: '#/components/schemas/MerchantProfileEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /api/v1/merchant/products/:
+    get:
+      tags: [merchant]
+      operationId: listMerchantProducts
+      summary: 本店商品列表（状态/关键词筛选）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [DRAFT, PENDING_AUDIT, ON_SALE, OFF_SALE, REJECTED] }
+        - name: q
+          in: query
+          schema: { type: string }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MerchantProductPageEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [merchant]
       operationId: createMerchantProduct
-      summary: 发布商品/服务（提交审核）
-      x-status: planned
+      summary: 发布商品/服务（提交审核；支持多 SKU）
+      x-status: implemented
       security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -1606,15 +2195,39 @@ paths:
           description: 已提交审核
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ProductEnvelope' }
+              schema: { $ref: '#/components/schemas/MerchantProductEnvelope' }
+        '200':
+          description: 幂等键重复提交，返回已创建商品
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MerchantProductEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/merchant/products/{id}/:
+    get:
+      tags: [merchant]
+      operationId: getMerchantProduct
+      summary: 本店商品详情（含 SKU 与版本）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MerchantProductEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
     put:
       tags: [merchant]
       operationId: updateMerchantProduct
-      summary: 编辑商品（版本校验；价格/主图/类目变更重审）
-      x-status: planned
+      summary: 编辑商品（版本校验；价格/主图/类目变更或驳回后重新审核）
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: id
@@ -1631,12 +2244,162 @@ paths:
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ProductEnvelope' }
+              schema: { $ref: '#/components/schemas/MerchantProductEnvelope' }
         '409':
           description: 版本冲突或状态不允许编辑
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  /api/v1/merchant/products/{id}/status/:
+    post:
+      tags: [merchant]
+      operationId: setMerchantProductSaleStatus
+      summary: 商品上架/下架（ON_SALE ↔ OFF_SALE）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductStatusInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+        '409':
+          description: 商品状态不允许该操作
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  /api/v1/merchant/product-categories/:
+    get:
+      tags: [merchant]
+      operationId: listMerchantProductCategories
+      summary: 本店商品分类（仅一级）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MerchantProductCategoryListEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [merchant]
+      operationId: createMerchantProductCategory
+      summary: 新建本店分类（同店名称唯一）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MerchantProductCategoryInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MerchantProductCategoryEnvelope' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/merchant/product-categories/{id}/:
+    put:
+      tags: [merchant]
+      operationId: updateMerchantProductCategory
+      summary: 编辑本店分类
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MerchantProductCategoryInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MerchantProductCategoryEnvelope' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [merchant]
+      operationId: deleteMerchantProductCategory
+      summary: 删除本店分类（分类下有商品时拒绝）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204':
+          description: No Content
+        '409':
+          description: 分类下仍有商品
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  /api/v1/merchant/product-templates/:
+    get:
+      tags: [merchant]
+      operationId: listMerchantTemplates
+      summary: 可见的平台商品模板（全部或指定本店）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MerchantTemplateListEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/merchant/product-templates/{id}/adopt/:
+    post:
+      tags: [merchant]
+      operationId: adoptMerchantTemplate
+      summary: 认领模板并生成商户商品（可决定是否立即上架）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                listed: { type: boolean, default: true }
+      responses:
+        '201':
+          description: 已认领
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+        '200':
+          description: 已认领过，返回原商品
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/v1/merchant/orders/:
     get:
       tags: [merchant]
@@ -1869,8 +2632,8 @@ paths:
     get:
       tags: [admin]
       operationId: listAudits
-      summary: 审核任务列表
-      x-status: planned
+      summary: 审核任务列表（含各类型待审核计数）
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: biz_type
@@ -1886,14 +2649,14 @@ paths:
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Envelope' }
+              schema: { $ref: '#/components/schemas/AuditTaskPageEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /api/v1/admin/audits/{id}/decision/:
     post:
       tags: [admin]
       operationId: decideAudit
-      summary: 审核通过/驳回（写操作日志）
-      x-status: planned
+      summary: 审核通过/驳回（写操作日志；商户审核联动资质状态）
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: id
@@ -1910,19 +2673,474 @@ paths:
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Envelope' }
+              schema: { $ref: '#/components/schemas/AuditTaskEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: 任务已被处理
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  /api/v1/admin/media-folders/:
+    get:
+      tags: [admin]
+      operationId: listMediaFolders
+      summary: 素材文件夹（仅一级）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaFolderListEnvelope' }
+    post:
+      tags: [admin]
+      operationId: createMediaFolder
+      summary: 新建素材文件夹
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaFolderInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaFolderEnvelope' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/admin/media-folders/{id}/:
+    put:
+      tags: [admin]
+      operationId: updateMediaFolder
+      summary: 重命名/排序文件夹
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MediaFolderInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaFolderEnvelope' }
+    delete:
+      tags: [admin]
+      operationId: deleteMediaFolder
+      summary: 删除空文件夹
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204':
+          description: No Content
+        '409':
+          description: 文件夹内仍有素材
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  /api/v1/admin/media-assets/:
+    get:
+      tags: [admin]
+      operationId: listMediaAssets
+      summary: 素材列表（文件夹/类型/关键词筛选）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: folder
+          in: query
+          schema: { type: string, description: 文件夹 ID 或 none }
+        - name: kind
+          in: query
+          schema: { type: string, enum: [IMAGE, VIDEO] }
+        - name: q
+          in: query
+          schema: { type: string }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaAssetPageEnvelope' }
+    post:
+      tags: [admin]
+      operationId: uploadMediaAsset
+      summary: 上传图片/视频素材
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/MediaAssetUpload' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaAssetEnvelope' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/admin/media-assets/{id}/:
+    delete:
+      tags: [admin]
+      operationId: deleteMediaAsset
+      summary: 删除未被业务引用的素材
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204':
+          description: No Content
+        '409':
+          description: 素材已被引用
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  /api/v1/admin/categories/:
+    get:
+      tags: [admin]
+      operationId: listAdminCategories
+      summary: 平台商品类目列表（最多两级）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: parent
+          in: query
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCategoryListEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [admin]
+      operationId: createAdminCategory
+      summary: 新建平台类目（parent_id 为空即一级）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminCategoryInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCategoryEnvelope' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/admin/categories/{id}/:
+    put:
+      tags: [admin]
+      operationId: updateAdminCategory
+      summary: 编辑平台类目（名称/排序/启停/父类）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminCategoryInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCategoryEnvelope' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/admin/products/:
+    get:
+      tags: [admin]
+      operationId: listAdminProducts
+      summary: 全平台商品列表（商户/状态/类目/关键词筛选）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: merchant_id
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: category
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: q
+          in: query
+          schema: { type: string }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminProductPageEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/products/{id}/:
+    get:
+      tags: [admin]
+      operationId: getAdminProduct
+      summary: 商品详情（含 SKU、商户与提交时间）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminProductDetailEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [admin]
+      operationId: updateAdminProduct
+      summary: 平台编辑商户商品（直接生效，不重新审核）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminProductDetailEnvelope' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/admin/products/{id}/status/:
+    post:
+      tags: [admin]
+      operationId: setAdminProductStatus
+      summary: 平台违规下架 / 恢复上架
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminProductStatusInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+        '409':
+          description: 商品状态不允许该操作
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  /api/v1/admin/product-templates/:
+    get:
+      tags: [admin]
+      operationId: listAdminTemplates
+      summary: 平台商品模板列表
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [DRAFT, PUBLISHED, OFFLINE] }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductTemplatePageEnvelope' }
+    post:
+      tags: [admin]
+      operationId: createAdminTemplate
+      summary: 发布平台商品模板（按范围分发商户）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductTemplateInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductTemplateEnvelope' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/admin/product-templates/{id}/:
+    put:
+      tags: [admin]
+      operationId: updateAdminTemplate
+      summary: 编辑模板与分发范围
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductTemplateInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductTemplateEnvelope' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/admin/product-templates/{id}/sync/:
+    post:
+      tags: [admin]
+      operationId: syncAdminTemplate
+      summary: 手动同步模板到已认领商品
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+
+  /api/v1/admin/merchants/:
+    get:
+      tags: [admin]
+      operationId: listAdminMerchants
+      summary: 商户列表（状态/关键词/类目/城市筛选，含状态计数与经营统计）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, ACTIVE, RESTING, BANNED, REJECTED] }
+        - name: q
+          in: query
+          schema: { type: string }
+          description: 商户名称 / 简称 / 编号 / 联系电话
+        - name: category
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: city
+          in: query
+          schema: { type: string }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminMerchantPageEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [admin]
+      operationId: createAdminMerchant
+      summary: 创建商户（固定直接营业；必须绑定已注册负责人；幂等键必填）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminMerchantCreateInput' }
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminMerchantDetailEnvelope' }
+        '200':
+          description: 幂等键重复提交，返回已创建商户
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminMerchantDetailEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/admin/merchants/{id}/:
+    get:
+      tags: [admin]
+      operationId: getAdminMerchant
+      summary: 商户详情（资质、员工、资金余额、生效佣金率；银行信息仅后四位）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminMerchantDetailEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/v1/admin/merchants/{id}/status/:
     post:
       tags: [admin]
       operationId: changeMerchantStatus
-      summary: 停业/恢复/封禁（原因必填）
-      x-status: planned
+      summary: 停业/恢复/封禁（原因必填；同状态重复提交幂等返回 changed=false）
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: id
@@ -1939,7 +3157,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Envelope' }
+              schema: { $ref: '#/components/schemas/MerchantStatusResultEnvelope' }
         '409':
           description: 商户状态迁移非法
           content:
@@ -2026,6 +3244,30 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ArbitrationCasePageEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/arbitrations/{id}/:
+    get:
+      tags: [admin]
+      operationId: getArbitrationDetail
+      summary: 仲裁详情（含售后举证与商户处理结果）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArbitrationDetailEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: 仲裁案不存在
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
   /api/v1/admin/arbitrations/{id}/rule/:
     post:
       tags: [admin]

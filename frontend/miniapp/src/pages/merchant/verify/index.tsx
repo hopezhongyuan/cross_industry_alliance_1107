@@ -1,5 +1,5 @@
 import { showToast } from '@tarojs/taro'
-import { View, Input, Text } from '@tarojs/components'
+import { View, Input, Text, Button } from '@tarojs/components'
 import { useState } from 'react'
 import { api, ApiError } from '../../../api'
 
@@ -29,12 +29,19 @@ export default function MerchantVerify() {
     <View className="page">
       <View className="title">核销</View>
       <View className="card">
-        <Input className="input" placeholder="输入用户核销码" value={code} onInput={(event) => setCode(event.detail.value)} />
-        <View className={`btn ${loading ? 'disabled' : ''}`} style={{ marginTop: 0 }} onClick={loading ? undefined : submit}>
+        <Text className="field-label">用户核销码</Text>
+        <Input
+          className="input"
+          name="verify_code"
+          placeholder="请输入 6-8 位核销码…"
+          value={code}
+          onInput={(event) => setCode(event.detail.value)}
+        />
+        <Button className={`btn ${loading ? 'disabled' : ''}`} style={{ marginTop: 0 }} onClick={loading ? undefined : submit}>
           {loading ? '核销中…' : '确认核销'}
-        </View>
+        </Button>
       </View>
-      {error && <View className="muted">{error}</View>}
+      {error && <View className="muted" aria-live="polite">{error}</View>}
       {result && (
         <View className="card">
           <View className="row"><Text>订单号</Text><Text>{result.order_no}</Text></View>

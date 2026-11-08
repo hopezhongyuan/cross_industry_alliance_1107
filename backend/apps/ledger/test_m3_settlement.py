@@ -211,7 +211,7 @@ class M3SettlementTests(TestCase):
             f"/api/v1/admin/withdrawals/{second.data['data']['id']}/payout/",
             {
                 "voucher_no": "BANK-001",
-                "voucher_url": "https://example.com/voucher.png",
+                "voucher_url": "",
                 "paid_at": timezone.now().isoformat(),
             },
             format="json",

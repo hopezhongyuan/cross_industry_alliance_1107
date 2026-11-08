@@ -80,11 +80,281 @@ export type LogRow = RequiredPick<
   'id' | 'operator_name' | 'action' | 'biz_type' | 'created_at'
 > & { biz_id: number | null; reason: string }
 
+export type ArbitrationDetail = ArbitrationRow & {
+  decided_by_name: string
+  after_sale: {
+    after_sale_no: string
+    order_id: number
+    merchant_id: number
+    merchant_name: string
+    user_id: number
+    user_name: string
+    type: string
+    status: string
+    request_amount: number
+    approved_amount: number
+    description: string
+    evidence: string[]
+    merchant_decision: string
+    merchant_reason: string
+    deadline_at: string | null
+    created_at: string
+  }
+}
+
 export type Reconciliation = {
   date: string
   checks: Array<{ name: string; status: string; diff_count: number; diff_amount: number }>
   unresolved_count: number
 }
+
+export type AdminMerchantRow = {
+  id: number
+  merchant_no: string
+  name: string
+  short_name: string
+  category_id: number | null
+  category_name: string
+  contact_phone: string
+  city: string
+  district: string
+  status: string
+  commission_rate: number
+  settlement_cycle_days: number
+  today_orders: number
+  settled_amount: number
+  created_at: string
+}
+
+export type MerchantSummary = {
+  total: number
+  active: number
+  pending: number
+  resting: number
+  banned: number
+  rejected: number
+}
+
+export type MerchantPage = { items: AdminMerchantRow[]; page: Page; summary: MerchantSummary }
+
+export type MerchantQualification = {
+  id: number
+  type: string
+  type_label: string
+  file_url: string
+  expire_at: string | null
+  audit_status: string
+  reject_reason: string
+}
+
+export type MerchantStaff = {
+  id: number
+  user_id: number
+  nickname: string
+  role: string
+  role_label: string
+  status: string
+  joined_at: string | null
+}
+
+export type AdminMerchantDetail = AdminMerchantRow & {
+  logo_url: string
+  description: string
+  province: string
+  address: string
+  lng: number | null
+  lat: number | null
+  business_hours: Record<string, unknown>
+  opened_at: string | null
+  commission_override: number | null
+  gmv_total: number
+  bank_last4: string
+  balances: {
+    pending_amount: number
+    frozen_amount: number
+    available_amount: number
+    withdrawing_amount: number
+  }
+  qualifications: MerchantQualification[]
+  staff: MerchantStaff[]
+}
+
+export type AuditTaskRow = {
+  id: number
+  biz_type: string
+  biz_id: number
+  biz_name: string
+  status: string
+  decision: string
+  reason: string
+  assigned_to_name: string
+  handled_at: string | null
+  created_at: string
+}
+
+export type AuditPage = { items: AuditTaskRow[]; page: Page; summary: Record<string, number> }
+
+export type CategoryRow = { id: number; parent: number | null; name: string; icon_url: string; level: number; sort: number }
+
+export type StaffUser = { id: number; phone: string; nickname: string; status: string }
+
+export type MerchantSkuRow = {
+  id: number
+  sku_code: string
+  spec_json: Record<string, unknown>
+  price: number
+  stock: number
+  available_stock: number
+}
+
+export type AdminProductDetail = {
+  id: number
+  product_code: string
+  merchant_id: number
+  merchant_name: string
+  merchant_no: string
+  category_id: number | null
+  category_name: string
+  merchant_category_id: number | null
+  merchant_category_name: string
+  type: string
+  type_label: string
+  title: string
+  subtitle: string
+  cover_url: string
+  images: string[]
+  description: string
+  price: number
+  original_price: number
+  status: string
+  reject_reason: string
+  verify_days: number
+  appointment_required: boolean
+  delivery_types: string[]
+  sold_count: number
+  skus: MerchantSkuRow[]
+  submitted_at: string | null
+  audited_at: string | null
+  version: number
+  created_at: string
+}
+
+export type AdminCategory = {
+  id: number
+  parent: number | null
+  parent_name: string
+  name: string
+  icon_url: string
+  level: number
+  sort: number
+  status: string
+}
+
+export type AdminCategoryPayload = {
+  name: string
+  parent_id?: number | null
+  icon_url?: string
+  sort?: number
+  status?: string
+}
+
+export type MediaFolder = { id: number; name: string; sort: number; asset_count: number; created_at: string }
+
+export type MediaAsset = {
+  id: number
+  name: string
+  original_name: string
+  kind: string
+  url: string
+  mime: string
+  size: number
+  width: number | null
+  height: number | null
+  duration_ms: number | null
+  folder: number | null
+  folder_name: string
+  created_by_name: string
+  created_at: string
+}
+
+export type ProductTemplate = {
+  id: number
+  template_no: string
+  title: string
+  subtitle: string
+  type: string
+  category_id: number
+  category_name: string
+  cover_url: string
+  images: string[]
+  description: string
+  price: number
+  original_price: number
+  verify_days: number
+  appointment_required: boolean
+  delivery_types: string[]
+  skus: Array<{ sku_code: string; spec: Record<string, unknown>; price_amount: number; stock: number }>
+  status: string
+  scope: string
+  target_merchant_ids: number[]
+  adoption_count: number
+  published_at: string | null
+  created_at: string
+}
+
+export type ProductTemplatePayload = {
+  title: string
+  subtitle: string
+  type: string
+  category_id: number
+  cover_url: string
+  images: string[]
+  description: string
+  price_amount: number
+  original_price_amount: number
+  verify_days: number
+  appointment_required: boolean
+  delivery_types: string[]
+  skus: Array<{ sku_code: string; spec: Record<string, unknown>; price_amount: number; stock: number }>
+  status: string
+  scope: string
+  merchant_ids: number[]
+}
+
+export type AdminProductRow = {
+  id: number
+  product_code: string
+  title: string
+  merchant_id: number
+  merchant_name: string
+  category_id: number | null
+  category_name: string
+  type: string
+  price: number
+  status: string
+  sold_count: number
+  off_sale_by: string
+  off_sale_reason: string
+  updated_at: string
+}
+
+export type MerchantCreatePayload = {
+  name: string
+  short_name?: string
+  category_id: number
+  contact_phone: string
+  province?: string
+  city: string
+  district: string
+  address: string
+  commission_rate?: string | null
+  settlement_cycle_days?: number
+  bank_info?: { bank?: string; card_no?: string }
+  qualifications?: Array<{ type: string; file_url: string; expire_at?: string | null }>
+  owner_phone: string
+}
+
+
 
 const BASE_URL = import.meta.env.VITE_API_BASE ?? '/api/v1'
 const TOKEN_KEY = 'alliance_admin_token'
@@ -128,18 +398,19 @@ function unwrap<T>(payload: unknown): T {
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const isForm = options.body instanceof FormData
   const headers: Record<string, string> = {
     Accept: 'application/json',
     ...(options.headers ?? {}),
   }
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json'
+  if (options.body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
   const token = getToken()
   if (token) headers.Authorization = `Bearer ${token}`
 
   const response = await fetch(`${BASE_URL}${path}`, {
     method: options.method ?? 'GET',
     headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    body: options.body === undefined ? undefined : isForm ? (options.body as FormData) : JSON.stringify(options.body),
   })
   const payload = await response.json().catch(() => null)
   if (!response.ok) {
@@ -181,8 +452,152 @@ export const api = {
     })
   },
 
+  adminMerchants(params: {
+    status?: string
+    q?: string
+    category?: string
+    city?: string
+    page?: number
+    page_size?: number
+  }) {
+    return request<MerchantPage>(`/admin/merchants/${query(params)}`)
+  },
+
+  adminMerchantDetail(merchantId: number) {
+    return request<AdminMerchantDetail>(`/admin/merchants/${merchantId}/`)
+  },
+
+  createMerchant(payload: MerchantCreatePayload) {
+    return request<AdminMerchantDetail>('/admin/merchants/', {
+      method: 'POST',
+      body: payload,
+      headers: { 'Idempotency-Key': idempotencyKey() },
+    })
+  },
+
+  categories() {
+    return request<CategoryRow[]>('/categories/')
+  },
+
+  staffUsers(keyword: string) {
+    return request<StaffUser[]>(`/accounts/staff/users/${query({ keyword })}`)
+  },
+
+  changeMerchantStatus(merchantId: number, status: string, reason: string) {
+    return request<{ id: number; status: string; changed: boolean }>(`/admin/merchants/${merchantId}/status/`, {
+      method: 'POST',
+      body: { status, reason },
+      headers: { 'Idempotency-Key': idempotencyKey() },
+    })
+  },
+
+  audits(params: { biz_type?: string; status?: string; page?: number; page_size?: number }) {
+    return request<AuditPage>(`/admin/audits/${query(params)}`)
+  },
+
+  adminProductDetail(productId: number) {
+    return request<AdminProductDetail>(`/admin/products/${productId}/`)
+  },
+
+  adminCategories() {
+    return request<AdminCategory[]>('/admin/categories/')
+  },
+
+  createCategory(payload: AdminCategoryPayload) {
+    return request<AdminCategory>('/admin/categories/', { method: 'POST', body: payload })
+  },
+
+  updateCategory(categoryId: number, payload: AdminCategoryPayload) {
+    return request<AdminCategory>(`/admin/categories/${categoryId}/`, { method: 'PUT', body: payload })
+  },
+
+  adminProducts(params: {
+    status?: string
+    merchant_id?: number
+    category?: number
+    q?: string
+    page?: number
+    page_size?: number
+  }) {
+    return request<Paged<AdminProductRow>>(`/admin/products/${query(params)}`)
+  },
+
+  updateAdminProduct(productId: number, payload: Record<string, unknown>) {
+    return request<AdminProductDetail>(`/admin/products/${productId}/`, { method: 'PUT', body: payload })
+  },
+
+  setAdminProductStatus(productId: number, action: 'FORCE_OFF' | 'RESTORE', reason = '') {
+    return request<{ id: number; status: string; off_sale_by: string }>(`/admin/products/${productId}/status/`, {
+      method: 'POST',
+      body: { action, reason },
+    })
+  },
+
+  adminTemplates(params: { status?: string; page?: number; page_size?: number } = {}) {
+    return request<Paged<ProductTemplate>>(`/admin/product-templates/${query(params)}`)
+  },
+
+  createTemplate(payload: ProductTemplatePayload) {
+    return request<ProductTemplate>('/admin/product-templates/', { method: 'POST', body: payload })
+  },
+
+  updateTemplate(templateId: number, payload: ProductTemplatePayload) {
+    return request<ProductTemplate>(`/admin/product-templates/${templateId}/`, { method: 'PUT', body: payload })
+  },
+
+  syncTemplate(templateId: number, merchantIds: number[] = []) {
+    return request<{ template_id: number; synced: number }>(`/admin/product-templates/${templateId}/sync/`, {
+      method: 'POST',
+      body: { merchant_ids: merchantIds },
+    })
+  },
+
+  mediaFolders() {
+    return request<MediaFolder[]>('/admin/media-folders/')
+  },
+
+  createMediaFolder(payload: { name: string; sort?: number }) {
+    return request<MediaFolder>('/admin/media-folders/', { method: 'POST', body: payload })
+  },
+
+  updateMediaFolder(folderId: number, payload: { name: string; sort?: number }) {
+    return request<MediaFolder>(`/admin/media-folders/${folderId}/`, { method: 'PUT', body: payload })
+  },
+
+  deleteMediaFolder(folderId: number) {
+    return request<void>(`/admin/media-folders/${folderId}/`, { method: 'DELETE' })
+  },
+
+  mediaAssets(params: { folder?: string; kind?: string; q?: string; page?: number; page_size?: number } = {}) {
+    return request<Paged<MediaAsset>>(`/admin/media-assets/${query(params)}`)
+  },
+
+  uploadMediaAsset(file: File, folderId: number | null = null, name = '') {
+    const form = new FormData()
+    form.append('file', file)
+    if (folderId !== null) form.append('folder_id', String(folderId))
+    if (name) form.append('name', name)
+    return request<MediaAsset>('/admin/media-assets/', { method: 'POST', body: form })
+  },
+
+  deleteMediaAsset(assetId: number) {
+    return request<void>(`/admin/media-assets/${assetId}/`, { method: 'DELETE' })
+  },
+
+  decideAudit(taskId: number, decision: 'APPROVE' | 'REJECT', reason = '') {
+    return request<AuditTaskRow>(`/admin/audits/${taskId}/decision/`, {
+      method: 'POST',
+      body: { decision, reason },
+      headers: { 'Idempotency-Key': idempotencyKey() },
+    })
+  },
+
   arbitrations(params: { status?: string; page?: number; page_size?: number }) {
     return request<Paged<ArbitrationRow>>(`/admin/arbitrations/${query(params)}`)
+  },
+
+  arbitrationDetail(caseId: number) {
+    return request<ArbitrationDetail>(`/admin/arbitrations/${caseId}/`)
   },
 
   ruleArbitration(

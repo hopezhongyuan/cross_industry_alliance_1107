@@ -46,4 +46,5 @@ jobs:
         working-directory: frontend/miniapp
         run: |
           npm ci
+          npm run typecheck
           npm run build:h5

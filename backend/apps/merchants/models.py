@@ -15,9 +15,9 @@ class Merchant(TimeStampedModel):
     class Status(models.TextChoices):
         PENDING = "PENDING", "待审核"
         ACTIVE = "ACTIVE", "营业中"
+        RESTING = "RESTING", "停业"
+        BANNED = "BANNED", "已封禁"
         REJECTED = "REJECTED", "审核驳回"
-        SUSPENDED = "SUSPENDED", "已冻结"
-        CLOSED = "CLOSED", "已关店"
 
     merchant_no = models.CharField("商户编号", max_length=32, unique=True)
     name = models.CharField("商户名称", max_length=80)
@@ -48,6 +48,7 @@ class Merchant(TimeStampedModel):
         "结算周期（天）", default=settings.DEFAULT_SETTLEMENT_CYCLE_DAYS
     )
     bank_info = EncryptedJSONField("收款银行信息（加密存储，T9）", default=dict, blank=True)
+    create_idempotency_key = models.CharField("创建幂等键", max_length=64, unique=True, null=True, blank=True)
     opened_at = models.DateTimeField("开店时间", null=True, blank=True)
 
     class Meta:

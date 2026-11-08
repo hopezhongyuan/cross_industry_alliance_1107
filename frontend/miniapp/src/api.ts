@@ -4,6 +4,8 @@ import type { components } from '../../shared/schema'
 export type Schemas = components['schemas']
 export type Paged<T> = { items: T[]; page: { page: number; page_size: number; total: number; has_more: boolean } }
 
+declare const process: { env?: Record<string, string | undefined> } | undefined
+
 const ENV_API_BASE =
   typeof process !== 'undefined' && process.env ? process.env.TARO_APP_API_BASE : undefined
 const BASE_URL = ENV_API_BASE || '/api/v1'
@@ -71,8 +73,152 @@ export type ProductRow = {
   subtitle?: string
   cover_url?: string
   price: number
+  merchant_id?: number
   merchant?: { id: number; name: string }
   type?: string
+}
+
+export type ProductDetail = {
+  id: number
+  merchant_id: number
+  merchant_name: string
+  merchant_address: string
+  merchant_phone: string
+  type: 'PHYSICAL' | 'SERVICE'
+  title: string
+  subtitle?: string
+  cover_url?: string
+  images?: string[]
+  description?: string
+  price: number
+  original_price?: number
+  verify_days?: number
+  appointment_required: boolean
+  refund_policy?: string
+  skus: Array<{ id: number; price: number; available_stock: number; sku_code: string }>
+  slots: Array<{ id: number; slot_date: string; start_time: string; end_time: string; remaining: number }>
+}
+
+export type StoreRow = {
+  id: number
+  merchant_no: string
+  name: string
+  logo_url: string
+  category_id: number | null
+  category_name: string
+  address: string
+  city: string
+  district: string
+  distance_meters: number | null
+  business_hours: Record<string, unknown>
+  status: string
+}
+
+export type CategoryRow = { id: number; name: string; parent: number | null; icon_url: string; level?: number; sort?: number }
+
+export type MerchantProductCategoryRow = {
+  id: number
+  name: string
+  sort: number
+  status: string
+  product_count: number
+}
+
+
+export type AddressRow = {
+  id: number
+  receiver_name: string
+  phone: string
+  province: string
+  city: string
+  district: string
+  detail: string
+  tag: string
+  is_default: boolean
+}
+
+export type MerchantSkuRow = {
+  id: number
+  sku_code: string
+  spec_json: Record<string, unknown>
+  price: number
+  stock: number
+  available_stock: number
+}
+
+export type MerchantProductRow = {
+  id: number
+  product_code: string
+  merchant_category_id: number | null
+  merchant_category_name: string
+  type: string
+  title: string
+  subtitle: string
+  cover_url: string
+  price: number
+  status: string
+  reject_reason: string
+  total_stock: number
+  sold_count: number
+  delivery_types: string[]
+  submitted_at: string | null
+  updated_at: string
+  off_sale_by: string
+  off_sale_reason: string
+  off_sale_at: string | null
+}
+
+export type MerchantProductDetail = MerchantProductRow & {
+  category_id: number | null
+  category_name: string
+  type_label: string
+  images: string[]
+  description: string
+  original_price: number
+  verify_days: number
+  appointment_required: boolean
+  skus: MerchantSkuRow[]
+  audited_at: string | null
+  version: number
+  created_at: string
+}
+
+export type MerchantProductPayload = {
+  category_id: number
+  merchant_category_id?: number | null
+  product_code?: string
+  type: 'PHYSICAL' | 'SERVICE'
+  title: string
+  subtitle?: string
+  cover_url?: string
+  images?: string[]
+  description?: string
+  price_amount: number
+  original_price_amount?: number
+  verify_days?: number
+  appointment_required?: boolean
+  delivery_types: string[]
+  skus: Array<{ sku_code: string; spec?: Record<string, unknown>; price_amount: number; stock: number }>
+  version?: number
+}
+
+export type MerchantTemplateRow = {
+  id: number
+  template_no: string
+  title: string
+  subtitle: string
+  type: string
+  category_id: number
+  category_name: string
+  cover_url: string
+  description: string
+  price: number
+  original_price: number
+  verify_days: number
+  delivery_types: string[]
+  skus: Array<{ sku_code: string; spec?: Record<string, unknown>; price_amount: number; stock: number }>
+  adopted_product_id: number | null
+  adopted_status: string
 }
 
 export type CartData = {
@@ -104,6 +250,25 @@ export type OrderRow = {
   completed_at: string | null
   items?: Array<{ id: number; title: string; price: number; quantity: number; amount: number }>
   verify_codes?: Array<{ code: string; status: string }>
+  appointment?: { slot_id: number; slot_date: string; start_time: string; end_time: string; status: string }
+  timeline?: Array<{
+    from_status: string
+    to_status: string
+    event: string
+    operator_type: string
+    operator_name: string
+    reason: string
+    created_at: string
+  }>
+  status_logs?: Array<{
+    from_status: string
+    to_status: string
+    event: string
+    operator_type: string
+    operator_name: string
+    reason: string
+    created_at: string
+  }>
 }
 
 export const api = {
@@ -127,13 +292,50 @@ export const api = {
     return request<{ id: number; phone: string; nickname: string }>('/accounts/me/')
   },
 
-  async products(keyword = '') {
-    const payload = await request<unknown>(`/products/${keyword ? `?search=${encodeURIComponent(keyword)}` : ''}`)
+  async products(params: { merchant?: number; search?: string; category?: number } = {}) {
+    const query = new URLSearchParams()
+    if (params.merchant) query.set('merchant', String(params.merchant))
+    if (params.category) query.set('category', String(params.category))
+    if (params.search) query.set('search', params.search)
+    const suffix = query.toString()
+    const payload = await request<unknown>(`/products/${suffix ? `?${suffix}` : ''}`)
     return normalizeList<ProductRow>(payload)
   },
 
   product(id: number) {
-    return request<ProductRow & { detail?: string; skus?: Array<{ id: number; price: number; stock: number }> }>(`/products/${id}/`)
+    return request<ProductDetail>(`/products/${id}/`)
+  },
+
+  async stores(params: { lat: number; lng: number; category?: number; q?: string }) {
+    const query = new URLSearchParams({ lat: String(params.lat), lng: String(params.lng) })
+    if (params.category) query.set('category', String(params.category))
+    if (params.q) query.set('q', params.q)
+    return request<Paged<StoreRow>>(`/stores/nearby/?${query.toString()}`)
+  },
+
+  store(id: number) {
+    return request<StoreRow>(`/stores/${id}/`)
+  },
+
+  async categories() {
+    const payload = await request<unknown>('/categories/')
+    return normalizeList<CategoryRow>(payload)
+  },
+
+  async addresses() {
+    return request<AddressRow[]>('/addresses/')
+  },
+
+  createAddress(payload: Record<string, unknown>) {
+    return request<AddressRow>('/addresses/', { method: 'POST', data: payload })
+  },
+
+  deleteAddress(id: number) {
+    return request<void>(`/addresses/${id}/`, { method: 'DELETE' })
+  },
+
+  review(orderId: number, score: number, content = '') {
+    return request<unknown>(`/orders/${orderId}/review/`, { method: 'POST', data: { score, content } })
   },
 
   cart() {
@@ -160,6 +362,7 @@ export const api = {
     order_type: string
     items: Array<{ product_id: number; sku_id: number | null; quantity: number }>
     contact: { name: string; phone: string; address_detail: string }
+    appointment?: { slot_id: number; remark?: string }
     remark?: string
   }) {
     return request<OrderRow>('/orders/', {
@@ -217,6 +420,67 @@ export const api = {
   async merchantOrders(status = '') {
     const payload = await request<unknown>(`/merchant/orders/${status ? `?status=${status}` : ''}`)
     return normalizeList<OrderRow>(payload)
+  },
+
+  merchantProducts(status = '', q = '') {
+    const query = new URLSearchParams()
+    if (status) query.set('status', status)
+    if (q) query.set('q', q)
+    const suffix = query.toString()
+    return request<Paged<MerchantProductRow>>(`/merchant/products/${suffix ? `?${suffix}` : ''}`)
+  },
+
+  merchantProduct(id: number) {
+    return request<MerchantProductDetail>(`/merchant/products/${id}/`)
+  },
+
+  createMerchantProduct(payload: MerchantProductPayload) {
+    return request<MerchantProductDetail>('/merchant/products/', {
+      method: 'POST',
+      data: payload,
+      headers: { 'Idempotency-Key': idempotencyKey() },
+    })
+  },
+
+  updateMerchantProduct(id: number, payload: MerchantProductPayload) {
+    return request<MerchantProductDetail>(`/merchant/products/${id}/`, { method: 'PUT', data: payload })
+  },
+
+  setMerchantProductStatus(id: number, status: 'ON_SALE' | 'OFF_SALE') {
+    return request<{ id: number; status: string; version: number }>(`/merchant/products/${id}/status/`, {
+      method: 'POST',
+      data: { status },
+    })
+  },
+
+  merchantProductCategories() {
+    return request<MerchantProductCategoryRow[]>('/merchant/product-categories/')
+  },
+
+  merchantTemplates() {
+    return request<MerchantTemplateRow[]>('/merchant/product-templates/')
+  },
+
+  adoptTemplate(id: number, listed = true) {
+    return request<{ product_id: number; status: string }>(`/merchant/product-templates/${id}/adopt/`, {
+      method: 'POST',
+      data: { listed },
+    })
+  },
+
+  createMerchantProductCategory(payload: { name: string; sort?: number; status?: string }) {
+    return request<MerchantProductCategoryRow>('/merchant/product-categories/', { method: 'POST', data: payload })
+  },
+
+  updateMerchantProductCategory(id: number, payload: { name: string; sort?: number; status?: string }) {
+    return request<MerchantProductCategoryRow>(`/merchant/product-categories/${id}/`, {
+      method: 'PUT',
+      data: payload,
+    })
+  },
+
+  deleteMerchantProductCategory(id: number) {
+    return request<void>(`/merchant/product-categories/${id}/`, { method: 'DELETE' })
   },
 
   acceptOrder(id: number) {

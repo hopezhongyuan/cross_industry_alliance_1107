@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { api, ApiError, type AdminOrderRow, type Page } from '../api'
+import ModalShell from '../components/ModalShell.vue'
+import { formatDateTime, formatMoney } from '../format'
 
+const route = useRoute()
+const router = useRouter()
 const rows = ref<AdminOrderRow[]>([])
 const page = ref<Page>({ page: 1, page_size: 20, total: 0, has_more: false })
-const status = ref('')
-const orderNo = ref('')
+const status = ref(String(route.query.status ?? ''))
+const orderNo = ref(String(route.query.order_no ?? ''))
 const loading = ref(false)
 const error = ref('')
 const actionOrder = ref<AdminOrderRow | null>(null)
@@ -16,6 +21,13 @@ const submitting = ref(false)
 async function load(target = 1) {
   loading.value = true
   error.value = ''
+  router.replace({
+    query: {
+      ...(status.value ? { status: status.value } : {}),
+      ...(orderNo.value ? { order_no: orderNo.value } : {}),
+      ...(target > 1 ? { page: String(target) } : {}),
+    },
+  })
   try {
     const result = await api.adminOrders({
       status: status.value,
@@ -53,7 +65,7 @@ async function submitAction() {
   }
 }
 
-onMounted(() => load())
+onMounted(() => load(Number(route.query.page ?? 1)))
 </script>
 
 <template>
@@ -70,12 +82,12 @@ onMounted(() => load())
     </label>
     <label class="field">
       <span>订单号</span>
-      <input v-model="orderNo" placeholder="模糊搜索" />
+      <input v-model="orderNo" name="order_no" autocomplete="off" placeholder="输入订单号…" aria-label="订单号搜索" />
     </label>
     <button class="primary" :disabled="loading" @click="load()">查询</button>
   </div>
 
-  <div v-if="error" class="error">{{ error }}</div>
+  <div v-if="error" class="error" role="alert">{{ error }}</div>
   <div class="card" style="padding: 0">
     <table>
       <thead>
@@ -96,9 +108,9 @@ onMounted(() => load())
           <td>{{ row.merchant_name }}</td>
           <td>{{ row.order_type }}</td>
           <td><span class="tag">{{ row.status }}</span></td>
-          <td>{{ (row.paid_amount / 100).toFixed(2) }}</td>
-          <td>{{ (row.refunded_amount / 100).toFixed(2) }}</td>
-          <td>{{ row.created_at }}</td>
+          <td class="money">{{ formatMoney(row.paid_amount) }}</td>
+          <td class="money">{{ formatMoney(row.refunded_amount) }}</td>
+          <td>{{ formatDateTime(row.created_at) }}</td>
           <td>
             <button class="text" @click="openAction(row, 'FREEZE')">冻结</button>
             <button class="text" style="margin-left: 8px" @click="openAction(row, 'UNFREEZE')">解冻</button>
@@ -114,21 +126,19 @@ onMounted(() => load())
     <button class="text" :disabled="!page.has_more" @click="load(page.page + 1)">下一页</button>
   </div>
 
-  <div v-if="actionOrder" class="modal-mask" @click.self="actionOrder = null">
-    <div class="modal">
-      <h2>{{ actionType === 'FREEZE' ? '冻结结算' : '解冻结算' }}</h2>
-      <div class="field">
-        <span>订单号</span>
-        <input :value="actionOrder.order_no" disabled />
-      </div>
-      <label class="field">
-        <span>原因</span>
-        <textarea v-model="reason" rows="3" placeholder="必填" />
-      </label>
-      <div class="toolbar" style="margin: 0">
-        <button class="primary" :disabled="submitting || !reason.trim()" @click="submitAction">确认</button>
-        <button class="text" @click="actionOrder = null">取消</button>
-      </div>
+  <ModalShell v-if="actionOrder" :title="actionType === 'FREEZE' ? '冻结结算' : '解冻结算'" @close="actionOrder = null">
+    <h2>{{ actionType === 'FREEZE' ? '冻结结算' : '解冻结算' }}</h2>
+    <div class="field">
+      <span>订单号</span>
+      <input :value="actionOrder.order_no" disabled />
     </div>
-  </div>
+    <label class="field">
+      <span>原因</span>
+      <textarea v-model="reason" rows="3" placeholder="请填写冻结原因…" />
+    </label>
+    <div class="toolbar" style="margin: 0">
+      <button class="primary" :disabled="submitting || !reason.trim()" @click="submitAction">确认</button>
+      <button class="text" @click="actionOrder = null">取消</button>
+    </div>
+  </ModalShell>
 </template>

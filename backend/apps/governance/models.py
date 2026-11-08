@@ -121,3 +121,55 @@ class ContentItem(TimeStampedModel):
 
     def __str__(self):
         return f"{self.slot_code}-{self.title}"
+
+
+class MediaFolder(TimeStampedModel):
+    """素材文件夹：仅一级，平台后台维护。"""
+
+    name = models.CharField("文件夹名", max_length=60, unique=True)
+    sort = models.IntegerField("排序", default=0)
+    created_by_name = models.CharField("创建人", max_length=60, blank=True, default="")
+
+    class Meta:
+        verbose_name = "素材文件夹"
+        verbose_name_plural = "素材文件夹"
+        db_table = "media_folder"
+        ordering = ("sort", "id")
+
+    def __str__(self):
+        return self.name
+
+
+class MediaAsset(TimeStampedModel):
+    class Kind(models.TextChoices):
+        IMAGE = "IMAGE", "图片"
+        VIDEO = "VIDEO", "视频"
+
+    folder = models.ForeignKey(
+        MediaFolder,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assets",
+        verbose_name="文件夹",
+    )
+    kind = models.CharField("类型", max_length=8, choices=Kind.choices, db_index=True)
+    file = models.FileField("文件", upload_to="%Y/%m/")
+    name = models.CharField("素材名", max_length=120, blank=True, default="")
+    original_name = models.CharField("原始文件名", max_length=200, blank=True, default="")
+    mime = models.CharField("MIME", max_length=100, blank=True, default="")
+    size = models.BigIntegerField("大小（字节）", default=0)
+    width = models.PositiveIntegerField("宽", null=True, blank=True)
+    height = models.PositiveIntegerField("高", null=True, blank=True)
+    duration_ms = models.PositiveIntegerField("时长（毫秒）", null=True, blank=True)
+    created_by_name = models.CharField("上传人", max_length=60, blank=True, default="")
+
+    class Meta:
+        verbose_name = "素材"
+        verbose_name_plural = "素材"
+        db_table = "media_asset"
+        ordering = ("-created_at",)
+        indexes = [models.Index(fields=["folder", "kind", "created_at"], name="ix_media_folder_kind_created")]
+
+    def __str__(self):
+        return self.name or self.original_name

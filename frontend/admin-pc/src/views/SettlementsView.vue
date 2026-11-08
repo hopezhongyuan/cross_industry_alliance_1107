@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { api, ApiError, type Page, type SettlementRow } from '../api'
+import { formatDateTime, formatMoney } from '../format'
 
+const route = useRoute()
+const router = useRouter()
 const rows = ref<SettlementRow[]>([])
 const page = ref<Page>({ page: 1, page_size: 20, total: 0, has_more: false })
-const status = ref('')
+const status = ref(String(route.query.status ?? ''))
 const loading = ref(false)
 const error = ref('')
 const publishing = ref<number | null>(null)
@@ -12,6 +16,12 @@ const publishing = ref<number | null>(null)
 async function load(target = 1) {
   loading.value = true
   error.value = ''
+  router.replace({
+    query: {
+      ...(status.value ? { status: status.value } : {}),
+      ...(target > 1 ? { page: String(target) } : {}),
+    },
+  })
   try {
     const result = await api.settlements({ status: status.value, page: target, page_size: 20 })
     rows.value = result.items
@@ -37,7 +47,7 @@ async function publish(row: SettlementRow) {
   }
 }
 
-onMounted(() => load())
+onMounted(() => load(Number(route.query.page ?? 1)))
 </script>
 
 <template>
@@ -52,7 +62,7 @@ onMounted(() => load())
     </label>
     <button class="primary" :disabled="loading" @click="load()">查询</button>
   </div>
-  <div v-if="error" class="error">{{ error }}</div>
+  <div v-if="error" class="error" role="alert">{{ error }}</div>
   <div class="card" style="padding: 0">
     <table>
       <thead>
@@ -73,11 +83,11 @@ onMounted(() => load())
           <td>{{ row.batch_no }}</td>
           <td>{{ row.period_start }} ~ {{ row.period_end }}</td>
           <td><span class="tag" :class="{ ok: row.status === 'PUBLISHED' }">{{ row.status }}</span></td>
-          <td>{{ (row.total_amount / 100).toFixed(2) }}</td>
-          <td>{{ (row.commission_amount / 100).toFixed(2) }}</td>
-          <td>{{ (row.net_amount / 100).toFixed(2) }}</td>
+          <td class="money">{{ formatMoney(row.total_amount) }}</td>
+          <td class="money">{{ formatMoney(row.commission_amount) }}</td>
+          <td class="money">{{ formatMoney(row.net_amount) }}</td>
           <td>{{ row.items_count }}</td>
-          <td>{{ row.published_at ?? '-' }}</td>
+          <td>{{ formatDateTime(row.published_at) }}</td>
           <td>
             <button class="text" :disabled="row.status !== 'PENDING' || publishing === row.id" @click="publish(row)">
               {{ publishing === row.id ? '发布中…' : '发布' }}

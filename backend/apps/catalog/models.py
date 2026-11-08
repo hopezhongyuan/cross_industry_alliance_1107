@@ -3,6 +3,11 @@
 from django.db import models
 
 from apps.common.models import TimeStampedModel
+from apps.common.utils import generate_no
+
+
+def default_template_no() -> str:
+    return generate_no("PT")
 
 
 class Category(TimeStampedModel):
@@ -31,6 +36,87 @@ class Category(TimeStampedModel):
         return self.name
 
 
+class MerchantProductCategory(TimeStampedModel):
+    """商户自有商品分类：仅一级，各商户互相隔离。"""
+
+    class Status(models.TextChoices):
+        ENABLED = "ENABLED", "启用"
+        DISABLED = "DISABLED", "停用"
+
+    merchant = models.ForeignKey(
+        "merchants.Merchant",
+        on_delete=models.CASCADE,
+        related_name="product_categories",
+        verbose_name="商户",
+    )
+    name = models.CharField("分类名", max_length=40)
+    sort = models.IntegerField("排序", default=0)
+    status = models.CharField("状态", max_length=16, choices=Status.choices, default=Status.ENABLED, db_index=True)
+
+    class Meta:
+        verbose_name = "商户商品分类"
+        verbose_name_plural = "商户商品分类"
+        db_table = "merchant_product_category"
+        ordering = ("sort", "id")
+        constraints = [models.UniqueConstraint(fields=["merchant", "name"], name="uq_merchant_product_category_name")]
+        indexes = [models.Index(fields=["merchant", "status", "sort"], name="ix_mpc_merchant_status_sort")]
+
+    def __str__(self):
+        return f"{self.merchant_id}-{self.name}"
+
+
+class ProductTemplate(TimeStampedModel):
+    """平台商品模板：平台维护资料，按范围分发给商户认领。"""
+
+    class Status(models.TextChoices):
+        DRAFT = "DRAFT", "草稿"
+        PUBLISHED = "PUBLISHED", "已发布"
+        OFFLINE = "OFFLINE", "已下线"
+
+    class Scope(models.TextChoices):
+        NONE = "NONE", "不关联商户"
+        ALL = "ALL", "所有商户"
+        SELECTED = "SELECTED", "指定商户"
+
+    class Type(models.TextChoices):
+        PHYSICAL = "PHYSICAL", "实物商品"
+        SERVICE = "SERVICE", "到店服务"
+
+    template_no = models.CharField("模板编号", max_length=32, unique=True, default=default_template_no)
+    title = models.CharField("标题", max_length=120)
+    subtitle = models.CharField("副标题", max_length=200, blank=True, default="")
+    type = models.CharField("商品类型", max_length=16, choices=Type.choices)
+    category = models.ForeignKey(
+        Category, on_delete=models.SET_NULL, null=True, blank=True, related_name="templates", verbose_name="类目"
+    )
+    cover_url = models.CharField("封面", max_length=300, blank=True, default="")
+    images = models.JSONField("图片列表", default=list, blank=True)
+    description = models.TextField("详情", blank=True, default="")
+    price = models.BigIntegerField("建议售价（分）", default=0)
+    original_price = models.BigIntegerField("划线价（分）", default=0)
+    verify_days = models.PositiveSmallIntegerField("核销有效期（天）", default=30)
+    appointment_required = models.BooleanField("需预约", default=False)
+    delivery_types = models.JSONField("履约方式", default=list, blank=True)
+    skus = models.JSONField("默认 SKU", default=list, blank=True)
+    status = models.CharField("状态", max_length=16, choices=Status.choices, default=Status.DRAFT, db_index=True)
+    scope = models.CharField("分发范围", max_length=16, choices=Scope.choices, default=Scope.NONE, db_index=True)
+    target_merchants = models.ManyToManyField(
+        "merchants.Merchant", related_name="product_templates", blank=True, verbose_name="指定商户"
+    )
+    published_at = models.DateTimeField("发布时间", null=True, blank=True)
+    created_by_name = models.CharField("创建人", max_length=60, blank=True, default="")
+
+    class Meta:
+        verbose_name = "平台商品模板"
+        verbose_name_plural = "平台商品模板"
+        db_table = "product_template"
+        ordering = ("-created_at",)
+        indexes = [models.Index(fields=["status", "scope"], name="ix_template_status_scope")]
+
+    def __str__(self):
+        return f"{self.template_no}-{self.title}"
+
+
 class Product(TimeStampedModel):
     class Type(models.TextChoices):
         PHYSICAL = "PHYSICAL", "实物商品"
@@ -38,7 +124,7 @@ class Product(TimeStampedModel):
 
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "草稿"
-        PENDING = "PENDING", "待审核"
+        PENDING_AUDIT = "PENDING_AUDIT", "待审核"
         ON_SALE = "ON_SALE", "在售"
         OFF_SALE = "OFF_SALE", "已下架"
         REJECTED = "REJECTED", "审核驳回"
@@ -55,6 +141,23 @@ class Product(TimeStampedModel):
     category = models.ForeignKey(
         Category, on_delete=models.SET_NULL, null=True, blank=True, related_name="products", verbose_name="类目"
     )
+    merchant_category = models.ForeignKey(
+        MerchantProductCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="products",
+        verbose_name="商户自有分类",
+    )
+    product_code = models.CharField("商户货号", max_length=64, blank=True, default="")
+    template = models.ForeignKey(
+        ProductTemplate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="products",
+        verbose_name="平台模板",
+    )
     type = models.CharField("商品类型", max_length=16, choices=Type.choices)
     title = models.CharField("标题", max_length=120)
     subtitle = models.CharField("副标题", max_length=200, blank=True, default="")
@@ -69,6 +172,20 @@ class Product(TimeStampedModel):
     delivery_types = models.JSONField("履约方式", default=list, blank=True)
     sold_count = models.PositiveIntegerField("已售件数", default=0)
     sort = models.IntegerField("排序", default=0)
+    reject_reason = models.CharField("驳回原因", max_length=200, blank=True, default="")
+    submitted_at = models.DateTimeField("提交审核时间", null=True, blank=True)
+    audited_at = models.DateTimeField("审核时间", null=True, blank=True)
+    version = models.PositiveIntegerField("编辑版本", default=0)
+    create_idempotency_key = models.CharField("创建幂等键", max_length=64, unique=True, null=True, blank=True)
+    off_sale_by = models.CharField(
+        "下架来源",
+        max_length=16,
+        choices=(("MERCHANT", "商户"), ("PLATFORM", "平台")),
+        blank=True,
+        default="",
+    )
+    off_sale_reason = models.CharField("下架原因", max_length=200, blank=True, default="")
+    off_sale_at = models.DateTimeField("下架时间", null=True, blank=True)
 
     class Meta:
         verbose_name = "商品/服务"
@@ -79,9 +196,44 @@ class Product(TimeStampedModel):
             models.Index(fields=["merchant", "status"], name="ix_product_merchant_status"),
             models.Index(fields=["category", "status"], name="ix_product_category_status"),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["merchant", "product_code"],
+                condition=~models.Q(product_code=""),
+                name="uq_product_merchant_code",
+            )
+        ]
 
     def __str__(self):
         return self.title
+
+
+class TemplateAdoption(TimeStampedModel):
+    """商户认领平台模板的记录。"""
+
+    template = models.ForeignKey(
+        ProductTemplate, on_delete=models.CASCADE, related_name="adoptions", verbose_name="模板"
+    )
+    merchant = models.ForeignKey(
+        "merchants.Merchant", on_delete=models.CASCADE, related_name="template_adoptions", verbose_name="商户"
+    )
+    product = models.OneToOneField(
+        Product,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="template_adoption",
+        verbose_name="商户商品",
+    )
+
+    class Meta:
+        verbose_name = "模板认领"
+        verbose_name_plural = "模板认领"
+        db_table = "template_adoption"
+        constraints = [models.UniqueConstraint(fields=["template", "merchant"], name="uq_template_adoption")]
+
+    def __str__(self):
+        return f"{self.template_id}-{self.merchant_id}"
 
 
 class ProductSku(TimeStampedModel):

@@ -122,12 +122,40 @@ export interface paths {
     get: operations["getMerchantProfile"];
   };
   "/api/v1/merchant/products/": {
-    /** 发布商品/服务（提交审核） */
+    /** 本店商品列表（状态/关键词筛选） */
+    get: operations["listMerchantProducts"];
+    /** 发布商品/服务（提交审核；支持多 SKU） */
     post: operations["createMerchantProduct"];
   };
   "/api/v1/merchant/products/{id}/": {
-    /** 编辑商品（版本校验；价格/主图/类目变更重审） */
+    /** 本店商品详情（含 SKU 与版本） */
+    get: operations["getMerchantProduct"];
+    /** 编辑商品（版本校验；价格/主图/类目变更或驳回后重新审核） */
     put: operations["updateMerchantProduct"];
+  };
+  "/api/v1/merchant/products/{id}/status/": {
+    /** 商品上架/下架（ON_SALE ↔ OFF_SALE） */
+    post: operations["setMerchantProductSaleStatus"];
+  };
+  "/api/v1/merchant/product-categories/": {
+    /** 本店商品分类（仅一级） */
+    get: operations["listMerchantProductCategories"];
+    /** 新建本店分类（同店名称唯一） */
+    post: operations["createMerchantProductCategory"];
+  };
+  "/api/v1/merchant/product-categories/{id}/": {
+    /** 编辑本店分类 */
+    put: operations["updateMerchantProductCategory"];
+    /** 删除本店分类（分类下有商品时拒绝） */
+    delete: operations["deleteMerchantProductCategory"];
+  };
+  "/api/v1/merchant/product-templates/": {
+    /** 可见的平台商品模板（全部或指定本店） */
+    get: operations["listMerchantTemplates"];
+  };
+  "/api/v1/merchant/product-templates/{id}/adopt/": {
+    /** 认领模板并生成商户商品（可决定是否立即上架） */
+    post: operations["adoptMerchantTemplate"];
   };
   "/api/v1/merchant/orders/": {
     /** 商户订单列表（仅本店） */
@@ -166,15 +194,85 @@ export interface paths {
     get: operations["getMerchantAccount"];
   };
   "/api/v1/admin/audits/": {
-    /** 审核任务列表 */
+    /** 审核任务列表（含各类型待审核计数） */
     get: operations["listAudits"];
   };
   "/api/v1/admin/audits/{id}/decision/": {
-    /** 审核通过/驳回（写操作日志） */
+    /** 审核通过/驳回（写操作日志；商户审核联动资质状态） */
     post: operations["decideAudit"];
   };
+  "/api/v1/admin/media-folders/": {
+    /** 素材文件夹（仅一级） */
+    get: operations["listMediaFolders"];
+    /** 新建素材文件夹 */
+    post: operations["createMediaFolder"];
+  };
+  "/api/v1/admin/media-folders/{id}/": {
+    /** 重命名/排序文件夹 */
+    put: operations["updateMediaFolder"];
+    /** 删除空文件夹 */
+    delete: operations["deleteMediaFolder"];
+  };
+  "/api/v1/admin/media-assets/": {
+    /** 素材列表（文件夹/类型/关键词筛选） */
+    get: operations["listMediaAssets"];
+    /** 上传图片/视频素材 */
+    post: operations["uploadMediaAsset"];
+  };
+  "/api/v1/admin/media-assets/{id}/": {
+    /** 删除未被业务引用的素材 */
+    delete: operations["deleteMediaAsset"];
+  };
+  "/api/v1/admin/categories/": {
+    /** 平台商品类目列表（最多两级） */
+    get: operations["listAdminCategories"];
+    /** 新建平台类目（parent_id 为空即一级） */
+    post: operations["createAdminCategory"];
+  };
+  "/api/v1/admin/categories/{id}/": {
+    /** 编辑平台类目（名称/排序/启停/父类） */
+    put: operations["updateAdminCategory"];
+  };
+  "/api/v1/admin/products/": {
+    /** 全平台商品列表（商户/状态/类目/关键词筛选） */
+    get: operations["listAdminProducts"];
+  };
+  "/api/v1/admin/products/{id}/": {
+    /** 商品详情（含 SKU、商户与提交时间） */
+    get: operations["getAdminProduct"];
+    /** 平台编辑商户商品（直接生效，不重新审核） */
+    put: operations["updateAdminProduct"];
+  };
+  "/api/v1/admin/products/{id}/status/": {
+    /** 平台违规下架 / 恢复上架 */
+    post: operations["setAdminProductStatus"];
+  };
+  "/api/v1/admin/product-templates/": {
+    /** 平台商品模板列表 */
+    get: operations["listAdminTemplates"];
+    /** 发布平台商品模板（按范围分发商户） */
+    post: operations["createAdminTemplate"];
+  };
+  "/api/v1/admin/product-templates/{id}/": {
+    /** 编辑模板与分发范围 */
+    put: operations["updateAdminTemplate"];
+  };
+  "/api/v1/admin/product-templates/{id}/sync/": {
+    /** 手动同步模板到已认领商品 */
+    post: operations["syncAdminTemplate"];
+  };
+  "/api/v1/admin/merchants/": {
+    /** 商户列表（状态/关键词/类目/城市筛选，含状态计数与经营统计） */
+    get: operations["listAdminMerchants"];
+    /** 创建商户（固定直接营业；必须绑定已注册负责人；幂等键必填） */
+    post: operations["createAdminMerchant"];
+  };
+  "/api/v1/admin/merchants/{id}/": {
+    /** 商户详情（资质、员工、资金余额、生效佣金率；银行信息仅后四位） */
+    get: operations["getAdminMerchant"];
+  };
   "/api/v1/admin/merchants/{id}/status/": {
-    /** 停业/恢复/封禁（原因必填） */
+    /** 停业/恢复/封禁（原因必填；同状态重复提交幂等返回 changed=false） */
     post: operations["changeMerchantStatus"];
   };
   "/api/v1/admin/orders/": {
@@ -188,6 +286,10 @@ export interface paths {
   "/api/v1/admin/arbitrations/": {
     /** 仲裁案件列表 */
     get: operations["listArbitrations"];
+  };
+  "/api/v1/admin/arbitrations/{id}/": {
+    /** 仲裁详情（含售后举证与商户处理结果） */
+    get: operations["getArbitrationDetail"];
   };
   "/api/v1/admin/arbitrations/{id}/rule/": {
     /** 仲裁判定（责任方必填，执行退款） */
@@ -419,6 +521,8 @@ export interface components {
       /** Format: int64 */
       merchant_id?: number;
       merchant_name?: string;
+      merchant_address?: string;
+      merchant_phone?: string;
       /** Format: int64 */
       category_id?: number;
       /** @enum {string} */
@@ -448,6 +552,260 @@ export interface components {
         page?: components["schemas"]["Page"];
       };
     };
+    MerchantSku: {
+      /** Format: int64 */
+      id?: number;
+      sku_code?: string;
+      spec_json?: {
+        [key: string]: unknown;
+      };
+      price?: number;
+      stock?: number;
+      available_stock?: number;
+    };
+    MerchantProduct: {
+      /** Format: int64 */
+      id?: number;
+      /** @description 商户货号，商户内唯一，可为空 */
+      product_code?: string;
+      /** Format: int64 */
+      merchant_category_id?: number | null;
+      merchant_category_name?: string;
+      /** @enum {string} */
+      type?: "PHYSICAL" | "SERVICE";
+      title?: string;
+      subtitle?: string;
+      cover_url?: string;
+      price?: number;
+      /** @enum {string} */
+      status?: "DRAFT" | "PENDING_AUDIT" | "ON_SALE" | "OFF_SALE" | "REJECTED";
+      reject_reason?: string;
+      total_stock?: number;
+      sold_count?: number;
+      delivery_types?: ("EXPRESS" | "PICKUP" | "VERIFY" | "APPOINTMENT")[];
+      /** Format: date-time */
+      submitted_at?: string | null;
+      /** Format: date-time */
+      updated_at?: string;
+      /** @enum {string} */
+      off_sale_by?: "" | "MERCHANT" | "PLATFORM";
+      off_sale_reason?: string;
+      /** Format: date-time */
+      off_sale_at?: string | null;
+    };
+    MerchantProductDetail: components["schemas"]["MerchantProduct"] & ({
+      /** Format: int64 */
+      category_id?: number | null;
+      category_name?: string;
+      type_label?: string;
+      images?: string[];
+      description?: string;
+      original_price?: number;
+      verify_days?: number;
+      appointment_required?: boolean;
+      skus?: components["schemas"]["MerchantSku"][];
+      /** Format: date-time */
+      audited_at?: string | null;
+      /** @description 编辑乐观锁版本 */
+      version?: number;
+      /** Format: date-time */
+      created_at?: string;
+    });
+    MerchantProductPageEnvelope: components["schemas"]["Envelope"] & {
+      data?: {
+        items?: components["schemas"]["MerchantProduct"][];
+        page?: components["schemas"]["Page"];
+      };
+    };
+    MerchantProductEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["MerchantProductDetail"];
+    };
+    AdminProductDetail: components["schemas"]["MerchantProductDetail"] & {
+      /** Format: int64 */
+      merchant_id?: number;
+      merchant_name?: string;
+      merchant_no?: string;
+    };
+    AdminProductDetailEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["AdminProductDetail"];
+    };
+    MediaFolder: {
+      /** Format: int64 */
+      id?: number;
+      name?: string;
+      sort?: number;
+      asset_count?: number;
+      /** Format: date-time */
+      created_at?: string;
+    };
+    MediaFolderInput: {
+      name: string;
+      sort?: number;
+    };
+    MediaAsset: {
+      /** Format: int64 */
+      id?: number;
+      name?: string;
+      original_name?: string;
+      /** @enum {string} */
+      kind?: "IMAGE" | "VIDEO";
+      /** @description 素材访问地址，业务字段只能引用该地址 */
+      url?: string;
+      mime?: string;
+      size?: number;
+      width?: number | null;
+      height?: number | null;
+      duration_ms?: number | null;
+      /** Format: int64 */
+      folder?: number | null;
+      folder_name?: string;
+      created_by_name?: string;
+      /** Format: date-time */
+      created_at?: string;
+    };
+    MediaAssetUpload: {
+      /** Format: binary */
+      file: string;
+      /** Format: int64 */
+      folder_id?: number | null;
+      name?: string;
+    };
+    MediaFolderListEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["MediaFolder"][];
+    };
+    MediaFolderEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["MediaFolder"];
+    };
+    MediaAssetPageEnvelope: components["schemas"]["Envelope"] & {
+      data?: {
+        items?: components["schemas"]["MediaAsset"][];
+        page?: components["schemas"]["Page"];
+      };
+    };
+    MediaAssetEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["MediaAsset"];
+    };
+    ProductTemplate: {
+      /** Format: int64 */
+      id?: number;
+      template_no?: string;
+      title?: string;
+      subtitle?: string;
+      /** @enum {string} */
+      type?: "PHYSICAL" | "SERVICE";
+      /** Format: int64 */
+      category_id?: number;
+      category_name?: string;
+      cover_url?: string;
+      images?: string[];
+      description?: string;
+      price?: number;
+      original_price?: number;
+      verify_days?: number;
+      appointment_required?: boolean;
+      delivery_types?: ("EXPRESS" | "PICKUP" | "VERIFY" | "APPOINTMENT")[];
+      skus?: {
+          sku_code?: string;
+          spec?: {
+            [key: string]: unknown;
+          };
+          price_amount?: number;
+          stock?: number;
+        }[];
+      /** @enum {string} */
+      status?: "DRAFT" | "PUBLISHED" | "OFFLINE";
+      /** @enum {string} */
+      scope?: "NONE" | "ALL" | "SELECTED";
+      target_merchant_ids?: number[];
+      adoption_count?: number;
+      /** Format: date-time */
+      published_at?: string | null;
+      /** Format: date-time */
+      created_at?: string;
+    };
+    ProductTemplateInput: {
+      title: string;
+      subtitle?: string;
+      /** @enum {string} */
+      type: "PHYSICAL" | "SERVICE";
+      /** Format: int64 */
+      category_id: number;
+      /** @description 必须是素材库地址 */
+      cover_url?: string;
+      images?: string[];
+      description?: string;
+      price_amount: number;
+      original_price_amount?: number;
+      verify_days?: number;
+      appointment_required?: boolean;
+      delivery_types: ("EXPRESS" | "PICKUP" | "VERIFY" | "APPOINTMENT")[];
+      skus: {
+          sku_code?: string;
+          spec?: {
+            [key: string]: unknown;
+          };
+          price_amount?: number;
+          stock?: number;
+        }[];
+      /** @enum {string} */
+      status?: "DRAFT" | "PUBLISHED" | "OFFLINE";
+      /** @enum {string} */
+      scope?: "NONE" | "ALL" | "SELECTED";
+      merchant_ids?: number[];
+    };
+    MerchantTemplate: components["schemas"]["ProductTemplate"] & ({
+      /** Format: int64 */
+      adopted_product_id?: number | null;
+      adopted_status?: string;
+    });
+    ProductTemplatePageEnvelope: components["schemas"]["Envelope"] & {
+      data?: {
+        items?: components["schemas"]["ProductTemplate"][];
+        page?: components["schemas"]["Page"];
+      };
+    };
+    ProductTemplateEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["ProductTemplate"];
+    };
+    MerchantTemplateListEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["MerchantTemplate"][];
+    };
+    AdminProduct: {
+      /** Format: int64 */
+      id?: number;
+      product_code?: string;
+      title?: string;
+      /** Format: int64 */
+      merchant_id?: number;
+      merchant_name?: string;
+      /** Format: int64 */
+      category_id?: number | null;
+      category_name?: string;
+      type?: string;
+      price?: number;
+      status?: string;
+      sold_count?: number;
+      off_sale_by?: string;
+      off_sale_reason?: string;
+      /** Format: date-time */
+      updated_at?: string;
+    };
+    AdminProductPageEnvelope: components["schemas"]["Envelope"] & {
+      data?: {
+        items?: components["schemas"]["AdminProduct"][];
+        page?: components["schemas"]["Page"];
+      };
+    };
+    AdminProductStatusInput: {
+      /** @enum {string} */
+      action: "FORCE_OFF" | "RESTORE";
+      /** @description 强制下架必填 */
+      reason?: string;
+    };
+    ProductStatusInput: {
+      /** @enum {string} */
+      status: "ON_SALE" | "OFF_SALE";
+    };
     Category: {
       /** Format: int64 */
       id?: number;
@@ -460,6 +818,60 @@ export interface components {
     };
     CategoryListEnvelope: components["schemas"]["Envelope"] & {
       data?: components["schemas"]["Category"][];
+    };
+    AdminCategory: {
+      /** Format: int64 */
+      id?: number;
+      /** Format: int64 */
+      parent?: number | null;
+      parent_name?: string;
+      name?: string;
+      icon_url?: string;
+      /** @enum {integer} */
+      level?: 1 | 2;
+      sort?: number;
+      /** @enum {string} */
+      status?: "ENABLED" | "DISABLED";
+    };
+    AdminCategoryInput: {
+      name: string;
+      /**
+       * Format: int64
+       * @description 为空表示一级类目，最多两级
+       */
+      parent_id?: number | null;
+      /** Format: uri */
+      icon_url?: string;
+      sort?: number;
+      /** @enum {string} */
+      status?: "ENABLED" | "DISABLED";
+    };
+    AdminCategoryListEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["AdminCategory"][];
+    };
+    AdminCategoryEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["AdminCategory"];
+    };
+    MerchantProductCategory: {
+      /** Format: int64 */
+      id?: number;
+      name?: string;
+      sort?: number;
+      /** @enum {string} */
+      status?: "ENABLED" | "DISABLED";
+      product_count?: number;
+    };
+    MerchantProductCategoryInput: {
+      name: string;
+      sort?: number;
+      /** @enum {string} */
+      status?: "ENABLED" | "DISABLED";
+    };
+    MerchantProductCategoryListEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["MerchantProductCategory"][];
+    };
+    MerchantProductCategoryEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["MerchantProductCategory"];
     };
     CartItemInput: {
       /** Format: int64 */
@@ -750,7 +1162,14 @@ export interface components {
       verify_days?: number;
       appointment_required?: boolean;
       delivery_types: ("EXPRESS" | "PICKUP" | "VERIFY" | "APPOINTMENT")[];
-      skus?: {
+      /** @description 商户货号，商户内唯一，可为空 */
+      product_code?: string;
+      /**
+       * Format: int64
+       * @description 商户自有分类，仅一级
+       */
+      merchant_category_id?: number | null;
+      skus: {
           sku_code?: string;
           spec?: {
             [key: string]: unknown;
@@ -863,9 +1282,185 @@ export interface components {
       reason?: string;
     };
     MerchantStatusInput: {
-      /** @enum {string} */
-      status: "ACTIVE" | "SUSPENDED" | "CLOSED";
+      /**
+       * @description 停业 RESTING / 封禁 BANNED / 恢复 ACTIVE
+       * @enum {string}
+       */
+      status: "ACTIVE" | "RESTING" | "BANNED";
+      /** @description 变更原因，写入操作日志 */
       reason: string;
+    };
+    AdminMerchant: {
+      /** Format: int64 */
+      id?: number;
+      merchant_no?: string;
+      name?: string;
+      short_name?: string;
+      /** Format: int64 */
+      category_id?: number | null;
+      category_name?: string;
+      contact_phone?: string;
+      city?: string;
+      district?: string;
+      /** @enum {string} */
+      status?: "PENDING" | "ACTIVE" | "RESTING" | "BANNED" | "REJECTED";
+      /** @description 生效佣金率（商户覆盖优先，类目默认兜底） */
+      commission_rate?: number;
+      settlement_cycle_days?: number;
+      /** @description 今日订单数 */
+      today_orders?: number;
+      /** @description 累计已结算金额（分） */
+      settled_amount?: number;
+      /** Format: date-time */
+      created_at?: string;
+    };
+    AdminMerchantPageEnvelope: components["schemas"]["Envelope"] & {
+      data?: {
+        items?: components["schemas"]["AdminMerchant"][];
+        page?: components["schemas"]["Page"];
+        /** @description 全量商户状态计数（不受筛选影响） */
+        summary?: {
+          total?: number;
+          active?: number;
+          pending?: number;
+          resting?: number;
+          banned?: number;
+          rejected?: number;
+        };
+      };
+    };
+    AdminMerchantDetail: components["schemas"]["AdminMerchant"] & ({
+      logo_url?: string;
+      description?: string;
+      province?: string;
+      address?: string;
+      lng?: number | null;
+      lat?: number | null;
+      business_hours?: {
+        [key: string]: unknown;
+      };
+      /** Format: date-time */
+      opened_at?: string | null;
+      /** @description 商户覆盖佣金率，空表示继承类目 */
+      commission_override?: number | null;
+      /** @description 累计实付金额（分） */
+      gmv_total?: number;
+      /** @description 收款账户后四位，完整卡号不出接口 */
+      bank_last4?: string;
+      balances?: {
+        pending_amount?: number;
+        frozen_amount?: number;
+        available_amount?: number;
+        withdrawing_amount?: number;
+      };
+      qualifications?: ({
+          /** Format: int64 */
+          id?: number;
+          type?: string;
+          type_label?: string;
+          /** Format: uri */
+          file_url?: string;
+          /** Format: date */
+          expire_at?: string | null;
+          /** @enum {string} */
+          audit_status?: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
+          reject_reason?: string;
+        })[];
+      staff?: ({
+          /** Format: int64 */
+          id?: number;
+          /** Format: int64 */
+          user_id?: number;
+          nickname?: string;
+          /** @enum {string} */
+          role?: "OWNER" | "MANAGER" | "CLERK";
+          role_label?: string;
+          /** @enum {string} */
+          status?: "ACTIVE" | "DISABLED";
+          /** Format: date-time */
+          joined_at?: string | null;
+        })[];
+    });
+    AdminMerchantDetailEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["AdminMerchantDetail"];
+    };
+    AdminMerchantCreateInput: {
+      name: string;
+      short_name?: string;
+      /** Format: int64 */
+      category_id: number;
+      contact_phone: string;
+      province?: string;
+      city: string;
+      district: string;
+      address: string;
+      lng?: number;
+      lat?: number;
+      business_hours?: {
+        [key: string]: unknown;
+      };
+      /** @description 商户覆盖佣金率，空则继承类目 */
+      commission_rate?: number;
+      /** @default 7 */
+      settlement_cycle_days?: number;
+      /** @description 加密存储，仅接受 bank / card_no */
+      bank_info?: {
+        bank?: string;
+        card_no?: string;
+      };
+      qualifications?: ({
+          /** @enum {string} */
+          type: "BUSINESS_LICENSE" | "FOOD_PERMIT" | "HEALTH_PERMIT" | "OTHER";
+          /** Format: uri */
+          file_url: string;
+          /** Format: date */
+          expire_at?: string;
+        })[];
+      /** @description 必须为已注册且状态正常的用户手机号，绑定为 OWNER */
+      owner_phone: string;
+    };
+    AuditTask: {
+      /** Format: int64 */
+      id?: number;
+      /** @enum {string} */
+      biz_type?: "MERCHANT" | "PRODUCT" | "REVIEW" | "QUALIFICATION";
+      /** Format: int64 */
+      biz_id?: number;
+      /** @description 关联业务名称（商户名/商品标题） */
+      biz_name?: string;
+      /** @enum {string} */
+      status?: "PENDING" | "PROCESSING" | "APPROVED" | "REJECTED" | "CANCELLED";
+      decision?: string;
+      reason?: string;
+      assigned_to_name?: string;
+      /** Format: date-time */
+      handled_at?: string | null;
+      /** Format: date-time */
+      created_at?: string;
+    };
+    AuditTaskPageEnvelope: components["schemas"]["Envelope"] & {
+      data?: {
+        items?: components["schemas"]["AuditTask"][];
+        page?: components["schemas"]["Page"];
+        /** @description 各业务类型待审核数量 */
+        summary?: {
+          [key: string]: number;
+        };
+      };
+    };
+    AuditTaskEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["AuditTask"];
+    };
+    MerchantStatusResult: {
+      /** Format: int64 */
+      id?: number;
+      /** @enum {string} */
+      status?: "ACTIVE" | "RESTING" | "BANNED";
+      /** @description false 表示同状态重复提交，幂等未变更 */
+      changed?: boolean;
+    };
+    MerchantStatusResultEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["MerchantStatusResult"];
     };
     FreezeInput: {
       /** @enum {string} */
@@ -908,6 +1503,16 @@ export interface components {
         items?: components["schemas"]["ArbitrationCase"][];
         page?: components["schemas"]["Page"];
       };
+    };
+    ArbitrationDetail: components["schemas"]["ArbitrationCase"] & {
+      decided_by_name?: string;
+      /** @description 售后单信息、用户与商户、举证材料 evidence */
+      after_sale?: {
+        [key: string]: unknown;
+      };
+    };
+    ArbitrationDetailEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["ArbitrationDetail"];
     };
     RuleVersionInput: {
       snapshot: {
@@ -1037,6 +1642,12 @@ export interface components {
     };
     /** @description 参数校验失败 */
     ValidationError: {
+      content: {
+        "application/json": components["schemas"]["ErrorEnvelope"];
+      };
+    };
+    /** @description 资源不存在 */
+    NotFound: {
       content: {
         "application/json": components["schemas"]["ErrorEnvelope"];
       };
@@ -1692,25 +2303,74 @@ export interface operations {
       403: components["responses"]["Forbidden"];
     };
   };
-  /** 发布商品/服务（提交审核） */
+  /** 本店商品列表（状态/关键词筛选） */
+  listMerchantProducts: {
+    parameters: {
+      query?: {
+        status?: "DRAFT" | "PENDING_AUDIT" | "ON_SALE" | "OFF_SALE" | "REJECTED";
+        q?: string;
+        page?: components["parameters"]["PageParam"];
+        page_size?: components["parameters"]["PageSizeParam"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MerchantProductPageEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 发布商品/服务（提交审核；支持多 SKU） */
   createMerchantProduct: {
+    parameters: {
+      header: {
+        "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+      };
+    };
     requestBody: {
       content: {
         "application/json": components["schemas"]["ProductInput"];
       };
     };
     responses: {
+      /** @description 幂等键重复提交，返回已创建商品 */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MerchantProductEnvelope"];
+        };
+      };
       /** @description 已提交审核 */
       201: {
         content: {
-          "application/json": components["schemas"]["ProductEnvelope"];
+          "application/json": components["schemas"]["MerchantProductEnvelope"];
         };
       };
       403: components["responses"]["Forbidden"];
       422: components["responses"]["ValidationError"];
     };
   };
-  /** 编辑商品（版本校验；价格/主图/类目变更重审） */
+  /** 本店商品详情（含 SKU 与版本） */
+  getMerchantProduct: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MerchantProductEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  /** 编辑商品（版本校验；价格/主图/类目变更或驳回后重新审核） */
   updateMerchantProduct: {
     parameters: {
       path: {
@@ -1726,7 +2386,7 @@ export interface operations {
       /** @description OK */
       200: {
         content: {
-          "application/json": components["schemas"]["ProductEnvelope"];
+          "application/json": components["schemas"]["MerchantProductEnvelope"];
         };
       };
       /** @description 版本冲突或状态不允许编辑 */
@@ -1735,6 +2395,148 @@ export interface operations {
           "application/json": components["schemas"]["ErrorEnvelope"];
         };
       };
+    };
+  };
+  /** 商品上架/下架（ON_SALE ↔ OFF_SALE） */
+  setMerchantProductSaleStatus: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProductStatusInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Envelope"];
+        };
+      };
+      /** @description 商品状态不允许该操作 */
+      409: {
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
+  /** 本店商品分类（仅一级） */
+  listMerchantProductCategories: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MerchantProductCategoryListEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 新建本店分类（同店名称唯一） */
+  createMerchantProductCategory: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MerchantProductCategoryInput"];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        content: {
+          "application/json": components["schemas"]["MerchantProductCategoryEnvelope"];
+        };
+      };
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 编辑本店分类 */
+  updateMerchantProductCategory: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MerchantProductCategoryInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MerchantProductCategoryEnvelope"];
+        };
+      };
+      404: components["responses"]["NotFound"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 删除本店分类（分类下有商品时拒绝） */
+  deleteMerchantProductCategory: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description No Content */
+      204: {
+        content: never;
+      };
+      /** @description 分类下仍有商品 */
+      409: {
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
+  /** 可见的平台商品模板（全部或指定本店） */
+  listMerchantTemplates: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MerchantTemplateListEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 认领模板并生成商户商品（可决定是否立即上架） */
+  adoptMerchantTemplate: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    requestBody?: {
+      content: {
+        "application/json": {
+          /** @default true */
+          listed?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description 已认领过，返回原商品 */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Envelope"];
+        };
+      };
+      /** @description 已认领 */
+      201: {
+        content: {
+          "application/json": components["schemas"]["Envelope"];
+        };
+      };
+      404: components["responses"]["NotFound"];
     };
   };
   /** 商户订单列表（仅本店） */
@@ -1961,7 +2763,7 @@ export interface operations {
       403: components["responses"]["Forbidden"];
     };
   };
-  /** 审核任务列表 */
+  /** 审核任务列表（含各类型待审核计数） */
   listAudits: {
     parameters: {
       query?: {
@@ -1975,13 +2777,13 @@ export interface operations {
       /** @description OK */
       200: {
         content: {
-          "application/json": components["schemas"]["Envelope"];
+          "application/json": components["schemas"]["AuditTaskPageEnvelope"];
         };
       };
       403: components["responses"]["Forbidden"];
     };
   };
-  /** 审核通过/驳回（写操作日志） */
+  /** 审核通过/驳回（写操作日志；商户审核联动资质状态） */
   decideAudit: {
     parameters: {
       path: {
@@ -1997,10 +2799,11 @@ export interface operations {
       /** @description OK */
       200: {
         content: {
-          "application/json": components["schemas"]["Envelope"];
+          "application/json": components["schemas"]["AuditTaskEnvelope"];
         };
       };
       403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
       /** @description 任务已被处理 */
       409: {
         content: {
@@ -2009,7 +2812,423 @@ export interface operations {
       };
     };
   };
-  /** 停业/恢复/封禁（原因必填） */
+  /** 素材文件夹（仅一级） */
+  listMediaFolders: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MediaFolderListEnvelope"];
+        };
+      };
+    };
+  };
+  /** 新建素材文件夹 */
+  createMediaFolder: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MediaFolderInput"];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        content: {
+          "application/json": components["schemas"]["MediaFolderEnvelope"];
+        };
+      };
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 重命名/排序文件夹 */
+  updateMediaFolder: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MediaFolderInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MediaFolderEnvelope"];
+        };
+      };
+    };
+  };
+  /** 删除空文件夹 */
+  deleteMediaFolder: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description No Content */
+      204: {
+        content: never;
+      };
+      /** @description 文件夹内仍有素材 */
+      409: {
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
+  /** 素材列表（文件夹/类型/关键词筛选） */
+  listMediaAssets: {
+    parameters: {
+      query?: {
+        folder?: string;
+        kind?: "IMAGE" | "VIDEO";
+        q?: string;
+        page?: components["parameters"]["PageParam"];
+        page_size?: components["parameters"]["PageSizeParam"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MediaAssetPageEnvelope"];
+        };
+      };
+    };
+  };
+  /** 上传图片/视频素材 */
+  uploadMediaAsset: {
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["MediaAssetUpload"];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        content: {
+          "application/json": components["schemas"]["MediaAssetEnvelope"];
+        };
+      };
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 删除未被业务引用的素材 */
+  deleteMediaAsset: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description No Content */
+      204: {
+        content: never;
+      };
+      /** @description 素材已被引用 */
+      409: {
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
+  /** 平台商品类目列表（最多两级） */
+  listAdminCategories: {
+    parameters: {
+      query?: {
+        parent?: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["AdminCategoryListEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 新建平台类目（parent_id 为空即一级） */
+  createAdminCategory: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminCategoryInput"];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        content: {
+          "application/json": components["schemas"]["AdminCategoryEnvelope"];
+        };
+      };
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 编辑平台类目（名称/排序/启停/父类） */
+  updateAdminCategory: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminCategoryInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["AdminCategoryEnvelope"];
+        };
+      };
+      404: components["responses"]["NotFound"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 全平台商品列表（商户/状态/类目/关键词筛选） */
+  listAdminProducts: {
+    parameters: {
+      query?: {
+        status?: string;
+        merchant_id?: number;
+        category?: number;
+        q?: string;
+        page?: components["parameters"]["PageParam"];
+        page_size?: components["parameters"]["PageSizeParam"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["AdminProductPageEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 商品详情（含 SKU、商户与提交时间） */
+  getAdminProduct: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["AdminProductDetailEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  /** 平台编辑商户商品（直接生效，不重新审核） */
+  updateAdminProduct: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProductInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["AdminProductDetailEnvelope"];
+        };
+      };
+      404: components["responses"]["NotFound"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 平台违规下架 / 恢复上架 */
+  setAdminProductStatus: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminProductStatusInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Envelope"];
+        };
+      };
+      /** @description 商品状态不允许该操作 */
+      409: {
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
+  /** 平台商品模板列表 */
+  listAdminTemplates: {
+    parameters: {
+      query?: {
+        status?: "DRAFT" | "PUBLISHED" | "OFFLINE";
+        page?: components["parameters"]["PageParam"];
+        page_size?: components["parameters"]["PageSizeParam"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ProductTemplatePageEnvelope"];
+        };
+      };
+    };
+  };
+  /** 发布平台商品模板（按范围分发商户） */
+  createAdminTemplate: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProductTemplateInput"];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        content: {
+          "application/json": components["schemas"]["ProductTemplateEnvelope"];
+        };
+      };
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 编辑模板与分发范围 */
+  updateAdminTemplate: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProductTemplateInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ProductTemplateEnvelope"];
+        };
+      };
+      404: components["responses"]["NotFound"];
+    };
+  };
+  /** 手动同步模板到已认领商品 */
+  syncAdminTemplate: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Envelope"];
+        };
+      };
+    };
+  };
+  /** 商户列表（状态/关键词/类目/城市筛选，含状态计数与经营统计） */
+  listAdminMerchants: {
+    parameters: {
+      query?: {
+        status?: "PENDING" | "ACTIVE" | "RESTING" | "BANNED" | "REJECTED";
+        /** @description 商户名称 / 简称 / 编号 / 联系电话 */
+        q?: string;
+        category?: number;
+        city?: string;
+        page?: components["parameters"]["PageParam"];
+        page_size?: components["parameters"]["PageSizeParam"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["AdminMerchantPageEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 创建商户（固定直接营业；必须绑定已注册负责人；幂等键必填） */
+  createAdminMerchant: {
+    parameters: {
+      header: {
+        "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminMerchantCreateInput"];
+      };
+    };
+    responses: {
+      /** @description 幂等键重复提交，返回已创建商户 */
+      200: {
+        content: {
+          "application/json": components["schemas"]["AdminMerchantDetailEnvelope"];
+        };
+      };
+      /** @description 创建成功 */
+      201: {
+        content: {
+          "application/json": components["schemas"]["AdminMerchantDetailEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 商户详情（资质、员工、资金余额、生效佣金率；银行信息仅后四位） */
+  getAdminMerchant: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["AdminMerchantDetailEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  /** 停业/恢复/封禁（原因必填；同状态重复提交幂等返回 changed=false） */
   changeMerchantStatus: {
     parameters: {
       path: {
@@ -2025,7 +3244,7 @@ export interface operations {
       /** @description OK */
       200: {
         content: {
-          "application/json": components["schemas"]["Envelope"];
+          "application/json": components["schemas"]["MerchantStatusResultEnvelope"];
         };
       };
       /** @description 商户状态迁移非法 */
@@ -2106,6 +3325,29 @@ export interface operations {
         };
       };
       403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 仲裁详情（含售后举证与商户处理结果） */
+  getArbitrationDetail: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ArbitrationDetailEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      /** @description 仲裁案不存在 */
+      404: {
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
     };
   };
   /** 仲裁判定（责任方必填，执行退款） */

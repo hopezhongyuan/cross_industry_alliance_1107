@@ -109,6 +109,12 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_MAX_IMAGE_SIZE = int(os.getenv("MEDIA_MAX_IMAGE_SIZE", str(10 * 1024 * 1024)))
+MEDIA_MAX_VIDEO_SIZE = int(os.getenv("MEDIA_MAX_VIDEO_SIZE", str(100 * 1024 * 1024)))
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {

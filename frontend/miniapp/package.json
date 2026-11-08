@@ -13,6 +13,7 @@
     "dev:h5": "taro build --type h5 --watch",
     "build:weapp": "taro build --type weapp",
     "build:h5": "taro build --type h5",
+    "typecheck": "tsc --noEmit",
     "gen:api": "openapi-typescript ../../contracts/p0-api.yaml -o ../shared/schema.d.ts"
   },
   "browserslist": [

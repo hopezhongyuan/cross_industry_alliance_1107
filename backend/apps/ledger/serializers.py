@@ -31,8 +31,14 @@ class WithdrawalSerializer(serializers.ModelSerializer):
 
 class PayoutInputSerializer(serializers.Serializer):
     voucher_no = serializers.CharField(max_length=64)
-    voucher_url = serializers.URLField(max_length=200)
+    voucher_url = serializers.CharField(max_length=300, required=False, allow_blank=True, default="")
     paid_at = serializers.DateTimeField()
+
+    def validate_voucher_url(self, value):
+        from apps.governance.media_services import ensure_media_url
+        from apps.governance.models import MediaAsset
+
+        return ensure_media_url(value, kinds=(MediaAsset.Kind.IMAGE,))
 
 
 class RejectInputSerializer(serializers.Serializer):

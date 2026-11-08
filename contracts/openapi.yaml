@@ -176,6 +176,28 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/admin/arbitrations/{id}/:
+    get:
+      operationId: v1_admin_arbitrations_retrieve_2
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/admin/arbitrations/{id}/rule/:
     post:
       operationId: v1_admin_arbitrations_rule_create
@@ -210,12 +232,393 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/admin/audits/:
+    get:
+      operationId: listAudits
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/audits/{id}/decision/:
+    post:
+      operationId: decideAudit
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditDecisionInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AuditDecisionInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AuditDecisionInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/categories/:
+    get:
+      operationId: listAdminCategories
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    post:
+      operationId: createAdminCategory
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/categories/{id}/:
+    put:
+      operationId: updateAdminCategory
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminCategoryInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/admin/logs/:
     get:
       operationId: v1_admin_logs_retrieve
       description: 使用统一响应包裹的 APIView。
       tags:
       - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/media-assets/:
+    get:
+      operationId: listMediaAssets
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    post:
+      operationId: uploadMediaAsset
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediaAssetUploadRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MediaAssetUploadRequest'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaAssetUploadRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/media-assets/{id}/:
+    delete:
+      operationId: deleteMediaAsset
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/admin/media-folders/:
+    get:
+      operationId: listMediaFolders
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    post:
+      operationId: createMediaFolder
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaFolderInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MediaFolderInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediaFolderInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/media-folders/{id}/:
+    put:
+      operationId: updateMediaFolder
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaFolderInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MediaFolderInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MediaFolderInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    delete:
+      operationId: deleteMediaFolder
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/admin/merchants/:
+    get:
+      operationId: listAdminMerchants
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    post:
+      operationId: createAdminMerchant
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminMerchantCreateInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminMerchantCreateInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminMerchantCreateInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/merchants/{id}/:
+    get:
+      operationId: getAdminMerchant
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/merchants/{id}/status/:
+    post:
+      operationId: changeMerchantStatus
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MerchantStatusInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MerchantStatusInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MerchantStatusInputRequest'
+        required: true
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -320,6 +723,221 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PaymentConfigInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/product-templates/:
+    get:
+      operationId: listAdminTemplates
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    post:
+      operationId: createAdminTemplate
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminTemplateInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminTemplateInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminTemplateInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/product-templates/{id}/:
+    put:
+      operationId: updateAdminTemplate
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminTemplateInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminTemplateInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminTemplateInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/product-templates/{id}/sync/:
+    post:
+      operationId: syncAdminTemplate
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplateSyncInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TemplateSyncInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TemplateSyncInputRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/products/:
+    get:
+      operationId: listAdminProducts
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/products/{id}/:
+    get:
+      operationId: getAdminProduct
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    put:
+      operationId: updateAdminProduct
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MerchantProductInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MerchantProductInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MerchantProductInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/products/{id}/status/:
+    post:
+      operationId: setAdminProductStatus
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminProductStatusInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminProductStatusInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminProductStatusInputRequest'
         required: true
       security:
       - jwtAuth: []
@@ -991,6 +1609,281 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/merchant/product-categories/:
+    get:
+      operationId: listMerchantProductCategories
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - merchant
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    post:
+      operationId: createMerchantProductCategory
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - merchant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MerchantProductCategoryInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MerchantProductCategoryInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MerchantProductCategoryInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/merchant/product-categories/{id}/:
+    put:
+      operationId: updateMerchantProductCategory
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - merchant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MerchantProductCategoryInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MerchantProductCategoryInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MerchantProductCategoryInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    delete:
+      operationId: deleteMerchantProductCategory
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - merchant
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/merchant/product-templates/:
+    get:
+      operationId: listMerchantTemplates
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - merchant
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/merchant/product-templates/{id}/adopt/:
+    post:
+      operationId: adoptMerchantTemplate
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - merchant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MerchantTemplateAdoptInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MerchantTemplateAdoptInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MerchantTemplateAdoptInputRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/merchant/products/:
+    get:
+      operationId: listMerchantProducts
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - merchant
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    post:
+      operationId: createMerchantProduct
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - merchant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MerchantProductInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MerchantProductInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MerchantProductInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/merchant/products/{id}/:
+    get:
+      operationId: getMerchantProduct
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - merchant
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    put:
+      operationId: updateMerchantProduct
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - merchant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MerchantProductInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MerchantProductInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MerchantProductInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/merchant/products/{id}/status/:
+    post:
+      operationId: setMerchantProductSaleStatus
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - merchant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MerchantProductStatusInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MerchantProductStatusInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MerchantProductStatusInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/merchant/statements/:
     get:
       operationId: v1_merchant_statements_retrieve
@@ -1066,7 +1959,6 @@ paths:
   /api/v1/merchants/:
     get:
       operationId: v1_merchants_list
-      description: 消费者端门店浏览：只暴露营业中的商户。
       parameters:
       - in: query
         name: category
@@ -1112,7 +2004,6 @@ paths:
   /api/v1/merchants/{id}/:
     get:
       operationId: v1_merchants_retrieve
-      description: 消费者端门店浏览：只暴露营业中的商户。
       parameters:
       - in: path
         name: id
@@ -1467,21 +2358,280 @@ paths:
               schema:
                 $ref: '#/components/schemas/Product'
           description: ''
+  /api/v1/stores/{id}/:
+    get:
+      operationId: v1_stores_retrieve
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - consumer
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/stores/nearby/:
+    get:
+      operationId: v1_stores_nearby_retrieve
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - consumer
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
 components:
   schemas:
-    ActionEnum:
+    AdminCategoryInputRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        parent_id:
+          type: integer
+          nullable: true
+        icon_url:
+          type: string
+          default: ''
+          maxLength: 300
+        sort:
+          type: integer
+          default: 0
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status12eEnum'
+          default: ENABLED
+      required:
+      - name
+    AdminMerchantCreateInputRequest:
+      type: object
+      description: 平台创建商户：固定直接营业，必须绑定已有负责人。
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        short_name:
+          type: string
+          default: ''
+          maxLength: 40
+        category_id:
+          type: integer
+        contact_phone:
+          type: string
+          minLength: 1
+          maxLength: 20
+        province:
+          type: string
+          default: ''
+          maxLength: 32
+        city:
+          type: string
+          minLength: 1
+          maxLength: 32
+        district:
+          type: string
+          minLength: 1
+          maxLength: 32
+        address:
+          type: string
+          minLength: 1
+          maxLength: 200
+        lng:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        lat:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+          nullable: true
+        business_hours: {}
+        commission_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,4})?$
+          nullable: true
+        settlement_cycle_days:
+          type: integer
+          maximum: 360
+          minimum: 1
+          default: 7
+        bank_info: {}
+        qualifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminMerchantQualificationInputRequest'
+        owner_phone:
+          type: string
+          minLength: 1
+          maxLength: 20
+      required:
+      - address
+      - category_id
+      - city
+      - contact_phone
+      - district
+      - name
+      - owner_phone
+    AdminMerchantQualificationInputRequest:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/AdminMerchantQualificationInputTypeEnum'
+        file_url:
+          type: string
+          minLength: 1
+          maxLength: 300
+        expire_at:
+          type: string
+          format: date
+          nullable: true
+      required:
+      - file_url
+      - type
+    AdminMerchantQualificationInputTypeEnum:
       enum:
-      - FREEZE
-      - UNFREEZE
+      - BUSINESS_LICENSE
+      - FOOD_PERMIT
+      - HEALTH_PERMIT
+      - OTHER
       type: string
       description: |-
-        * `FREEZE` - FREEZE
-        * `UNFREEZE` - UNFREEZE
+        * `BUSINESS_LICENSE` - 营业执照
+        * `FOOD_PERMIT` - 食品经营许可
+        * `HEALTH_PERMIT` - 卫生许可
+        * `OTHER` - 其他
+    AdminProductStatusInputActionEnum:
+      enum:
+      - FORCE_OFF
+      - RESTORE
+      type: string
+      description: |-
+        * `FORCE_OFF` - FORCE_OFF
+        * `RESTORE` - RESTORE
+    AdminProductStatusInputRequest:
+      type: object
+      properties:
+        action:
+          $ref: '#/components/schemas/AdminProductStatusInputActionEnum'
+        reason:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - action
+    AdminTemplateInputRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        subtitle:
+          type: string
+          default: ''
+          maxLength: 200
+        type:
+          $ref: '#/components/schemas/ProductTypeEnum'
+        category_id:
+          type: integer
+        cover_url:
+          type: string
+          default: ''
+          maxLength: 300
+        images:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 300
+        description:
+          type: string
+          default: ''
+        price_amount:
+          type: integer
+          minimum: 1
+        original_price_amount:
+          type: integer
+          minimum: 0
+          default: 0
+        verify_days:
+          type: integer
+          maximum: 3650
+          minimum: 1
+          default: 30
+        appointment_required:
+          type: boolean
+          default: false
+        delivery_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryTypesEnum'
+          minItems: 1
+        skus:
+          type: array
+          items:
+            $ref: '#/components/schemas/MerchantProductSkuInputRequest'
+        status:
+          allOf:
+          - $ref: '#/components/schemas/AdminTemplateInputStatusEnum'
+          default: DRAFT
+        scope:
+          allOf:
+          - $ref: '#/components/schemas/ScopeEnum'
+          default: NONE
+        merchant_ids:
+          type: array
+          items:
+            type: integer
+      required:
+      - category_id
+      - delivery_types
+      - price_amount
+      - skus
+      - title
+      - type
+    AdminTemplateInputStatusEnum:
+      enum:
+      - DRAFT
+      - PUBLISHED
+      - OFFLINE
+      type: string
+      description: |-
+        * `DRAFT` - 草稿
+        * `PUBLISHED` - 已发布
+        * `OFFLINE` - 已下线
+    AfterSaleDecisionDecisionEnum:
+      enum:
+      - AGREE
+      - REJECT
+      type: string
+      description: |-
+        * `AGREE` - AGREE
+        * `REJECT` - REJECT
     AfterSaleDecisionRequest:
       type: object
       properties:
         decision:
-          $ref: '#/components/schemas/DecisionEnum'
+          $ref: '#/components/schemas/AfterSaleDecisionDecisionEnum'
         approved_amount:
           type: integer
           minimum: 1
@@ -1703,6 +2853,25 @@ components:
       required:
       - liability
       - ruling
+    AuditDecisionInputDecisionEnum:
+      enum:
+      - APPROVE
+      - REJECT
+      type: string
+      description: |-
+        * `APPROVE` - APPROVE
+        * `REJECT` - REJECT
+    AuditDecisionInputRequest:
+      type: object
+      properties:
+        decision:
+          $ref: '#/components/schemas/AuditDecisionInputDecisionEnum'
+        reason:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - decision
     CallbackAck:
       type: object
       properties:
@@ -1813,14 +2982,18 @@ components:
       required:
       - name
       - phone
-    DecisionEnum:
+    DeliveryTypesEnum:
       enum:
-      - AGREE
-      - REJECT
+      - EXPRESS
+      - PICKUP
+      - VERIFY
+      - APPOINTMENT
       type: string
       description: |-
-        * `AGREE` - AGREE
-        * `REJECT` - REJECT
+        * `EXPRESS` - 快递配送
+        * `PICKUP` - 到店自提
+        * `VERIFY` - 到店核销
+        * `APPOINTMENT` - 预约服务
     EnvelopeResponse:
       type: object
       description: 仅用于 OpenAPI 快照描述统一响应结构。
@@ -1837,11 +3010,19 @@ components:
       - code
       - message
       - trace_id
+    FreezeInputActionEnum:
+      enum:
+      - FREEZE
+      - UNFREEZE
+      type: string
+      description: |-
+        * `FREEZE` - FREEZE
+        * `UNFREEZE` - UNFREEZE
     FreezeInputRequest:
       type: object
       properties:
         action:
-          $ref: '#/components/schemas/ActionEnum'
+          $ref: '#/components/schemas/FreezeInputActionEnum'
         reason:
           type: string
           minLength: 1
@@ -1961,6 +3142,33 @@ components:
       - nickname
       - phone
       - status
+    MediaAssetUploadRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+        folder_id:
+          type: integer
+          nullable: true
+        name:
+          type: string
+          default: ''
+          maxLength: 120
+      required:
+      - file
+    MediaFolderInputRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        sort:
+          type: integer
+          default: 0
+      required:
+      - name
     Merchant:
       type: object
       properties:
@@ -2041,6 +3249,125 @@ components:
       - id
       - merchant_no
       - name
+    MerchantProductCategoryInputRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+        sort:
+          type: integer
+          default: 0
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status12eEnum'
+          default: ENABLED
+      required:
+      - name
+    MerchantProductInputRequest:
+      type: object
+      description: 商户发布/编辑商品：提交即进入审核，支持多 SKU。
+      properties:
+        category_id:
+          type: integer
+        merchant_category_id:
+          type: integer
+          nullable: true
+        product_code:
+          type: string
+          default: ''
+          maxLength: 64
+        type:
+          $ref: '#/components/schemas/ProductTypeEnum'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        subtitle:
+          type: string
+          default: ''
+          maxLength: 200
+        cover_url:
+          type: string
+          default: ''
+          maxLength: 300
+        images:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 300
+        description:
+          type: string
+          default: ''
+        price_amount:
+          type: integer
+          minimum: 1
+        original_price_amount:
+          type: integer
+          minimum: 0
+          default: 0
+        verify_days:
+          type: integer
+          maximum: 3650
+          minimum: 1
+          default: 30
+        appointment_required:
+          type: boolean
+          default: false
+        delivery_types:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryTypesEnum'
+          minItems: 1
+        skus:
+          type: array
+          items:
+            $ref: '#/components/schemas/MerchantProductSkuInputRequest'
+        version:
+          type: integer
+          minimum: 0
+      required:
+      - category_id
+      - delivery_types
+      - price_amount
+      - skus
+      - title
+      - type
+    MerchantProductSkuInputRequest:
+      type: object
+      properties:
+        sku_code:
+          type: string
+          minLength: 1
+          maxLength: 40
+        spec: {}
+        price_amount:
+          type: integer
+          minimum: 1
+        stock:
+          type: integer
+          minimum: 0
+          default: 0
+      required:
+      - price_amount
+      - sku_code
+    MerchantProductStatusInputRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/MerchantProductStatusInputStatusEnum'
+      required:
+      - status
+    MerchantProductStatusInputStatusEnum:
+      enum:
+      - ON_SALE
+      - OFF_SALE
+      type: string
+      description: |-
+        * `ON_SALE` - ON_SALE
+        * `OFF_SALE` - OFF_SALE
     MerchantRejectRequest:
       type: object
       properties:
@@ -2067,16 +3394,44 @@ components:
       enum:
       - PENDING
       - ACTIVE
+      - RESTING
+      - BANNED
       - REJECTED
-      - SUSPENDED
-      - CLOSED
       type: string
       description: |-
         * `PENDING` - 待审核
         * `ACTIVE` - 营业中
+        * `RESTING` - 停业
+        * `BANNED` - 已封禁
         * `REJECTED` - 审核驳回
-        * `SUSPENDED` - 已冻结
-        * `CLOSED` - 已关店
+    MerchantStatusInputRequest:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/MerchantStatusInputStatusEnum'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 200
+      required:
+      - reason
+      - status
+    MerchantStatusInputStatusEnum:
+      enum:
+      - ACTIVE
+      - RESTING
+      - BANNED
+      type: string
+      description: |-
+        * `ACTIVE` - ACTIVE
+        * `RESTING` - RESTING
+        * `BANNED` - BANNED
+    MerchantTemplateAdoptInputRequest:
+      type: object
+      properties:
+        listed:
+          type: boolean
+          default: true
     OperatorTypeEnum:
       enum:
       - USER
@@ -2780,16 +4135,14 @@ components:
           maxLength: 64
         voucher_url:
           type: string
-          format: uri
-          minLength: 1
-          maxLength: 200
+          default: ''
+          maxLength: 300
         paid_at:
           type: string
           format: date-time
       required:
       - paid_at
       - voucher_no
-      - voucher_url
     Product:
       type: object
       properties:
@@ -2803,6 +4156,14 @@ components:
         merchant_name:
           type: string
           readOnly: true
+        merchant_address:
+          type: string
+          readOnly: true
+          default: ''
+        merchant_phone:
+          type: string
+          readOnly: true
+          default: ''
         category_id:
           type: integer
           nullable: true
@@ -2863,13 +4224,23 @@ components:
           items:
             $ref: '#/components/schemas/ProductSku'
           readOnly: true
+        slots:
+          type: string
+          readOnly: true
+        refund_policy:
+          type: string
+          readOnly: true
       required:
       - category_id
       - category_name
       - id
+      - merchant_address
       - merchant_id
       - merchant_name
+      - merchant_phone
+      - refund_policy
       - skus
+      - slots
       - title
       - type
       - type_label
@@ -2946,14 +4317,14 @@ components:
     ProductStatusEnum:
       enum:
       - DRAFT
-      - PENDING
+      - PENDING_AUDIT
       - ON_SALE
       - OFF_SALE
       - REJECTED
       type: string
       description: |-
         * `DRAFT` - 草稿
-        * `PENDING` - 待审核
+        * `PENDING_AUDIT` - 待审核
         * `ON_SALE` - 在售
         * `OFF_SALE` - 已下架
         * `REJECTED` - 审核驳回
@@ -3015,6 +4386,16 @@ components:
       description: |-
         * `LOGIN` - LOGIN
         * `ORDER_NOTICE` - ORDER_NOTICE
+    ScopeEnum:
+      enum:
+      - NONE
+      - ALL
+      - SELECTED
+      type: string
+      description: |-
+        * `NONE` - 不关联商户
+        * `ALL` - 所有商户
+        * `SELECTED` - 指定商户
     SettlementBatchRequest:
       type: object
       properties:
@@ -3104,6 +4485,21 @@ components:
           default: LOGIN
       required:
       - phone
+    Status12eEnum:
+      enum:
+      - ENABLED
+      - DISABLED
+      type: string
+      description: |-
+        * `ENABLED` - 启用
+        * `DISABLED` - 停用
+    TemplateSyncInputRequest:
+      type: object
+      properties:
+        merchant_ids:
+          type: array
+          items:
+            type: integer
     TokenObtainPair:
       type: object
       properties:

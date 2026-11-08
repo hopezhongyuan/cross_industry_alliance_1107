@@ -1,16 +1,22 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { api, ApiError, type Page, type WithdrawalRow } from '../api'
+import ModalShell from '../components/ModalShell.vue'
+import MediaPicker from '../components/MediaPicker.vue'
+import { formatDateTime, formatMoney } from '../format'
 
+const route = useRoute()
+const router = useRouter()
 const rows = ref<WithdrawalRow[]>([])
 const page = ref<Page>({ page: 1, page_size: 20, total: 0, has_more: false })
-const status = ref('')
+const status = ref(String(route.query.status ?? ''))
 const loading = ref(false)
 const error = ref('')
 const paying = ref<WithdrawalRow | null>(null)
 const rejecting = ref<WithdrawalRow | null>(null)
 const voucherNo = ref('')
-const voucherUrl = ref('https://example.com/voucher.png')
+const voucherUrl = ref('')
 const paidAt = ref(new Date().toISOString())
 const rejectReason = ref('')
 const submitting = ref(false)
@@ -18,6 +24,12 @@ const submitting = ref(false)
 async function load(target = 1) {
   loading.value = true
   error.value = ''
+  router.replace({
+    query: {
+      ...(status.value ? { status: status.value } : {}),
+      ...(target > 1 ? { page: String(target) } : {}),
+    },
+  })
   try {
     const result = await api.withdrawals({ status: status.value, page: target, page_size: 20 })
     rows.value = result.items
@@ -69,7 +81,7 @@ async function submitReject() {
   }
 }
 
-onMounted(() => load())
+onMounted(() => load(Number(route.query.page ?? 1)))
 </script>
 
 <template>
@@ -86,7 +98,7 @@ onMounted(() => load())
     </label>
     <button class="primary" :disabled="loading" @click="load()">查询</button>
   </div>
-  <div v-if="error" class="error">{{ error }}</div>
+  <div v-if="error" class="error" role="alert">{{ error }}</div>
   <div class="card" style="padding: 0">
     <table>
       <thead>
@@ -105,10 +117,10 @@ onMounted(() => load())
         <tr v-for="row in rows" :key="row.id">
           <td>{{ row.withdrawal_no }}</td>
           <td>#{{ row.merchant_id }}</td>
-          <td>{{ (row.amount / 100).toFixed(2) }}</td>
-          <td>{{ (row.net_amount / 100).toFixed(2) }}</td>
+          <td class="money">{{ formatMoney(row.amount) }}</td>
+          <td class="money">{{ formatMoney(row.net_amount) }}</td>
           <td><span class="tag" :class="{ ok: row.status === 'PAID', danger: row.status === 'REJECTED' }">{{ row.status }}</span></td>
-          <td>{{ row.requested_at ?? '-' }}</td>
+          <td>{{ formatDateTime(row.requested_at) }}</td>
           <td>{{ row.voucher_no || '-' }}</td>
           <td>
             <button
@@ -138,27 +150,23 @@ onMounted(() => load())
     <button class="text" :disabled="!page.has_more" @click="load(page.page + 1)">下一页</button>
   </div>
 
-  <div v-if="paying" class="modal-mask" @click.self="paying = null">
-    <div class="modal">
-      <h2>确认打款 · {{ paying.withdrawal_no }}</h2>
-      <label class="field"><span>银行回单号</span><input v-model="voucherNo" placeholder="必填" /></label>
-      <label class="field"><span>回单地址</span><input v-model="voucherUrl" /></label>
-      <label class="field"><span>打款时间</span><input v-model="paidAt" /></label>
-      <div class="toolbar" style="margin: 0">
-        <button class="primary" :disabled="submitting || !voucherNo.trim()" @click="submitPayout">确认打款</button>
-        <button class="text" @click="paying = null">取消</button>
-      </div>
+  <ModalShell v-if="paying" :title="`确认打款 · ${paying.withdrawal_no}`" @close="paying = null">
+    <h2>确认打款 · {{ paying.withdrawal_no }}</h2>
+    <label class="field"><span>银行回单号</span><input v-model="voucherNo" name="voucher_no" autocomplete="off" placeholder="请输入银行回单号…" /></label>
+    <div class="field"><span>回单图片</span><MediaPicker v-model="voucherUrl" kind="IMAGE" /></div>
+    <label class="field"><span>打款时间</span><input v-model="paidAt" name="paid_at" autocomplete="off" placeholder="YYYY-MM-DD HH:mm…" /></label>
+    <div class="toolbar" style="margin: 0">
+      <button class="primary" :disabled="submitting || !voucherNo.trim()" @click="submitPayout">确认打款</button>
+      <button class="text" @click="paying = null">取消</button>
     </div>
-  </div>
+  </ModalShell>
 
-  <div v-if="rejecting" class="modal-mask" @click.self="rejecting = null">
-    <div class="modal">
-      <h2>驳回提现 · {{ rejecting.withdrawal_no }}</h2>
-      <label class="field"><span>驳回原因</span><textarea v-model="rejectReason" rows="3" placeholder="必填" /></label>
-      <div class="toolbar" style="margin: 0">
-        <button class="primary" :disabled="submitting || !rejectReason.trim()" @click="submitReject">确认驳回</button>
-        <button class="text" @click="rejecting = null">取消</button>
-      </div>
+  <ModalShell v-if="rejecting" :title="`驳回提现 · ${rejecting.withdrawal_no}`" @close="rejecting = null">
+    <h2>驳回提现 · {{ rejecting.withdrawal_no }}</h2>
+    <label class="field"><span>驳回原因</span><textarea v-model="rejectReason" rows="3" placeholder="请填写驳回原因…" /></label>
+    <div class="toolbar" style="margin: 0">
+      <button class="primary" :disabled="submitting || !rejectReason.trim()" @click="submitReject">确认驳回</button>
+      <button class="text" @click="rejecting = null">取消</button>
     </div>
-  </div>
+  </ModalShell>
 </template>

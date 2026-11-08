@@ -9,6 +9,7 @@ from apps.governance.services import require_platform_admin
 
 from .models import AfterSale, ArbitrationCase
 from .serializers import (
+    AdminArbitrationDetailSerializer,
     AfterSaleDecisionSerializer,
     AfterSaleInputSerializer,
     AfterSaleSerializer,
@@ -66,6 +67,23 @@ class AdminArbitrationListView(EnvelopeAPIView):
                 raise ApiError("VALIDATION_ERROR", "status 取值非法", 422)
             queryset = queryset.filter(status=status)
         return ok(request, paginated(request, queryset, ArbitrationCaseSerializer))
+
+
+@extend_schema(tags=["admin"], responses=EnvelopeResponse)
+class AdminArbitrationDetailView(EnvelopeAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AdminArbitrationDetailSerializer
+
+    def get(self, request, pk):
+        require_platform_admin(request.user)
+        case = (
+            ArbitrationCase.objects.select_related("after_sale", "after_sale__merchant", "after_sale__user")
+            .filter(pk=pk)
+            .first()
+        )
+        if case is None:
+            raise ApiError("NOT_FOUND", "仲裁案不存在", 404)
+        return ok(request, AdminArbitrationDetailSerializer(case).data)
 
 
 @extend_schema(tags=["admin"], request=ArbitrationRuleInputSerializer, responses=EnvelopeResponse)

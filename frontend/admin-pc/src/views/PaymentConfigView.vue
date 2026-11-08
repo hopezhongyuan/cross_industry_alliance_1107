@@ -50,9 +50,13 @@ async function load() {
 }
 
 async function save() {
-  saving.value = true
   error.value = ''
   message.value = ''
+  if (!form.value.merchant_no || !form.value.api_v3_key || !form.value.private_key || !form.value.platform_cert) {
+    error.value = '请填写商户号、APIv3 密钥、商户私钥与平台证书'
+    return
+  }
+  saving.value = true
   try {
     await api.savePaymentConfig(channel.value, { ...form.value })
     await load()
@@ -78,19 +82,19 @@ onMounted(load)
       </select>
     </label>
   </div>
-  <div v-if="error" class="error">{{ error }}</div>
+  <div v-if="error" class="error" role="alert">{{ error }}</div>
   <div v-if="message" class="tag ok" style="display: inline-block; margin-bottom: 12px">{{ message }}</div>
 
   <div class="card" style="max-width: 720px; display: flex; flex-direction: column; gap: 14px">
     <div class="grid">
-      <label class="field"><span>商户号</span><input v-model="form.merchant_no" /></label>
-      <label class="field"><span>AppID</span><input v-model="form.app_id" /></label>
-      <label class="field"><span>证书序列号</span><input v-model="form.cert_serial_no" /></label>
-      <label class="field"><span>回调地址</span><input v-model="form.notify_url" /></label>
+      <label class="field"><span>商户号</span><input v-model="form.merchant_no" name="merchant_no" autocomplete="off" placeholder="请输入商户号…" /></label>
+      <label class="field"><span>AppID</span><input v-model="form.app_id" name="app_id" autocomplete="off" placeholder="请输入 AppID…" /></label>
+      <label class="field"><span>证书序列号</span><input v-model="form.cert_serial_no" name="cert_serial_no" autocomplete="off" placeholder="请输入证书序列号…" /></label>
+      <label class="field"><span>回调地址</span><input v-model="form.notify_url" name="notify_url" type="url" autocomplete="off" placeholder="https://…" /></label>
     </div>
     <label class="field">
       <span>APIv3 密钥（保存时必填，读取不回传）</span>
-      <input v-model="form.api_v3_key" type="password" placeholder="32 位" />
+      <input v-model="form.api_v3_key" name="api_v3_key" type="password" autocomplete="off" placeholder="请输入 32 位密钥…" />
     </label>
     <label class="field">
       <span>商户私钥 PEM（保存时必填）</span>
@@ -105,7 +109,7 @@ onMounted(load)
       <span>启用该渠道</span>
     </label>
     <div class="toolbar" style="margin: 0">
-      <button class="primary" :disabled="saving || !form.merchant_no || !form.api_v3_key || !form.private_key || !form.platform_cert" @click="save">
+      <button class="primary" :disabled="saving" @click="save">
         {{ saving ? '保存中…' : '保存配置' }}
       </button>
     </div>

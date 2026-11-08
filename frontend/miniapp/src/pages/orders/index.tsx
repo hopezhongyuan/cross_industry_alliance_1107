@@ -1,8 +1,8 @@
 import { useLoad } from '@tarojs/taro'
-import Taro from '@tarojs/taro'
-import { View, Text } from '@tarojs/components'
+import { View, Text, Navigator } from '@tarojs/components'
 import { useState } from 'react'
 import { api, ApiError, type OrderRow } from '../../api'
+import { formatDateTime, formatMoney } from '../../format'
 
 const statusLabel: Record<string, string> = {
   PENDING_PAYMENT: '待支付',
@@ -38,22 +38,18 @@ export default function Orders() {
   return (
     <View className="page">
       <View className="title">我的订单</View>
-      {error && <View className="muted">{error}</View>}
+      {error && <View className="muted" aria-live="polite">{error}</View>}
       {items.map((order) => (
-        <View
-          key={order.id}
-          className="card"
-          onClick={() => Taro.navigateTo({ url: `/pages/order-detail/index?id=${order.id}` })}
-        >
+        <Navigator key={order.id} url={`/pages/order-detail/index?id=${order.id}`} className="card">
           <View className="row">
             <Text>{order.order_no}</Text>
             <Text className="tag">{statusLabel[order.status] ?? order.status}</Text>
           </View>
           <View className="row">
-            <Text className="muted">{order.created_at}</Text>
-            <Text className="price">¥{(order.payable_amount / 100).toFixed(2)}</Text>
+            <Text className="muted">{formatDateTime(order.created_at)}</Text>
+            <Text className="price">{formatMoney(order.payable_amount)}</Text>
           </View>
-        </View>
+        </Navigator>
       ))}
       {!loading && !items.length && <View className="muted">暂无订单</View>}
     </View>
