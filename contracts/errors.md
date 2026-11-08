@@ -51,8 +51,10 @@
 | `WECHAT_PAY_NOT_CONFIGURED` | 503 | 真实微信支付未接入 | 支付适配层 |
 | `WECHAT_REFUND_NOT_CONFIGURED` | 503 | 真实微信退款未接入 | 退款适配层 |
 | `AFTER_SALE_ALREADY_EXISTS` | 409 | 订单已有进行中的售后 | 售后退款 |
-| `SETTLEMENT_ALREADY_SETTLED` | 409 | 已结算订单退款暂不支持 | 售后退款 |
 | `ARBITRATION_STATE_CONFLICT` | 409 | 仲裁案已裁定或售后单不在仲裁中 | 仲裁服务 |
+| `SETTLEMENT_STATE_CONFLICT` | 409 | 结算项状态不允许冻结/解冻 | 资金服务 |
+| `SETTLEMENT_BATCH_CLOSED` | 409 | 结算批次已关闭 | 结算服务 |
+| `WITHDRAWAL_STATE_CONFLICT` | 409 | 提现单状态不允许打款/驳回 | 提现服务 |
 | `PRODUCT_NOT_AVAILABLE` | 409 | 商品不存在或已下架 | 购物车/下单 |
 | `MERCHANT_NOT_AVAILABLE` | 409 | 商户不存在或未营业 | 下单 |
 | `MERCHANT_MISMATCH` | 409 | 商品不属于订单商户 | 下单 |

@@ -705,6 +705,20 @@ components:
         refund_amount: { type: integer }
         net_amount: { type: integer }
         status: { type: string, enum: [PENDING, FROZEN, SETTLED, CANCELLED] }
+    AccountSummary:
+      type: object
+      properties:
+        merchant_id: { type: integer, format: int64 }
+        pending_balance: { type: integer }
+        frozen_balance: { type: integer }
+        available_balance: { type: integer }
+        withdrawing_balance: { type: integer }
+    AccountSummaryEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/AccountSummary' }
     StatementPageEnvelope:
       allOf:
         - $ref: '#/components/schemas/Envelope'
@@ -1751,7 +1765,7 @@ paths:
       tags: [merchant]
       operationId: createWithdrawal
       summary: 申请提现（余额校验，可提现转提现中）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -1776,7 +1790,7 @@ paths:
       tags: [merchant]
       operationId: listStatements
       summary: 账单与流水（按周期，仅本商户）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: status
@@ -1796,6 +1810,20 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/StatementPageEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/merchant/account/:
+    get:
+      tags: [merchant]
+      operationId: getMerchantAccount
+      summary: 虚拟账户余额（待结算/冻结/可提现/提现中）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountSummaryEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /api/v1/admin/audits/:
     get:
@@ -1914,7 +1942,7 @@ paths:
       tags: [admin]
       operationId: freezeOrderSettlement
       summary: 冻结结算（只冻结资金，不影响履约）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: id
@@ -1972,7 +2000,7 @@ paths:
       tags: [admin]
       operationId: publishRuleVersion
       summary: 发布规则版本（版本化，影响新订单）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -1991,7 +2019,7 @@ paths:
       tags: [admin]
       operationId: publishSettlementBatch
       summary: 发布结算批次（借贷记账，幂等）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: batch_id
@@ -2015,7 +2043,7 @@ paths:
       tags: [admin]
       operationId: listSettlementBatches
       summary: 结算批次列表
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: status
@@ -2035,7 +2063,7 @@ paths:
       tags: [admin]
       operationId: payoutWithdrawal
       summary: 确认线下打款（回填凭证，幂等）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: id
@@ -2064,7 +2092,7 @@ paths:
       tags: [admin]
       operationId: rejectWithdrawal
       summary: 驳回提现（退回可提现）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: id
@@ -2093,7 +2121,7 @@ paths:
       tags: [admin]
       operationId: getReconciliation
       summary: 对账结果（差异与处理状态）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: date
@@ -2117,7 +2145,7 @@ paths:
       tags: [admin]
       operationId: listOperationLogs
       summary: 操作日志（按类型/操作人/对象筛选）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: biz_type
@@ -2143,7 +2171,7 @@ paths:
       tags: [admin]
       operationId: getPaymentConfig
       summary: 读取平台支付配置（密钥脱敏）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: channel
@@ -2161,7 +2189,7 @@ paths:
       tags: [admin]
       operationId: updatePaymentConfig
       summary: 配置商户号、APIv3 密钥与证书（加密存储）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: channel

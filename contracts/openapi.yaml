@@ -194,6 +194,273 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/admin/logs/:
+    get:
+      operationId: v1_admin_logs_retrieve
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/orders/{id}/freeze/:
+    post:
+      operationId: v1_admin_orders_freeze_create
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FreezeInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FreezeInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FreezeInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/payment-configs/{channel}/:
+    get:
+      operationId: v1_admin_payment_configs_retrieve
+      description: 平台支付配置读写：读取不含密钥，写入加密存储。
+      parameters:
+      - in: path
+        name: channel
+        schema:
+          type: string
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    put:
+      operationId: v1_admin_payment_configs_update
+      description: 平台支付配置读写：读取不含密钥，写入加密存储。
+      parameters:
+      - in: path
+        name: channel
+        schema:
+          type: string
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentConfigInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PaymentConfigInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PaymentConfigInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/reconciliation/:
+    get:
+      operationId: v1_admin_reconciliation_retrieve
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/rules/:
+    put:
+      operationId: v1_admin_rules_update
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RuleVersionInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RuleVersionInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RuleVersionInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/settlements/:
+    get:
+      operationId: v1_admin_settlements_retrieve
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/settlements/{id}/publish/:
+    post:
+      operationId: v1_admin_settlements_publish_create
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettlementBatchRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SettlementBatchRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SettlementBatchRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/withdrawals/{id}/payout/:
+    post:
+      operationId: v1_admin_withdrawals_payout_create
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayoutInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PayoutInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PayoutInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/withdrawals/{id}/reject/:
+    post:
+      operationId: v1_admin_withdrawals_reject_create
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RejectInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RejectInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/after-sales/:
     post:
       operationId: v1_after_sales_create
@@ -509,6 +776,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/Health'
           description: ''
+  /api/v1/merchant/account/:
+    get:
+      operationId: v1_merchant_account_retrieve
+      description: 商户虚拟账户余额概览。
+      tags:
+      - merchant
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/merchant/after-sales/{id}/decision/:
     post:
       operationId: v1_merchant_after_sales_decision_create
@@ -644,6 +927,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/merchant/statements/:
+    get:
+      operationId: v1_merchant_statements_retrieve
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - merchant
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/merchant/verify/:
     post:
       operationId: v1_merchant_verify_create
@@ -661,6 +960,34 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/VerifyInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/merchant/withdrawals/:
+    post:
+      operationId: v1_merchant_withdrawals_create
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - merchant
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithdrawalInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WithdrawalInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WithdrawalInputRequest'
         required: true
       security:
       - jwtAuth: []
@@ -1078,6 +1405,14 @@ paths:
           description: ''
 components:
   schemas:
+    ActionEnum:
+      enum:
+      - FREEZE
+      - UNFREEZE
+      type: string
+      description: |-
+        * `FREEZE` - FREEZE
+        * `UNFREEZE` - UNFREEZE
     AfterSaleDecisionRequest:
       type: object
       properties:
@@ -1438,6 +1773,18 @@ components:
       - code
       - message
       - trace_id
+    FreezeInputRequest:
+      type: object
+      properties:
+        action:
+          $ref: '#/components/schemas/ActionEnum'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 200
+      required:
+      - action
+      - reason
     FulfillmentStatusEnum:
       enum:
       - NOT_STARTED
@@ -2320,6 +2667,65 @@ components:
           allOf:
           - $ref: '#/components/schemas/Channel72aEnum'
           default: WECHAT_MINI
+    PaymentConfigInputRequest:
+      type: object
+      properties:
+        merchant_no:
+          type: string
+          minLength: 1
+          maxLength: 32
+        api_v3_key:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 64
+        private_key:
+          type: string
+          writeOnly: true
+          minLength: 1
+        platform_cert:
+          type: string
+          writeOnly: true
+          minLength: 1
+        app_id:
+          type: string
+          default: ''
+          maxLength: 32
+        cert_serial_no:
+          type: string
+          default: ''
+          maxLength: 64
+        notify_url:
+          type: string
+          format: uri
+          default: ''
+        enabled:
+          type: boolean
+          default: false
+      required:
+      - api_v3_key
+      - merchant_no
+      - platform_cert
+      - private_key
+    PayoutInputRequest:
+      type: object
+      properties:
+        voucher_no:
+          type: string
+          minLength: 1
+          maxLength: 64
+        voucher_url:
+          type: string
+          format: uri
+          minLength: 1
+          maxLength: 200
+        paid_at:
+          type: string
+          format: date-time
+      required:
+      - paid_at
+      - voucher_no
+      - voucher_url
     Product:
       type: object
       properties:
@@ -2495,6 +2901,15 @@ components:
       description: |-
         * `PHYSICAL` - 实物商品
         * `SERVICE` - 到店服务
+    RejectInputRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 200
+      required:
+      - reason
     ReviewInputRequest:
       type: object
       properties:
@@ -2515,6 +2930,19 @@ components:
           maxItems: 6
       required:
       - score
+    RuleVersionInputRequest:
+      type: object
+      properties:
+        snapshot: {}
+        effective_at:
+          type: string
+          format: date-time
+        remark:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - snapshot
     SceneEnum:
       enum:
       - LOGIN
@@ -2523,6 +2951,53 @@ components:
       description: |-
         * `LOGIN` - LOGIN
         * `ORDER_NOTICE` - ORDER_NOTICE
+    SettlementBatchRequest:
+      type: object
+      properties:
+        batch_no:
+          type: string
+          minLength: 1
+          title: 批次号
+          maxLength: 32
+        period_start:
+          type: string
+          format: date
+          title: 周期开始
+        period_end:
+          type: string
+          format: date
+          title: 周期结束
+        status:
+          allOf:
+          - $ref: '#/components/schemas/SettlementBatchStatusEnum'
+          title: 状态
+        total_amount:
+          type: integer
+          title: 结算总额（分）
+        commission_amount:
+          type: integer
+          title: 佣金总额（分）
+        net_amount:
+          type: integer
+          title: 应打款总额（分）
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+          title: 发布时间
+      required:
+      - period_end
+      - period_start
+    SettlementBatchStatusEnum:
+      enum:
+      - PENDING
+      - PUBLISHED
+      - CLOSED
+      type: string
+      description: |-
+        * `PENDING` - 待发布
+        * `PUBLISHED` - 已发布
+        * `CLOSED` - 已关闭
     ShipInputRequest:
       type: object
       properties:
@@ -2745,6 +3220,17 @@ components:
           default: WECHAT_MINI
       required:
       - code
+    WithdrawalInputRequest:
+      type: object
+      properties:
+        amount:
+          type: integer
+          minimum: 1
+        bank_account_id:
+          type: integer
+          nullable: true
+      required:
+      - amount
   securitySchemes:
     cookieAuth:
       type: apiKey

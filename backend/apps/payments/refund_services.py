@@ -3,6 +3,7 @@
 已结算订单的退款（可提现/佣金冲回）留在 M3。
 """
 
+from decimal import ROUND_HALF_UP, Decimal
 from types import SimpleNamespace
 
 from django.db import transaction
@@ -59,8 +60,6 @@ def refund_order(
             raise ApiError("PAYMENT_NOT_FOUND", "支付单不存在", 404)
 
         item = SettlementItem.objects.select_for_update().filter(order=order).first()
-        if item and item.status == SettlementItem.Status.SETTLED:
-            raise ApiError("SETTLEMENT_ALREADY_SETTLED", "已结算订单退款请在 M3 处理", 409)
 
         was_pending_accept = order.status == Order.Status.PENDING_ACCEPT
         if was_pending_accept:
@@ -113,15 +112,46 @@ def refund_order(
             status=RefundOrder.Status.PROCESSING,
         )
         transaction_id = refund_payment(payment, refund.refund_no, amount)
-        debit_account = (
-            AccountType.PLATFORM_COMMISSION_REVENUE if funding == Funding.PLATFORM else AccountType.MERCHANT_PENDING
-        )
-        post_transaction(
-            biz_type="REFUND",
-            biz_id=refund.id,
-            event_type="REFUND_SUCCESS",
-            idempotency_key=f"refund:{refund.refund_no}",
-            entries=[
+        settled_commission_reversal = 0
+        if item and item.status == SettlementItem.Status.SETTLED and funding != Funding.PLATFORM:
+            # 已结算订单：从可提现扣减，佣金按退款金额等比冲回
+            settled_commission_reversal = min(
+                int((Decimal(amount) * Decimal(item.commission_rate)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)),
+                item.commission_amount,
+            )
+            merchant_share = amount - settled_commission_reversal
+            entries = []
+            if merchant_share > 0:
+                entries.append(
+                    {
+                        "account_type": AccountType.MERCHANT_AVAILABLE,
+                        "account_id": order.merchant_id,
+                        "direction": Direction.DEBIT,
+                        "amount": merchant_share,
+                    }
+                )
+            if settled_commission_reversal > 0:
+                entries.append(
+                    {
+                        "account_type": AccountType.PLATFORM_COMMISSION_REVENUE,
+                        "account_id": 0,
+                        "direction": Direction.DEBIT,
+                        "amount": settled_commission_reversal,
+                    }
+                )
+            entries.append(
+                {
+                    "account_type": AccountType.PLATFORM_CASH,
+                    "account_id": 0,
+                    "direction": Direction.CREDIT,
+                    "amount": amount,
+                }
+            )
+        else:
+            debit_account = (
+                AccountType.PLATFORM_COMMISSION_REVENUE if funding == Funding.PLATFORM else AccountType.MERCHANT_PENDING
+            )
+            entries = [
                 {
                     "account_type": debit_account,
                     "account_id": 0 if funding == Funding.PLATFORM else order.merchant_id,
@@ -134,7 +164,13 @@ def refund_order(
                     "direction": Direction.CREDIT,
                     "amount": amount,
                 },
-            ],
+            ]
+        post_transaction(
+            biz_type="REFUND",
+            biz_id=refund.id,
+            event_type="REFUND_SUCCESS",
+            idempotency_key=f"refund:{refund.refund_no}",
+            entries=entries,
         )
         refund.status = RefundOrder.Status.SUCCESS
         refund.transaction_id = transaction_id
@@ -145,13 +181,19 @@ def refund_order(
         order.save(update_fields=["refunded_amount", "updated_at"])
 
         if item and funding != Funding.PLATFORM:
-            item.refund_amount += amount
-            item.net_amount = item.product_amount + item.delivery_fee - item.commission_amount - item.refund_amount
-            if order.refunded_amount >= order.paid_amount:
-                item.status = SettlementItem.Status.CANCELLED
+            if item.status == SettlementItem.Status.SETTLED:
+                item.refund_amount += amount
+                item.commission_amount -= settled_commission_reversal
+                item.net_amount -= amount - settled_commission_reversal
+                item.save(update_fields=["refund_amount", "commission_amount", "net_amount", "updated_at"])
             else:
-                item.status = SettlementItem.Status.PENDING
-            item.save(update_fields=["refund_amount", "net_amount", "status", "updated_at"])
+                item.refund_amount += amount
+                item.net_amount = item.product_amount + item.delivery_fee - item.commission_amount - item.refund_amount
+                if order.refunded_amount >= order.paid_amount:
+                    item.status = SettlementItem.Status.CANCELLED
+                else:
+                    item.status = SettlementItem.Status.PENDING
+                item.save(update_fields=["refund_amount", "net_amount", "status", "updated_at"])
 
         if order.refunded_amount >= payment.amount:
             payment.status = PaymentOrder.Status.REFUNDED

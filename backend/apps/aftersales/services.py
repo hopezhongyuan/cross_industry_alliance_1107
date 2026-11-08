@@ -7,6 +7,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.common.api import ApiError
+from apps.governance.services import require_platform_admin
 from apps.ledger.constants import AccountType, Direction
 from apps.ledger.models import SettlementItem
 from apps.ledger.services import post_transaction
@@ -67,34 +68,31 @@ def apply_after_sale(
         transit_order(order.id, "APPLY_AFTER_SALE", operator_type="USER", operator_id=user.id)
 
         item = SettlementItem.objects.select_for_update().filter(order=order).first()
-        if item:
-            if item.status == SettlementItem.Status.SETTLED:
-                raise ApiError("SETTLEMENT_ALREADY_SETTLED", "已结算订单售后请在 M3 处理", 409)
-            if item.status == SettlementItem.Status.PENDING:
-                lock_amount = order.paid_amount - order.refunded_amount
-                if lock_amount > 0:
-                    post_transaction(
-                        biz_type="FREEZE",
-                        biz_id=after_sale.id,
-                        event_type="AFTER_SALE_FREEZE",
-                        idempotency_key=f"after_sale_freeze:{after_sale.id}",
-                        entries=[
-                            {
-                                "account_type": AccountType.MERCHANT_PENDING,
-                                "account_id": order.merchant_id,
-                                "direction": Direction.DEBIT,
-                                "amount": lock_amount,
-                            },
-                            {
-                                "account_type": AccountType.MERCHANT_FROZEN,
-                                "account_id": order.merchant_id,
-                                "direction": Direction.CREDIT,
-                                "amount": lock_amount,
-                            },
-                        ],
-                    )
-                item.status = SettlementItem.Status.FROZEN
-                item.save(update_fields=["status", "updated_at"])
+        if item and item.status == SettlementItem.Status.PENDING:
+            lock_amount = order.paid_amount - order.refunded_amount
+            if lock_amount > 0:
+                post_transaction(
+                    biz_type="FREEZE",
+                    biz_id=after_sale.id,
+                    event_type="AFTER_SALE_FREEZE",
+                    idempotency_key=f"after_sale_freeze:{after_sale.id}",
+                    entries=[
+                        {
+                            "account_type": AccountType.MERCHANT_PENDING,
+                            "account_id": order.merchant_id,
+                            "direction": Direction.DEBIT,
+                            "amount": lock_amount,
+                        },
+                        {
+                            "account_type": AccountType.MERCHANT_FROZEN,
+                            "account_id": order.merchant_id,
+                            "direction": Direction.CREDIT,
+                            "amount": lock_amount,
+                        },
+                    ],
+                )
+            item.status = SettlementItem.Status.FROZEN
+            item.save(update_fields=["status", "updated_at"])
     return after_sale
 
 
@@ -173,11 +171,6 @@ def decide_after_sale(user, after_sale_id, decision, approved_amount=None, reaso
     return after_sale
 
 
-def _require_platform_admin(user):
-    if not (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)):
-        raise ApiError("PERMISSION_DENIED", "需要平台管理员权限", 403)
-
-
 def escalate_due_after_sales(now=None, limit=200) -> int:
     """扫描商户超时未处理的售后单，转平台仲裁；返回本次转仲裁数量。"""
     now = now or timezone.now()
@@ -216,7 +209,7 @@ def rule_arbitration(admin_user, case_id, liability, refund_amount=0, ruling="")
     资金承担：商户/双方共担由商户待结算承担（双方分摊比例 TBD）；平台责任由平台佣金收入承担；
     用户责任不退款，解冻结算项并恢复订单为已完成。
     """
-    _require_platform_admin(admin_user)
+    require_platform_admin(admin_user)
     if liability == ArbitrationCase.Liability.USER and refund_amount > 0:
         raise ApiError("VALIDATION_ERROR", "用户责任不得同时执行退款", 422)
 

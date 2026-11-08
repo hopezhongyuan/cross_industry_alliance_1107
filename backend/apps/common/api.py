@@ -12,6 +12,7 @@ from rest_framework.exceptions import (
     Throttled,
     ValidationError,
 )
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -78,3 +79,25 @@ class EnvelopeExceptionMixin:
 
 class EnvelopeAPIView(EnvelopeExceptionMixin, APIView):
     """使用统一响应包裹的 APIView。"""
+
+
+class EnvelopePagination(PageNumberPagination):
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+def paginated(request, queryset, serializer_class) -> dict:
+    """按契约 Page 结构返回 {items, page}。"""
+    paginator = EnvelopePagination()
+    page = paginator.paginate_queryset(queryset, request)
+    items = page if page is not None else list(queryset)
+    payload = {
+        "items": serializer_class(items, many=True).data,
+        "page": {
+            "page": paginator.page.number if page is not None else 1,
+            "page_size": paginator.page.paginator.per_page if page is not None else len(items),
+            "total": paginator.page.paginator.count if page is not None else len(items),
+            "has_more": paginator.page.has_next() if page is not None else False,
+        },
+    }
+    return payload

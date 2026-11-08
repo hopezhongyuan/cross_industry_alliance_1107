@@ -287,6 +287,32 @@ def cancel_order(user, order_id, reason=""):
     return order
 
 
+def close_expired_orders(now=None, limit=200) -> int:
+    """关闭支付超时订单，释放库存与预约时段。"""
+    from apps.payments.models import PaymentOrder
+
+    now = now or timezone.now()
+    ids = list(
+        Order.objects.filter(status=Order.Status.PENDING_PAYMENT, expire_at__lte=now).values_list("id", flat=True)[
+            :limit
+        ]
+    )
+    count = 0
+    for pk in ids:
+        with transaction.atomic():
+            order = Order.objects.select_for_update().filter(pk=pk, status=Order.Status.PENDING_PAYMENT).first()
+            if order is None:
+                continue
+            transit_order(order.id, "TIMEOUT", operator_type="SYSTEM", reason="支付超时")
+            _release_stock(order)
+            _release_slot(order)
+            PaymentOrder.objects.filter(
+                order=order, status__in=[PaymentOrder.Status.CREATED, PaymentOrder.Status.PAYING]
+            ).update(status=PaymentOrder.Status.CLOSED)
+            count += 1
+    return count
+
+
 def confirm_order(user, order_id):
     from apps.ledger.services import create_settlement_item
 

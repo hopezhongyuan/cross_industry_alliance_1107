@@ -4,13 +4,14 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.common.api import ApiError
+from apps.governance.services import log_operation, require_platform_admin
 from apps.ledger.constants import AccountType, Direction
 from apps.ledger.services import post_transaction
 from apps.orders.models import Order
 from apps.orders.order_services import mark_order_paid
 from apps.orders.services import transit_order
 
-from .models import PaymentOrder
+from .models import PaymentOrder, PlatformPaymentConfig
 from .providers import create_prepay
 
 
@@ -107,3 +108,26 @@ def process_payment_success(payment_no: str, transaction_id: str, amount: int) -
         )
         mark_order_paid(order)
     return payment
+
+
+def upsert_payment_config(admin_user, channel, request=None, **fields) -> PlatformPaymentConfig:
+    """写入平台支付配置：密钥与证书加密存储，响应只返回可公开字段。"""
+    require_platform_admin(admin_user)
+    with transaction.atomic():
+        config, created = PlatformPaymentConfig.objects.update_or_create(
+            channel=channel,
+            defaults={
+                **fields,
+                "updated_by_id": admin_user.id,
+                "updated_by_name": getattr(admin_user, "nickname", "") or getattr(admin_user, "phone", "") or "",
+            },
+        )
+        log_operation(
+            operator=admin_user,
+            action="PAYMENT_CONFIG_UPDATE",
+            biz_type="PAYMENT_CONFIG",
+            biz_id=config.id,
+            after={"channel": channel, "created": created, "enabled": config.enabled},
+            request=request,
+        )
+    return config

@@ -2,14 +2,21 @@
 
 from django.conf import settings
 from drf_spectacular.utils import extend_schema
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.common.api import ApiError
+from apps.common.api import ApiError, EnvelopeAPIView, EnvelopeResponse, ok
+from apps.governance.services import require_platform_admin
 
-from .serializers import CallbackAckSerializer, CallbackPayloadSerializer
-from .services import process_payment_success
+from .models import PaymentOrder, PlatformPaymentConfig
+from .serializers import (
+    CallbackAckSerializer,
+    CallbackPayloadSerializer,
+    PaymentConfigInputSerializer,
+    PaymentConfigSerializer,
+)
+from .services import process_payment_success, upsert_payment_config
 
 
 @extend_schema(request=CallbackPayloadSerializer, responses={200: CallbackAckSerializer})
@@ -35,3 +42,28 @@ class WechatPayCallbackView(APIView):
         except (TypeError, ValueError):
             return Response({"code": "FAIL", "message": "回调参数格式错误"}, status=400)
         return Response({"code": "SUCCESS", "message": "ok"})
+
+
+@extend_schema(tags=["admin"], responses=EnvelopeResponse)
+class PaymentConfigView(EnvelopeAPIView):
+    """平台支付配置读写：读取不含密钥，写入加密存储。"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = PaymentConfigSerializer
+
+    def get(self, request, channel):
+        require_platform_admin(request.user)
+        config = PlatformPaymentConfig.objects.filter(channel=channel).first()
+        if config is None:
+            raise ApiError("NOT_FOUND", "支付配置不存在", 404)
+        return ok(request, PaymentConfigSerializer(config).data)
+
+    @extend_schema(request=PaymentConfigInputSerializer, responses=EnvelopeResponse)
+    def put(self, request, channel):
+        require_platform_admin(request.user)
+        if channel not in PaymentOrder.Channel.values:
+            raise ApiError("VALIDATION_ERROR", "不支持的支付渠道", 422)
+        serializer = PaymentConfigInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        config = upsert_payment_config(request.user, channel, request=request, **serializer.validated_data)
+        return ok(request, PaymentConfigSerializer(config).data)

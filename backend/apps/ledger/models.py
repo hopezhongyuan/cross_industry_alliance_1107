@@ -202,6 +202,7 @@ class WithdrawalOrder(TimeStampedModel):
     amount = models.BigIntegerField("申请金额（分）")
     fee = models.BigIntegerField("手续费（分）", default=0)
     net_amount = models.BigIntegerField("实付金额（分）")
+    idempotency_key = models.CharField("申请幂等键", max_length=64, unique=True, null=True, blank=True)
     bank_snapshot_json = EncryptedJSONField("收款银行快照（加密存储）", default=dict, blank=True)
     status = models.CharField("状态", max_length=16, choices=Status.choices, default=Status.REQUESTED, db_index=True)
     requested_at = models.DateTimeField("申请时间", null=True, blank=True)
