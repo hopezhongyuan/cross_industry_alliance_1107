@@ -1,3 +1,4 @@
+from django.utils.dateparse import parse_date
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, viewsets
 from rest_framework.permissions import IsAuthenticated
@@ -9,8 +10,10 @@ from apps.common.api import (
     EnvelopeExceptionMixin,
     EnvelopeResponse,
     ok,
+    paginated,
 )
 from apps.common.utils import payload_hash
+from apps.merchants.services import get_active_staff_merchant
 from apps.payments.services import create_payment
 
 from .cart_services import add_cart_item, delete_cart_item, serialize_cart, update_cart_item
@@ -144,6 +147,31 @@ class OrderReviewView(EnvelopeAPIView):
             {"id": review.id, "score": review.score, "created_at": review.created_at.isoformat()},
             status_code=201,
         )
+
+
+@extend_schema(tags=["merchant"], responses=EnvelopeResponse)
+class MerchantOrderListView(EnvelopeAPIView):
+    """商户订单列表（仅本门店）。"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = OrderListSerializer
+
+    def get(self, request):
+        merchant = get_active_staff_merchant(request.user)
+        queryset = Order.objects.filter(merchant=merchant).select_related("merchant").order_by("-created_at")
+        status = request.query_params.get("status")
+        if status:
+            if status not in set(Order.Status.values):
+                raise ApiError("VALIDATION_ERROR", "status 取值非法", 422)
+            queryset = queryset.filter(status=status)
+        for param, lookup in (("dateFrom", "created_at__date__gte"), ("dateTo", "created_at__date__lte")):
+            value = request.query_params.get(param)
+            if value:
+                parsed = parse_date(value)
+                if parsed is None:
+                    raise ApiError("VALIDATION_ERROR", f"{param} 日期格式错误", 422)
+                queryset = queryset.filter(**{lookup: parsed})
+        return ok(request, paginated(request, queryset, OrderListSerializer))
 
 
 @extend_schema(tags=["merchant"], responses=EnvelopeResponse)

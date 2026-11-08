@@ -692,6 +692,18 @@ components:
         - type: object
           properties:
             data: { $ref: '#/components/schemas/Withdrawal' }
+    WithdrawalPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/Withdrawal' }
+                page: { $ref: '#/components/schemas/Page' }
     StatementItem:
       type: object
       properties:
@@ -756,6 +768,34 @@ components:
         ruling: { type: string }
         liability: { type: string, enum: [MERCHANT, USER, PLATFORM, SHARED] }
         refund_amount: { type: integer, description: 裁定退款金额（分），可为 0 }
+    ArbitrationCase:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        case_no: { type: string }
+        after_sale_id: { type: integer, format: int64 }
+        after_sale_no: { type: string }
+        order_id: { type: integer, format: int64 }
+        merchant_id: { type: integer, format: int64 }
+        amount: { type: integer }
+        status: { type: string, enum: [PENDING, EVIDENCE, PROCESSING, DECIDED, CLOSED] }
+        liability: { type: string, enum: [MERCHANT, USER, PLATFORM, SHARED, UNDECIDED] }
+        ruling: { type: string }
+        deadline_at: { type: string, format: date-time }
+        decided_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+    ArbitrationCasePageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/ArbitrationCase' }
+                page: { $ref: '#/components/schemas/Page' }
     RuleVersionInput:
       type: object
       required: [snapshot]
@@ -1602,7 +1642,7 @@ paths:
       tags: [merchant]
       operationId: listMerchantOrders
       summary: 商户订单列表（仅本店）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: status
@@ -1910,7 +1950,7 @@ paths:
       tags: [admin]
       operationId: listAdminOrders
       summary: 平台订单查询（多条件筛选，数据脱敏）
-      x-status: planned
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       parameters:
         - name: status
@@ -1966,6 +2006,26 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  /api/v1/admin/arbitrations/:
+    get:
+      tags: [admin]
+      operationId: listArbitrations
+      summary: 仲裁案件列表
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, EVIDENCE, PROCESSING, DECIDED, CLOSED] }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArbitrationCasePageEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /api/v1/admin/arbitrations/{id}/rule/:
     post:
       tags: [admin]
@@ -2057,6 +2117,29 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SettlementBatchPageEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/withdrawals/:
+    get:
+      tags: [admin]
+      operationId: listAdminWithdrawals
+      summary: 提现单列表（按状态/商户筛选）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [REQUESTED, APPROVED, PAYING, PAID, REJECTED, FAILED] }
+        - name: merchant_id
+          in: query
+          schema: { type: integer, format: int64 }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WithdrawalPageEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /api/v1/admin/withdrawals/{id}/payout/:
     post:

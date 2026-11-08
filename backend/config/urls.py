@@ -18,6 +18,7 @@ urlpatterns = [
     path("api/v1/merchant/", include("apps.aftersales.merchant_urls")),
     path("api/v1/merchant/", include("apps.ledger.merchant_urls")),
     path("api/v1/admin/", include("apps.aftersales.admin_urls")),
+    path("api/v1/admin/", include("apps.orders.admin_urls")),
     path("api/v1/admin/", include("apps.ledger.admin_urls")),
     path("api/v1/admin/", include("apps.governance.urls")),
     path("api/v1/admin/", include("apps.payments.admin_urls")),

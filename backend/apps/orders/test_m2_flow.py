@@ -256,6 +256,13 @@ class M2FlowTests(TestCase):
         second = self.client.post(f"/api/v1/orders/{order.id}/review/", {"score": 4}, format="json")
         self.assertEqual(second.status_code, 409)
 
+    def test_merchant_order_list_returns_own_orders(self):
+        order = self._create_order()
+        self._pay(order)
+        response = self.merchant_client.get("/api/v1/merchant/orders/")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["data"]["items"][0]["order_no"], order.order_no)
+
     def test_non_staff_cannot_accept(self):
         order = self._create_order()
         self._pay(order)

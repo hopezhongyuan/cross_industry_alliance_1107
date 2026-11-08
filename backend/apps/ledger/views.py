@@ -9,7 +9,7 @@ from apps.common.api import ApiError, EnvelopeAPIView, EnvelopeResponse, ok, pag
 from apps.governance.services import require_platform_admin
 from apps.merchants.services import get_active_staff_merchant
 
-from .models import SettlementBatch, SettlementItem
+from .models import SettlementBatch, SettlementItem, WithdrawalOrder
 from .serializers import (
     FreezeInputSerializer,
     PayoutInputSerializer,
@@ -96,6 +96,25 @@ class AdminSettlementBatchListView(EnvelopeAPIView):
                 raise ApiError("VALIDATION_ERROR", "status 取值非法", 422)
             queryset = queryset.filter(status=status)
         return ok(request, paginated(request, queryset, SettlementBatchSerializer))
+
+
+@extend_schema(tags=["admin"], responses=EnvelopeResponse)
+class AdminWithdrawalListView(EnvelopeAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = WithdrawalSerializer
+
+    def get(self, request):
+        require_platform_admin(request.user)
+        queryset = WithdrawalOrder.objects.order_by("-created_at")
+        status = request.query_params.get("status")
+        if status:
+            if status not in set(WithdrawalOrder.Status.values):
+                raise ApiError("VALIDATION_ERROR", "status 取值非法", 422)
+            queryset = queryset.filter(status=status)
+        merchant_id = request.query_params.get("merchant_id")
+        if merchant_id:
+            queryset = queryset.filter(merchant_id=merchant_id)
+        return ok(request, paginated(request, queryset, WithdrawalSerializer))
 
 
 @extend_schema(tags=["admin"], responses=EnvelopeResponse)

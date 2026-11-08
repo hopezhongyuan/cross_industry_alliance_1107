@@ -17,3 +17,9 @@ htmlcov/
 # 工具生成的中间产物
 .trae-html-share-packages/
 .screenshots/
+
+# 前端依赖与产物
+node_modules/
+frontend/*/dist/
+frontend/*/.taro-cache/
+frontend/*/.swc/

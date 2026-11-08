@@ -41,6 +41,30 @@ class ArbitrationBriefSerializer(serializers.ModelSerializer):
         fields = ("case_no", "status", "liability", "ruling", "deadline_at")
 
 
+class ArbitrationCaseSerializer(serializers.ModelSerializer):
+    after_sale_no = serializers.CharField(source="after_sale.after_sale_no", read_only=True)
+    order_id = serializers.IntegerField(source="after_sale.order_id", read_only=True)
+    merchant_id = serializers.IntegerField(source="after_sale.merchant_id", read_only=True)
+
+    class Meta:
+        model = ArbitrationCase
+        fields = (
+            "id",
+            "case_no",
+            "after_sale_id",
+            "after_sale_no",
+            "order_id",
+            "merchant_id",
+            "amount",
+            "status",
+            "liability",
+            "ruling",
+            "deadline_at",
+            "decided_at",
+            "created_at",
+        )
+
+
 class AfterSaleSerializer(serializers.ModelSerializer):
     arbitration = ArbitrationBriefSerializer(read_only=True)
     refunds = RefundBriefSerializer(many=True, read_only=True)

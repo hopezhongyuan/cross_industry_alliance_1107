@@ -160,6 +160,22 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/v1/admin/arbitrations/:
+    get:
+      operationId: v1_admin_arbitrations_retrieve
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/admin/arbitrations/{id}/rule/:
     post:
       operationId: v1_admin_arbitrations_rule_create
@@ -197,6 +213,22 @@ paths:
   /api/v1/admin/logs/:
     get:
       operationId: v1_admin_logs_retrieve
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/orders/:
+    get:
+      operationId: v1_admin_orders_retrieve
       description: 使用统一响应包裹的 APIView。
       tags:
       - admin
@@ -383,6 +415,22 @@ paths:
             schema:
               $ref: '#/components/schemas/SettlementBatchRequest'
         required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/withdrawals/:
+    get:
+      operationId: v1_admin_withdrawals_retrieve
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -816,6 +864,22 @@ paths:
             schema:
               $ref: '#/components/schemas/AfterSaleDecisionRequest'
         required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/merchant/orders/:
+    get:
+      operationId: v1_merchant_orders_retrieve
+      description: 商户订单列表（仅本门店）。
+      tags:
+      - merchant
       security:
       - jwtAuth: []
       - cookieAuth: []

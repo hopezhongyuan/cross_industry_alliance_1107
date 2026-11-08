@@ -7,6 +7,7 @@ from .views import (
     AdminReconciliationView,
     AdminSettlementBatchListView,
     AdminSettlementPublishView,
+    AdminWithdrawalListView,
     AdminWithdrawalPayoutView,
     AdminWithdrawalRejectView,
 )
@@ -18,6 +19,7 @@ urlpatterns = [
         AdminSettlementPublishView.as_view(),
         name="admin-settlement-publish",
     ),
+    path("withdrawals/", AdminWithdrawalListView.as_view(), name="admin-withdrawals"),
     path("withdrawals/<int:pk>/payout/", AdminWithdrawalPayoutView.as_view(), name="admin-withdrawal-payout"),
     path("withdrawals/<int:pk>/reject/", AdminWithdrawalRejectView.as_view(), name="admin-withdrawal-reject"),
     path("orders/<int:pk>/freeze/", AdminOrderFreezeView.as_view(), name="admin-order-freeze"),

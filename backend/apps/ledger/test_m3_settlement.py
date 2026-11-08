@@ -357,6 +357,25 @@ class M3SettlementTests(TestCase):
         self.assertEqual(RuleVersion.objects.filter(status=RuleVersion.Status.ACTIVE).count(), 1)
         self.assertEqual(RuleVersion.objects.get(status=RuleVersion.Status.RETIRED).snapshot_json, {"n": 1})
 
+    def test_admin_lists_orders_withdrawals_and_arbitrations(self):
+        order, _ = self._due_item()
+        self._publish()
+        issued = self._withdraw(300)
+        self.assertEqual(issued.status_code, 201, issued.data)
+
+        orders = self.admin_client.get("/api/v1/admin/orders/?status=COMPLETED")
+        self.assertEqual(orders.status_code, 200, orders.data)
+        self.assertEqual(orders.data["data"]["items"][0]["order_no"], order.order_no)
+        self.assertNotIn("contact", orders.data["data"]["items"][0])
+
+        withdrawals = self.admin_client.get("/api/v1/admin/withdrawals/?status=REQUESTED")
+        self.assertEqual(withdrawals.status_code, 200, withdrawals.data)
+        self.assertEqual(withdrawals.data["data"]["page"]["total"], 1)
+
+        arbitrations = self.admin_client.get("/api/v1/admin/arbitrations/")
+        self.assertEqual(arbitrations.status_code, 200, arbitrations.data)
+        self.assertEqual(arbitrations.data["data"]["page"]["total"], 0)
+
     def test_payment_config_write_and_read_without_secrets(self):
         response = self.admin_client.put(
             "/api/v1/admin/payment-configs/WECHAT_MINI/",

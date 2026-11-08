@@ -1,4 +1,4 @@
-name: backend-ci
+name: ci
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  verify:
+  backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,3 +23,27 @@ jobs:
           backend/.venv/bin/pip install -r backend/requirements-dev.txt
       - name: Verify
         run: make verify
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            frontend/admin-pc/package-lock.json
+            frontend/miniapp/package-lock.json
+      - name: Admin PC build
+        working-directory: frontend/admin-pc
+        run: |
+          npm ci
+          npm run gen:api
+          npm run typecheck
+          npm run build
+      - name: Miniapp H5 build
+        working-directory: frontend/miniapp
+        run: |
+          npm ci
+          npm run build:h5

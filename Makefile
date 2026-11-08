@@ -1,7 +1,8 @@
 ROOT := $(CURDIR)
 PY := $(ROOT)/backend/.venv/bin/python
+NPM ?= npm
 
-.PHONY: install dev migrate test lint format check schema schema-check audit verify
+.PHONY: install dev migrate test lint format check schema schema-check audit verify frontend-install frontend-check
 
 install:
 	python3 -m venv backend/.venv
@@ -42,3 +43,12 @@ audit:
 
 verify: lint check schema-check contract-check test
 	@echo "verify passed"
+
+frontend-install:
+	cd frontend/admin-pc && $(NPM) ci
+	cd frontend/miniapp && $(NPM) ci
+
+frontend-check:
+	cd frontend/admin-pc && $(NPM) run gen:api && $(NPM) run typecheck && $(NPM) run build
+	cd frontend/miniapp && $(NPM) run build:h5
+	@echo "frontend check passed"
