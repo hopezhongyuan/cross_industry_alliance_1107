@@ -595,6 +595,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/admin/merchants/{id}/location/:
+    put:
+      operationId: updateMerchantLocation
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminMerchantLocationInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminMerchantLocationInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminMerchantLocationInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/admin/merchants/{id}/status/:
     post:
       operationId: changeMerchantStatus
@@ -633,6 +667,28 @@ paths:
     get:
       operationId: v1_admin_orders_retrieve
       description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/orders/{id}/:
+    get:
+      operationId: getAdminOrder
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
       tags:
       - admin
       security:
@@ -723,6 +779,49 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/PaymentConfigInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/platform-config/:
+    get:
+      operationId: getAdminPlatformConfig
+      description: 平台配置读写：读取不回显密钥，写入留空表示保持原值。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    put:
+      operationId: updateAdminPlatformConfig
+      description: 平台配置读写：读取不回显密钥，写入留空表示保持原值。
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminPlatformConfigInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminPlatformConfigInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminPlatformConfigInputRequest'
         required: true
       security:
       - jwtAuth: []
@@ -1033,6 +1132,214 @@ paths:
             schema:
               $ref: '#/components/schemas/SettlementBatchRequest'
         required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/storefront/nav/:
+    get:
+      operationId: getAdminStoreNav
+      description: 平台底部导航：整表替换，最多 5 项。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    put:
+      operationId: updateAdminStoreNav
+      description: 平台底部导航：整表替换，最多 5 项。
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreNavInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StoreNavInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StoreNavInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/storefront/pages/:
+    get:
+      operationId: listAdminDecoPages
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    post:
+      operationId: createAdminDecoPage
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecoPageInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DecoPageInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DecoPageInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/storefront/pages/{id}/:
+    get:
+      operationId: getAdminDecoPage
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    put:
+      operationId: updateAdminDecoPage
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecoPageInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DecoPageInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DecoPageInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    delete:
+      operationId: deleteAdminDecoPage
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/v1/admin/storefront/pages/{id}/publish/:
+    post:
+      operationId: publishAdminDecoPage
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecoPageInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DecoPageInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DecoPageInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/users/:
+    get:
+      operationId: listAdminUsers
+      description: 平台后台：用户只读列表，手机号脱敏。
+      tags:
+      - admin
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -1496,6 +1803,28 @@ paths:
     get:
       operationId: v1_merchant_orders_retrieve
       description: 商户订单列表（仅本门店）。
+      tags:
+      - merchant
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/merchant/orders/{id}/:
+    get:
+      operationId: getMerchantOrder
+      description: 商户订单详情（含商品行平台/商家分账）。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
       tags:
       - merchant
       security:
@@ -2283,6 +2612,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/platform/config/:
+    get:
+      operationId: getPlatformConfig
+      description: 公开平台信息：不含任何密钥明文，供 H5 展示平台名称、协议与地图参数。
+      tags:
+      - platform
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/products/:
     get:
       operationId: v1_products_list
@@ -2357,6 +2701,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Product'
+          description: ''
+  /api/v1/storefront/nav/:
+    get:
+      operationId: getStoreNav
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - storefront
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/storefront/pages/{slug}/:
+    get:
+      operationId: getDecoPage
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - storefront
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
   /api/v1/stores/{id}/:
     get:
@@ -2491,6 +2871,37 @@ components:
       - district
       - name
       - owner_phone
+    AdminMerchantLocationInputRequest:
+      type: object
+      description: 平台设置商户真实坐标，统一使用高德 GCJ-02。
+      properties:
+        lng:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        lat:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        province:
+          type: string
+          default: ''
+          maxLength: 32
+        city:
+          type: string
+          default: ''
+          maxLength: 32
+        district:
+          type: string
+          default: ''
+          maxLength: 32
+        address:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - lat
+      - lng
     AdminMerchantQualificationInputRequest:
       type: object
       properties:
@@ -2519,6 +2930,68 @@ components:
         * `FOOD_PERMIT` - 食品经营许可
         * `HEALTH_PERMIT` - 卫生许可
         * `OTHER` - 其他
+    AdminPlatformConfigInputRequest:
+      type: object
+      properties:
+        platform_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        logo_url:
+          type: string
+          default: ''
+          maxLength: 300
+        contact_phone:
+          type: string
+          default: ''
+          maxLength: 20
+        company_name:
+          type: string
+          default: ''
+          maxLength: 120
+        icp_no:
+          type: string
+          default: ''
+          maxLength: 80
+        privacy_policy:
+          type: string
+          default: ''
+        user_agreement:
+          type: string
+          default: ''
+        agreement_version:
+          type: string
+          default: ''
+          maxLength: 32
+        miniapp_app_id:
+          type: string
+          default: ''
+          maxLength: 64
+        miniapp_app_secret:
+          type: string
+          default: ''
+          maxLength: 128
+        miniapp_original_id:
+          type: string
+          default: ''
+          maxLength: 64
+        amap_web_key:
+          type: string
+          default: ''
+          maxLength: 128
+        amap_js_key:
+          type: string
+          default: ''
+          maxLength: 100
+        amap_js_security_code:
+          type: string
+          default: ''
+          maxLength: 128
+        amap_enabled:
+          type: boolean
+          default: false
+      required:
+      - platform_name
     AdminProductStatusInputActionEnum:
       enum:
       - FORCE_OFF
@@ -2982,6 +3455,31 @@ components:
       required:
       - name
       - phone
+    DecoPageInputRequest:
+      type: object
+      properties:
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 40
+        title:
+          type: string
+          minLength: 1
+          maxLength: 80
+        share_title:
+          type: string
+          default: ''
+          maxLength: 80
+        share_image:
+          type: string
+          default: ''
+          maxLength: 300
+        draft_components:
+          type: array
+          items: {}
+      required:
+      - slug
+      - title
     DeliveryTypesEnum:
       enum:
       - EXPRESS
@@ -3084,6 +3582,20 @@ components:
         * `USER` - USER
         * `PLATFORM` - PLATFORM
         * `SHARED` - SHARED
+    LinkTypeEnum:
+      enum:
+      - FUNCTION
+      - MICRO_PAGE
+      - CATEGORY
+      - MERCHANT
+      - PRODUCT
+      type: string
+      description: |-
+        * `FUNCTION` - 功能页面
+        * `MICRO_PAGE` - 微页面
+        * `CATEGORY` - 商品类目
+        * `MERCHANT` - 商户
+        * `PRODUCT` - 商品
     Me:
       type: object
       properties:
@@ -3713,6 +4225,18 @@ components:
         commission_amount:
           type: integer
           title: 佣金（分）
+        platform_income_amount:
+          type: integer
+          title: 平台分账（分）
+        merchant_income_amount:
+          type: integer
+          title: 商家分账（分）
+        platform_refund_amount:
+          type: integer
+          title: 平台承担退款（分）
+        merchant_refund_amount:
+          type: integer
+          title: 商家承担退款（分）
         contact_json:
           title: 联系人快照
         remark:
@@ -3784,6 +4308,32 @@ components:
         amount:
           type: integer
           title: 行金额（分）
+        paid_amount:
+          type: integer
+          title: 行实付（分）
+        commission_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,4})?$
+          title: 行佣金率快照
+        platform_amount:
+          type: integer
+          title: 行平台分账（分）
+        platform_refund_amount:
+          type: integer
+          title: 行平台退款（分）
+        platform_net_amount:
+          type: integer
+          readOnly: true
+        merchant_amount:
+          type: integer
+          title: 行商家分账（分）
+        merchant_refund_amount:
+          type: integer
+          title: 行商家退款（分）
+        merchant_net_amount:
+          type: integer
+          readOnly: true
         refund_amount:
           type: integer
           title: 行退款（分）
@@ -3792,6 +4342,8 @@ components:
       required:
       - amount
       - id
+      - merchant_net_amount
+      - platform_net_amount
       - price
       - product_id
       - sku_id
@@ -4493,6 +5045,43 @@ components:
       description: |-
         * `ENABLED` - 启用
         * `DISABLED` - 停用
+    StoreNavInputRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StoreNavItemInputRequest'
+      required:
+      - items
+    StoreNavItemInputRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 20
+        icon_selected:
+          type: string
+          default: ''
+          maxLength: 300
+        icon_unselected:
+          type: string
+          default: ''
+          maxLength: 300
+        link_type:
+          $ref: '#/components/schemas/LinkTypeEnum'
+        link_value:
+          type: string
+          default: ''
+          maxLength: 200
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status12eEnum'
+          default: ENABLED
+      required:
+      - link_type
+      - title
     TemplateSyncInputRequest:
       type: object
       properties:

@@ -109,9 +109,51 @@ export type StoreRow = {
   address: string
   city: string
   district: string
+  lng: number | null
+  lat: number | null
   distance_meters: number | null
   business_hours: Record<string, unknown>
   status: string
+}
+
+export type StoreNavItemRow = {
+  id: number
+  title: string
+  icon_selected: string
+  icon_unselected: string
+  link_type: string
+  link_value: string
+  sort: number
+  status: string
+}
+
+export type DecoComponentRow = {
+  id: string
+  type: string
+  config: Record<string, any>
+}
+
+export type DecoPageData = {
+  slug: string
+  title: string
+  share_title: string
+  share_image: string
+  components: DecoComponentRow[]
+  published_at: string
+}
+
+export type PlatformConfigRow = {
+  platform_name: string
+  logo_url: string
+  contact_phone: string
+  company_name: string
+  icp_no: string
+  privacy_policy: string
+  user_agreement: string
+  agreement_version: string
+  amap_enabled: boolean
+  amap_js_key: string
+  amap_js_security_code: string
 }
 
 export type CategoryRow = { id: number; name: string; parent: number | null; icon_url: string; level?: number; sort?: number }
@@ -248,7 +290,30 @@ export type OrderRow = {
   refunded_amount: number
   created_at: string
   completed_at: string | null
-  items?: Array<{ id: number; title: string; price: number; quantity: number; amount: number }>
+  items?: Array<{
+    id: number
+    title: string
+    price: number
+    quantity: number
+    amount: number
+    paid_amount?: number
+    commission_rate?: number
+    platform_amount?: number
+    platform_refund_amount?: number
+    platform_net_amount?: number
+    merchant_amount?: number
+    merchant_refund_amount?: number
+    merchant_net_amount?: number
+    refund_amount?: number
+  }>
+  product_amount?: number
+  delivery_fee?: number
+  commission_rate?: number
+  commission_amount?: number
+  platform_income_amount?: number
+  merchant_income_amount?: number
+  platform_refund_amount?: number
+  merchant_refund_amount?: number
   verify_codes?: Array<{ code: string; status: string }>
   appointment?: { slot_id: number; slot_date: string; start_time: string; end_time: string; status: string }
   timeline?: Array<{
@@ -320,6 +385,18 @@ export const api = {
   async categories() {
     const payload = await request<unknown>('/categories/')
     return normalizeList<CategoryRow>(payload)
+  },
+
+  platformConfig() {
+    return request<PlatformConfigRow>('/platform/config/')
+  },
+
+  storeNav() {
+    return request<StoreNavItemRow[]>('/storefront/nav/')
+  },
+
+  decoPage(slug: string) {
+    return request<DecoPageData>(`/storefront/pages/${encodeURIComponent(slug)}/`)
   },
 
   async addresses() {
@@ -420,6 +497,10 @@ export const api = {
   async merchantOrders(status = '') {
     const payload = await request<unknown>(`/merchant/orders/${status ? `?status=${status}` : ''}`)
     return normalizeList<OrderRow>(payload)
+  },
+
+  merchantOrder(id: number) {
+    return request<OrderRow>(`/merchant/orders/${id}/`)
   },
 
   merchantProducts(status = '', q = '') {

@@ -5,6 +5,7 @@
 
 from django.db import models
 
+from apps.common.fields import EncryptedTextField
 from apps.common.models import TimeStampedModel
 
 
@@ -121,6 +122,96 @@ class ContentItem(TimeStampedModel):
 
     def __str__(self):
         return f"{self.slot_code}-{self.title}"
+
+
+class PlatformConfig(TimeStampedModel):
+    """平台基础信息与渠道参数：单例配置，密钥类字段加密存储。"""
+
+    singleton_key = models.CharField("单例键", max_length=20, unique=True, default="default", editable=False)
+    platform_name = models.CharField("平台名称", max_length=80, default="异业联盟")
+    logo_url = models.CharField("Logo", max_length=300, blank=True, default="")
+    contact_phone = models.CharField("联系电话", max_length=20, blank=True, default="")
+    company_name = models.CharField("公司主体", max_length=120, blank=True, default="")
+    icp_no = models.CharField("ICP备案号", max_length=80, blank=True, default="")
+    privacy_policy = models.TextField("隐私协议", blank=True, default="")
+    user_agreement = models.TextField("用户注册协议", blank=True, default="")
+    agreement_version = models.CharField("协议版本", max_length=32, blank=True, default="")
+    miniapp_app_id = models.CharField("小程序 AppID", max_length=64, blank=True, default="")
+    miniapp_app_secret = EncryptedTextField("小程序 AppSecret", blank=True, default="")
+    miniapp_original_id = models.CharField("小程序原始 ID", max_length=64, blank=True, default="")
+    amap_web_key = EncryptedTextField("高德 Web 服务 Key", blank=True, default="")
+    amap_js_key = models.CharField("高德 JS API Key", max_length=100, blank=True, default="")
+    amap_js_security_code = EncryptedTextField("高德 JS 安全密钥", blank=True, default="")
+    amap_enabled = models.BooleanField("启用高德地图", default=False)
+    updated_by_name = models.CharField("最后修改人", max_length=60, blank=True, default="")
+
+    class Meta:
+        verbose_name = "平台配置"
+        verbose_name_plural = "平台配置"
+        db_table = "platform_config"
+
+    def __str__(self):
+        return self.platform_name
+
+
+class StoreNavItem(TimeStampedModel):
+    """消费者端底部导航：平台统一配置，最多 5 项。"""
+
+    class LinkType(models.TextChoices):
+        FUNCTION = "FUNCTION", "功能页面"
+        MICRO_PAGE = "MICRO_PAGE", "微页面"
+        CATEGORY = "CATEGORY", "商品类目"
+        MERCHANT = "MERCHANT", "商户"
+        PRODUCT = "PRODUCT", "商品"
+
+    class Status(models.TextChoices):
+        ENABLED = "ENABLED", "启用"
+        DISABLED = "DISABLED", "停用"
+
+    title = models.CharField("名称", max_length=20)
+    icon_selected = models.CharField("选中图标", max_length=300, blank=True, default="")
+    icon_unselected = models.CharField("未选中图标", max_length=300, blank=True, default="")
+    link_type = models.CharField("链接类型", max_length=16, choices=LinkType.choices, default=LinkType.FUNCTION)
+    link_value = models.CharField("链接目标", max_length=200, blank=True, default="")
+    sort = models.PositiveSmallIntegerField("排序", default=0)
+    status = models.CharField("状态", max_length=16, choices=Status.choices, default=Status.ENABLED)
+    updated_by_name = models.CharField("最后修改人", max_length=60, blank=True, default="")
+
+    class Meta:
+        verbose_name = "底部导航"
+        verbose_name_plural = "底部导航"
+        db_table = "store_nav_item"
+        ordering = ("sort", "id")
+
+    def __str__(self):
+        return self.title
+
+
+class DecoPage(TimeStampedModel):
+    """平台微页面：草稿与已发布快照分离，发布后消费者端只读已发布内容。"""
+
+    class Status(models.TextChoices):
+        DRAFT = "DRAFT", "草稿"
+        PUBLISHED = "PUBLISHED", "已发布"
+
+    slug = models.CharField("页面标识", max_length=40, unique=True)
+    title = models.CharField("页面标题", max_length=80)
+    share_title = models.CharField("分享标题", max_length=80, blank=True, default="")
+    share_image = models.CharField("分享图", max_length=300, blank=True, default="")
+    status = models.CharField("状态", max_length=16, choices=Status.choices, default=Status.DRAFT, db_index=True)
+    draft_components = models.JSONField("草稿组件", default=list, blank=True)
+    published_components = models.JSONField("已发布组件", default=list, blank=True)
+    published_at = models.DateTimeField("发布时间", null=True, blank=True)
+    updated_by_name = models.CharField("最后修改人", max_length=60, blank=True, default="")
+
+    class Meta:
+        verbose_name = "微页面"
+        verbose_name_plural = "微页面"
+        db_table = "deco_page"
+        ordering = ("-updated_at", "-id")
+
+    def __str__(self):
+        return f"{self.slug}-{self.title}"
 
 
 class MediaFolder(TimeStampedModel):

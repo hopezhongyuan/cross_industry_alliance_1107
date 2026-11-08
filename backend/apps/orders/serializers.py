@@ -6,6 +6,9 @@ from .models import Order, OrderItem, OrderStatusLog
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
+    platform_net_amount = serializers.SerializerMethodField()
+    merchant_net_amount = serializers.SerializerMethodField()
+
     class Meta:
         model = OrderItem
         fields = (
@@ -16,9 +19,23 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "price",
             "quantity",
             "amount",
+            "paid_amount",
+            "commission_rate",
+            "platform_amount",
+            "platform_refund_amount",
+            "platform_net_amount",
+            "merchant_amount",
+            "merchant_refund_amount",
+            "merchant_net_amount",
             "refund_amount",
             "snapshot_json",
         )
+
+    def get_platform_net_amount(self, obj) -> int:
+        return obj.platform_amount - obj.platform_refund_amount
+
+    def get_merchant_net_amount(self, obj) -> int:
+        return obj.merchant_amount - obj.merchant_refund_amount
 
 
 class OrderDeliverySerializer(serializers.ModelSerializer):
@@ -94,6 +111,10 @@ class OrderDetailSerializer(OrderListSerializer):
             "delivery_fee",
             "commission_rate",
             "commission_amount",
+            "platform_income_amount",
+            "merchant_income_amount",
+            "platform_refund_amount",
+            "merchant_refund_amount",
             "contact_json",
             "remark",
             "items",

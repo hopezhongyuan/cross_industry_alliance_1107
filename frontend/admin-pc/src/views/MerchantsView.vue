@@ -50,6 +50,12 @@ const actionStatus = ref<'ACTIVE' | 'RESTING' | 'BANNED'>('RESTING')
 const reason = ref('')
 const submitting = ref(false)
 
+const locationOpen = ref(false)
+const locationTarget = ref<AdminMerchantDetail | null>(null)
+const locationForm = reactive({ lng: '', lat: '', province: '', city: '', district: '', address: '' })
+const locationError = ref('')
+const locationSaving = ref(false)
+
 const createOpen = ref(false)
 const creating = ref(false)
 const createError = ref('')
@@ -244,6 +250,55 @@ function openAction(row: AdminMerchantRow, target: 'ACTIVE' | 'RESTING' | 'BANNE
   reason.value = ''
 }
 
+function openLocation(target: AdminMerchantDetail) {
+  locationTarget.value = target
+  locationForm.lng = target.lng === null ? '' : String(target.lng)
+  locationForm.lat = target.lat === null ? '' : String(target.lat)
+  locationForm.province = target.province
+  locationForm.city = target.city
+  locationForm.district = target.district
+  locationForm.address = target.address
+  locationError.value = ''
+  locationOpen.value = true
+}
+
+async function submitLocation() {
+  if (!locationTarget.value) return
+  const lng = Number(locationForm.lng)
+  const lat = Number(locationForm.lat)
+  if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+    locationError.value = '经度需在 -180 到 180 之间'
+    return
+  }
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+    locationError.value = '纬度需在 -90 到 90 之间'
+    return
+  }
+  locationSaving.value = true
+  locationError.value = ''
+  try {
+    const saved = await api.updateMerchantLocation(locationTarget.value.id, {
+      lng: lng.toFixed(6),
+      lat: lat.toFixed(6),
+      province: locationForm.province.trim(),
+      city: locationForm.city.trim(),
+      district: locationForm.district.trim(),
+      address: locationForm.address.trim(),
+    })
+    if (detail.value && detail.value.id === saved.id) {
+      detail.value.lng = Number(saved.lng)
+      detail.value.lat = Number(saved.lat)
+      detail.value.address = saved.address
+    }
+    locationOpen.value = false
+    await load(page.value.page)
+  } catch (exc) {
+    locationError.value = exc instanceof ApiError ? `${exc.code}：${exc.message}` : '保存定位失败'
+  } finally {
+    locationSaving.value = false
+  }
+}
+
 async function submitAction() {
   if (!actionRow.value || !reason.value.trim()) return
   submitting.value = true
@@ -385,6 +440,12 @@ onMounted(() => load(Number(route.query.page ?? 1)))
         <span>经营类目</span><b>{{ detail.category_name || '未分类' }}</b>
         <span>所属区域</span><b>{{ detail.province }}{{ detail.city }}{{ detail.district }}</b>
         <span>详细地址</span><b>{{ detail.address || '-' }}</b>
+        <span>定位坐标</span>
+        <b>
+          <span v-if="detail.lng !== null && detail.lat !== null">{{ detail.lng }}, {{ detail.lat }}</span>
+          <span v-else class="muted">未设置</span>
+          <button class="text" style="margin-left: 8px" @click="openLocation(detail)">设置定位</button>
+        </b>
         <span>联系人</span><b>{{ detail.contact_phone || '-' }}</b>
         <span>佣金率</span>
         <b>{{ formatRate(detail.commission_rate) }}
@@ -459,6 +520,48 @@ onMounted(() => load(Number(route.query.page ?? 1)))
     <div class="toolbar" style="margin: 0">
       <button class="primary" :disabled="submitting || !reason.trim()" @click="submitAction">确认</button>
       <button class="text" @click="actionRow = null">取消</button>
+    </div>
+  </ModalShell>
+
+  <ModalShell
+    v-if="locationOpen && locationTarget"
+    :title="`设置定位 · ${locationTarget.name}`"
+    @close="locationOpen = false"
+  >
+    <h2>设置定位 · {{ locationTarget.name }}</h2>
+    <div class="muted">
+      坐标统一使用高德 GCJ-02。高德 Key 配置完成前请手动填写经纬度；Key 启用后可替换为地图选点。
+    </div>
+    <div v-if="locationError" class="error" role="alert">{{ locationError }}</div>
+    <div class="form-grid">
+      <label class="field">
+        <span>经度（lng）</span>
+        <input v-model="locationForm.lng" name="lng" autocomplete="off" placeholder="如：120.155100" />
+      </label>
+      <label class="field">
+        <span>纬度（lat）</span>
+        <input v-model="locationForm.lat" name="lat" autocomplete="off" placeholder="如：30.274100" />
+      </label>
+      <label class="field">
+        <span>省</span>
+        <input v-model="locationForm.province" name="province" autocomplete="off" placeholder="如：浙江" />
+      </label>
+      <label class="field">
+        <span>市</span>
+        <input v-model="locationForm.city" name="city" autocomplete="off" placeholder="如：杭州" />
+      </label>
+      <label class="field">
+        <span>区县</span>
+        <input v-model="locationForm.district" name="district" autocomplete="off" placeholder="如：西湖区" />
+      </label>
+    </div>
+    <label class="field">
+      <span>详细地址</span>
+      <input v-model="locationForm.address" name="address" autocomplete="off" placeholder="如：文三路 100 号…" />
+    </label>
+    <div class="toolbar" style="margin: 0">
+      <button class="primary" :disabled="locationSaving" @click="submitLocation">保存定位</button>
+      <button class="text" @click="locationOpen = false">取消</button>
     </div>
   </ModalShell>
 

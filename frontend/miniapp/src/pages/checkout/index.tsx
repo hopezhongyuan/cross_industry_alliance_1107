@@ -62,8 +62,7 @@ export default function Checkout() {
 
   const merchantId = mode === 'direct' ? product?.merchant_id : cart?.merchant_id
   const orderType = mode === 'direct' && product?.type === 'SERVICE' ? 'SERVICE' : 'EXPRESS'
-  const totalAmount =
-    mode === 'direct' ? (product?.price ?? 0) * directQuantity : cart?.total_amount ?? 0
+  const totalAmount = mode === 'direct' ? (product?.price ?? 0) * directQuantity : cart?.total_amount ?? 0
   const needSlot = mode === 'direct' && Boolean(product?.appointment_required)
 
   async function submit() {
@@ -113,70 +112,91 @@ export default function Checkout() {
   if (result) {
     return (
       <View className="page">
-        <View className="card" style={{ textAlign: 'center' }}>
-          <Text className="tag">支付成功</Text>
-          <View className="title" style={{ marginTop: '16px' }}>已通知商户接单</View>
-          <View className="rule-line"><Text>订单号</Text><Text>{result.order_no}</Text></View>
-          <View className="rule-line"><Text>支付金额</Text><Text>{formatMoney(result.payable_amount)}</Text></View>
-          <Button className="btn" onClick={() => Taro.redirectTo({ url: `/pages/order-detail/index?id=${result.id}` })}>
-            查看订单
-          </Button>
-          <Button className="btn secondary" onClick={() => Taro.switchTab({ url: '/pages/index/index' })}>
-            返回首页
-          </Button>
+        <View className="status-hero">
+          <Text className="eyebrow" style={{ color: 'rgba(253,249,240,0.72)' }}>ORDER CONFIRMED</Text>
+          <Text className="title" style={{ color: '#fdf9f0', marginTop: '10px' }}>支付成功，已通知商户</Text>
+          <View className="rule-line" style={{ color: 'rgba(253,249,240,0.75)' }}>
+            <Text>订单号</Text><Text style={{ color: '#fdf9f0' }}>{result.order_no}</Text>
+          </View>
+          <View className="rule-line" style={{ color: 'rgba(253,249,240,0.75)' }}>
+            <Text>支付金额</Text><Text style={{ color: '#fdf9f0' }}>{formatMoney(result.payable_amount)}</Text>
+          </View>
         </View>
+        <Button className="btn" onClick={() => Taro.redirectTo({ url: `/pages/order-detail/index?id=${result.id}` })}>
+          查看订单
+        </Button>
+        <Button className="btn secondary" onClick={() => Taro.reLaunch({ url: '/pages/index/index' })}>
+          返回首页
+        </Button>
       </View>
     )
   }
 
   return (
-    <View className="page">
+    <View className="page" style={{ paddingBottom: '140px' }}>
+      <Text className="eyebrow">CHECKOUT</Text>
       <View className="title">确认订单</View>
       {error && <View className="muted" aria-live="polite">{error}</View>}
 
       <View className="card">
-        <View className="row"><Text>商品合计</Text><Text className="price">{formatMoney(totalAmount)}</Text></View>
+        <View className="section-head"><Text>商品清单</Text><Text className="muted">{mode === 'direct' ? '直接购买' : '购物车结算'}</Text></View>
         {mode === 'direct' ? (
-          <View className="muted">{product?.title} × {directQuantity}</View>
+          <View className="order-item">
+            <View className="order-thumb">{product?.title?.slice(0, 1) ?? '商'}</View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ display: 'block', fontSize: '26px' }}>{product?.title || '商品'}</Text>
+              <Text className="muted">× {directQuantity}</Text>
+            </View>
+            <Text className="price">{formatMoney(totalAmount)}</Text>
+          </View>
         ) : (
-          <View className="muted">{cart?.items.map((item) => `${item.title} × ${item.quantity}`).join('，')}</View>
+          (cart?.items ?? []).map((item) => (
+            <View key={item.id} className="order-item">
+              <View className="order-thumb">{item.title?.slice(0, 1) ?? '商'}</View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ display: 'block', fontSize: '26px' }}>{item.title}</Text>
+                <Text className="muted">× {item.quantity}</Text>
+              </View>
+              <Text className="price">{formatMoney(item.price_amount * item.quantity)}</Text>
+            </View>
+          ))
         )}
       </View>
 
       {needSlot && (
         <View className="card">
-          <View className="muted" style={{ marginBottom: '8px' }}>预约时段</View>
-          <View style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <View className="section-head"><Text>预约时段</Text><Text className="muted">必选</Text></View>
+          <View className="sku-row">
             {(product?.slots ?? []).map((slot) => (
-              <Button
+              <View
                 key={slot.id}
-                className={`chip ${slotId === slot.id ? 'active' : ''}`}
+                className={`sku-chip ${slotId === slot.id ? 'active' : ''}`}
                 onClick={() => setSlotId(slot.id)}
               >
                 {slot.slot_date} {slot.start_time}
-              </Button>
+              </View>
             ))}
           </View>
           {!product?.slots?.length && <View className="muted">暂无可选时段</View>}
         </View>
       )}
 
-      {addresses.length > 0 && (
-        <View className="card">
-          <View className="muted" style={{ marginBottom: '8px' }}>收货地址</View>
-          {addresses.map((item) => (
-            <Button key={item.id} className="rule-btn" onClick={() => setAddressId(item.id)}>
-              <Text style={{ display: 'block', color: '#1f2933' }}>
+      <View className="card">
+        <View className="section-head"><Text>配送信息</Text><Text className="muted">{addresses.length ? '选择地址' : '手动填写'}</Text></View>
+        {addresses.length > 0 ? (
+          addresses.map((item) => (
+            <View
+              key={item.id}
+              className={`address-row ${addressId === item.id ? 'selected' : ''}`}
+              onClick={() => setAddressId(item.id)}
+            >
+              <Text style={{ display: 'block', fontSize: '26px' }}>
                 {addressId === item.id ? '● ' : '○ '}{item.receiver_name} {item.phone}
               </Text>
-              <Text style={{ display: 'block' }}>{item.city}{item.district}{item.detail}</Text>
-            </Button>
-          ))}
-        </View>
-      )}
-      {!addresses.length && (
-        <View className="card">
-          <Text className="field-label">收货地址</Text>
+              <Text className="muted">{item.city}{item.district}{item.detail}</Text>
+            </View>
+          ))
+        ) : (
           <Input
             className="input"
             name="address"
@@ -184,32 +204,36 @@ export default function Checkout() {
             value={manualAddress}
             onInput={(event) => setManualAddress(event.detail.value)}
           />
-        </View>
-      )}
-
-      <View className="card">
+        )}
         <Text className="field-label">联系人姓名</Text>
-        <Input
-          className="input"
-          name="receiver_name"
-          placeholder="请输入联系人姓名…"
-          value={name}
-          onInput={(event) => setName(event.detail.value)}
-        />
+        <Input className="input" name="receiver_name" placeholder="请输入联系人姓名…" value={name} onInput={(event) => setName(event.detail.value)} />
         <Text className="field-label">联系电话</Text>
-        <Input
-          className="input"
-          name="receiver_phone"
-          type="number"
-          placeholder="请输入联系电话…"
-          value={phone}
-          onInput={(event) => setPhone(event.detail.value)}
-        />
+        <Input className="input" name="receiver_phone" type="number" placeholder="请输入联系电话…" value={phone} onInput={(event) => setPhone(event.detail.value)} />
       </View>
 
-      <Button className={`btn ${submitting ? 'disabled' : ''}`} onClick={submitting ? undefined : submit}>
-        {submitting ? '提交中…' : '提交订单并支付'}
-      </Button>
+      <View className="card">
+        <View className="section-head"><Text>费用明细</Text><Text className="muted">实时计算</Text></View>
+        <View className="summary-row"><Text>商品金额</Text><Text>{formatMoney(totalAmount)}</Text></View>
+        <View className="summary-row"><Text>配送费</Text><Text>{formatMoney(0)}</Text></View>
+        <View className="summary-total">
+          <Text>应付合计</Text>
+          <Text className="price">{formatMoney(totalAmount)}</Text>
+        </View>
+      </View>
+
+      <View className="fixed-bar buy-bar">
+        <View style={{ flex: 1 }}>
+          <Text className="muted">应付</Text>
+          <Text className="price" style={{ marginLeft: '8px' }}>{formatMoney(totalAmount)}</Text>
+        </View>
+        <Button
+          className={`btn ${submitting ? 'disabled' : ''}`}
+          style={{ width: '260px', marginTop: 0 }}
+          onClick={submitting ? undefined : submit}
+        >
+          {submitting ? '提交中…' : '提交并支付'}
+        </Button>
+      </View>
     </View>
   )
 }

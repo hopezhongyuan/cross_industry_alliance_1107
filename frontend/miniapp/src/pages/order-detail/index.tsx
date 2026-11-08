@@ -81,117 +81,108 @@ export default function OrderDetail() {
 
   return (
     <View className="page">
-      <View className="title">订单详情</View>
       {error && <View className="muted" aria-live="polite">{error}</View>}
       {order && (
-        <View className="card">
-          <View className="row">
-            <Text className="muted">ORDER {order.order_no}</Text>
-            <Text className="tag">{statusLabel[order.status] ?? order.status}</Text>
+        <View>
+          <View className="status-hero">
+            <Text className="eyebrow" style={{ color: 'rgba(253,249,240,0.7)' }}>ORDER STATUS</Text>
+            <Text className="title" style={{ color: '#fdf9f0', margin: '10px 0 6px' }}>
+              {statusLabel[order.status] ?? order.status}
+            </Text>
+            <Text style={{ display: 'block', color: 'rgba(253,249,240,0.7)', fontSize: '22px' }}>
+              {order.order_no}
+            </Text>
+            <View className="row" style={{ paddingBottom: 0 }}>
+              <Text style={{ color: 'rgba(253,249,240,0.7)' }}>实付金额</Text>
+              <Text className="price">{formatMoney(order.payable_amount)}</Text>
+            </View>
+            {order.appointment ? (
+              <Text style={{ display: 'block', color: 'rgba(253,249,240,0.7)', marginTop: '8px' }}>
+                预约 {order.appointment.slot_date} {order.appointment.start_time}
+              </Text>
+            ) : null}
           </View>
-          <View className="row"><Text>商品金额</Text><Text className="price">{formatMoney(order.payable_amount)}</Text></View>
-          <View className="row"><Text>已退款</Text><Text>{formatMoney(order.refunded_amount)}</Text></View>
-          {order.appointment && (
-            <View className="row">
-              <Text>预约时段</Text>
-              <Text>{order.appointment.slot_date} {order.appointment.start_time}</Text>
+
+          {showCode && (
+            <View className="code-card">
+              <Text className="eyebrow">VERIFY CODE</Text>
+              {codes.length ? (
+                codes.map((code) => (
+                  <View key={code.code}>
+                    <Text className="code-value">{code.code}</Text>
+                    <Text className="tag">{code.status}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text className="muted">商户接单后生成核销码</Text>
+              )}
+              <Text className="muted" style={{ display: 'block', marginTop: '10px' }}>
+                请到店出示核销码，由商户扫码核销
+              </Text>
             </View>
           )}
-          {order.items?.map((item) => (
-            <View key={item.id} className="row">
-              <Text className="card-title">{item.title} × {item.quantity}</Text>
-              <Text>{formatMoney(item.amount)}</Text>
-            </View>
-          ))}
-        </View>
-      )}
 
-      {showCode && (
-        <View className="card">
-          <View className="muted" style={{ marginBottom: '8px' }}>核销凭证</View>
-          {codes.length ? (
-            codes.map((code) => (
-              <View key={code.code} className="row">
-                <Text style={{ fontFamily: 'monospace', fontSize: '32px', letterSpacing: '4px' }}>{code.code}</Text>
-                <Text className="tag">{code.status}</Text>
+          <View className="card">
+            <View className="section-head"><Text>商品明细</Text><Text className="muted">共 {order.items?.length ?? 0} 件</Text></View>
+            {(order.items ?? []).map((item) => (
+              <View key={item.id} className="order-item">
+                <View className="order-thumb">{item.title?.slice(0, 1)}</View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ display: 'block', fontSize: '26px' }}>{item.title}</Text>
+                  <Text className="muted">× {item.quantity}</Text>
+                </View>
+                <Text>{formatMoney(item.amount)}</Text>
               </View>
-            ))
-          ) : (
-            <View className="muted">商户接单后生成核销码</View>
+            ))}
+            <View className="summary-row" style={{ marginTop: '12px' }}>
+              <Text>已退款</Text><Text>{formatMoney(order.refunded_amount)}</Text>
+            </View>
+          </View>
+
+          {steps.length > 0 && (
+            <View className="card">
+              <View className="section-head"><Text>订单进度</Text><Text className="muted">实时</Text></View>
+              {steps.map((item, index) => (
+                <View key={`${item.event}-${index}`} className="timeline-item done">
+                  <View className="dot" />
+                  <View>
+                    <Text style={{ display: 'block' }}>{item.event}</Text>
+                    <Text className="muted">{formatDateTime(item.created_at)} · {item.operator_type}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
           )}
-          <View className="muted">请到店出示核销码，由商户扫码核销</View>
-        </View>
-      )}
 
-      {steps.length > 0 && (
-        <View className="card">
-          <View className="muted" style={{ marginBottom: '8px' }}>订单进度</View>
-          {steps.map((item, index) => (
-            <View key={`${item.event}-${index}`} className="timeline-item done">
-              <View className="dot" />
-              <View>
-                <Text style={{ display: 'block' }}>{item.event}</Text>
-                <Text className="muted">{formatDateTime(item.created_at)} · {item.operator_type}</Text>
-              </View>
+          {order.status === 'FULFILLING' && (
+            <Button className="btn" onClick={() => action(() => api.confirmOrder(orderId), '已确认收货')}>确认收货</Button>
+          )}
+          {order.status === 'PENDING_ACCEPT' && (
+            <Button className="btn secondary" onClick={() => action(() => api.cancelOrder(orderId), '已取消')}>取消订单</Button>
+          )}
+          {order.status === 'COMPLETED' && (
+            <View style={{ display: 'flex', gap: '12px' }}>
+              <Button className="btn secondary" style={{ flex: 1 }} onClick={() => setShowReview(!showReview)}>评价服务</Button>
+              <Button className="btn secondary" style={{ flex: 1 }} onClick={() => setShowAfterSale(!showAfterSale)}>申请售后</Button>
             </View>
-          ))}
-        </View>
-      )}
-
-      {order?.status === 'FULFILLING' && (
-        <Button className="btn" onClick={() => action(() => api.confirmOrder(orderId), '已确认收货')}>确认收货</Button>
-      )}
-      {order?.status === 'PENDING_ACCEPT' && (
-        <Button className="btn secondary" onClick={() => action(() => api.cancelOrder(orderId), '已取消')}>取消订单</Button>
-      )}
-      {order?.status === 'COMPLETED' && (
-        <View style={{ display: 'flex', gap: '12px' }}>
-          <Button className="btn secondary" style={{ flex: 1 }} onClick={() => setShowReview(!showReview)}>评价服务</Button>
-          <Button className="btn secondary" style={{ flex: 1 }} onClick={() => setShowAfterSale(!showAfterSale)}>申请售后</Button>
+          )}
         </View>
       )}
 
       {showReview && (
         <View className="card">
-          <Text className="field-label">评分（1-5）</Text>
-          <Input
-            className="input"
-            name="score"
-            type="number"
-            value={String(score)}
-            onInput={(event) => setScore(Number(event.detail.value) || 5)}
-          />
-          <Text className="field-label">评价内容</Text>
-          <Input
-            className="input"
-            name="review_content"
-            placeholder="请输入评价内容（可选）…"
-            value={reviewText}
-            onInput={(event) => setReviewText(event.detail.value)}
-          />
+          <View className="section-head"><Text>评价服务</Text><Text className="muted">1–5 分</Text></View>
+          <Input className="input" name="score" type="number" value={String(score)} onInput={(event) => setScore(Number(event.detail.value) || 5)} />
+          <Input className="input" name="review_content" placeholder="说说这次体验…" value={reviewText} onInput={(event) => setReviewText(event.detail.value)} />
           <Button className="btn" onClick={submitReview}>提交评价</Button>
         </View>
       )}
 
       {showAfterSale && (
         <View className="card">
-          <Text className="field-label">退款金额（分）</Text>
-          <Input
-            className="input"
-            name="request_amount"
-            type="number"
-            placeholder="请输入退款金额…"
-            value={amount}
-            onInput={(event) => setAmount(event.detail.value)}
-          />
-          <Text className="field-label">问题描述</Text>
-          <Input
-            className="input"
-            name="description"
-            placeholder="请描述遇到的问题…"
-            value={reason}
-            onInput={(event) => setReason(event.detail.value)}
-          />
+          <View className="section-head"><Text>申请售后</Text><Text className="muted">按分填写</Text></View>
+          <Input className="input" name="request_amount" type="number" placeholder="退款金额（分）…" value={amount} onInput={(event) => setAmount(event.detail.value)} />
+          <Input className="input" name="description" placeholder="请描述遇到的问题…" value={reason} onInput={(event) => setReason(event.detail.value)} />
           <Button className="btn" onClick={submitAfterSale}>提交售后</Button>
         </View>
       )}

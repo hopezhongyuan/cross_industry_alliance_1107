@@ -65,6 +65,10 @@ class Order(TimeStampedModel):
     refunded_amount = models.BigIntegerField("累计退款（分）", default=0)
     commission_rate = models.DecimalField("佣金率快照", max_digits=5, decimal_places=4, default=0)
     commission_amount = models.BigIntegerField("佣金（分）", default=0)
+    platform_income_amount = models.BigIntegerField("平台分账（分）", default=0)
+    merchant_income_amount = models.BigIntegerField("商家分账（分）", default=0)
+    platform_refund_amount = models.BigIntegerField("平台承担退款（分）", default=0)
+    merchant_refund_amount = models.BigIntegerField("商家承担退款（分）", default=0)
     contact_json = models.JSONField("联系人快照", default=dict, blank=True)
     remark = models.CharField("用户备注", max_length=200, blank=True, default="")
     cancel_reason = models.CharField("取消原因", max_length=200, blank=True, default="")
@@ -110,7 +114,13 @@ class OrderItem(TimeStampedModel):
     price = models.BigIntegerField("成交单价（分）")
     quantity = models.PositiveIntegerField("数量", default=1)
     amount = models.BigIntegerField("行金额（分）")
+    paid_amount = models.BigIntegerField("行实付（分）", default=0)
+    commission_rate = models.DecimalField("行佣金率快照", max_digits=5, decimal_places=4, default=0)
+    platform_amount = models.BigIntegerField("行平台分账（分）", default=0)
+    merchant_amount = models.BigIntegerField("行商家分账（分）", default=0)
     refund_amount = models.BigIntegerField("行退款（分）", default=0)
+    platform_refund_amount = models.BigIntegerField("行平台退款（分）", default=0)
+    merchant_refund_amount = models.BigIntegerField("行商家退款（分）", default=0)
 
     class Meta:
         verbose_name = "订单商品行"

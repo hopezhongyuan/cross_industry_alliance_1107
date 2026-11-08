@@ -3,24 +3,48 @@
 from django.db.models import Count
 from drf_spectacular.utils import extend_schema
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from apps.common.api import ApiError, EnvelopeAPIView, EnvelopeResponse, ok, paginated
 
 from .media_services import asset_reference_count, validate_upload
-from .models import AuditTask, MediaAsset, MediaFolder, OperationLog
+from .models import AuditTask, DecoPage, MediaAsset, MediaFolder, OperationLog, StoreNavItem
 from .serializers import (
+    AdminPlatformConfigInputSerializer,
+    AdminPlatformConfigSerializer,
     AuditDecisionInputSerializer,
     AuditTaskSerializer,
+    DecoPageInputSerializer,
+    DecoPageListSerializer,
+    DecoPageSerializer,
     MediaAssetSerializer,
     MediaAssetUploadSerializer,
     MediaFolderInputSerializer,
     MediaFolderSerializer,
     OperationLogSerializer,
+    PublicDecoPageSerializer,
+    PublicPlatformConfigSerializer,
     RuleVersionInputSerializer,
     RuleVersionSerializer,
+    StoreNavInputSerializer,
+    StoreNavItemSerializer,
 )
-from .services import decide_audit, publish_rule_version, require_platform_admin
+from .services import (
+    decide_audit,
+    get_platform_config,
+    publish_rule_version,
+    require_platform_admin,
+    update_platform_config,
+)
+from .storefront_services import (
+    create_page,
+    delete_page,
+    public_nav,
+    public_page,
+    publish_page,
+    replace_nav_items,
+    update_page,
+)
 
 
 @extend_schema(tags=["admin"], responses=EnvelopeResponse)
@@ -248,3 +272,149 @@ class AdminMediaAssetDetailView(EnvelopeAPIView):
         asset.file.delete(save=False)
         asset.delete()
         return ok(request, None, status_code=204)
+
+
+@extend_schema(tags=["admin"], request=AdminPlatformConfigInputSerializer, responses=EnvelopeResponse)
+class AdminPlatformConfigView(EnvelopeAPIView):
+    """平台配置读写：读取不回显密钥，写入留空表示保持原值。"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = AdminPlatformConfigInputSerializer
+
+    @extend_schema(operation_id="getAdminPlatformConfig")
+    def get(self, request):
+        require_platform_admin(request.user)
+        config = get_platform_config()
+        return ok(request, AdminPlatformConfigSerializer(config).data)
+
+    @extend_schema(operation_id="updateAdminPlatformConfig")
+    def put(self, request):
+        serializer = AdminPlatformConfigInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        config = update_platform_config(request.user, serializer.validated_data, request=request)
+        return ok(request, AdminPlatformConfigSerializer(config).data)
+
+
+@extend_schema(tags=["platform"], responses=EnvelopeResponse)
+class PublicPlatformConfigView(EnvelopeAPIView):
+    """公开平台信息：不含任何密钥明文，供 H5 展示平台名称、协议与地图参数。"""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    serializer_class = PublicPlatformConfigSerializer
+
+    @extend_schema(operation_id="getPlatformConfig")
+    def get(self, request):
+        config = get_platform_config()
+        return ok(request, PublicPlatformConfigSerializer(config).data)
+
+
+@extend_schema(tags=["admin"], request=StoreNavInputSerializer, responses=EnvelopeResponse)
+class AdminStoreNavView(EnvelopeAPIView):
+    """平台底部导航：整表替换，最多 5 项。"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = StoreNavInputSerializer
+
+    @extend_schema(operation_id="getAdminStoreNav")
+    def get(self, request):
+        require_platform_admin(request.user)
+        items = StoreNavItem.objects.all().order_by("sort", "id")
+        return ok(request, StoreNavItemSerializer(items, many=True).data)
+
+    @extend_schema(operation_id="updateAdminStoreNav")
+    def put(self, request):
+        serializer = StoreNavInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        items = replace_nav_items(request.user, serializer.validated_data["items"], request=request)
+        return ok(request, StoreNavItemSerializer(items, many=True).data)
+
+
+@extend_schema(tags=["admin"], responses=EnvelopeResponse)
+class AdminDecoPageListView(EnvelopeAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = DecoPageListSerializer
+
+    @extend_schema(operation_id="listAdminDecoPages")
+    def get(self, request):
+        require_platform_admin(request.user)
+        queryset = DecoPage.objects.all()
+        status = request.query_params.get("status")
+        if status:
+            if status not in DecoPage.Status.values:
+                raise ApiError("VALIDATION_ERROR", "status 取值非法", 422)
+            queryset = queryset.filter(status=status)
+        return ok(request, paginated(request, queryset, DecoPageListSerializer))
+
+    @extend_schema(
+        operation_id="createAdminDecoPage",
+        request=DecoPageInputSerializer,
+        responses=EnvelopeResponse,
+    )
+    def post(self, request):
+        serializer = DecoPageInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        page = create_page(request.user, serializer.validated_data, request=request)
+        return ok(request, DecoPageSerializer(page).data, status_code=201)
+
+
+@extend_schema(tags=["admin"], request=DecoPageInputSerializer, responses=EnvelopeResponse)
+class AdminDecoPageDetailView(EnvelopeAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = DecoPageInputSerializer
+
+    @extend_schema(operation_id="getAdminDecoPage")
+    def get(self, request, pk):
+        require_platform_admin(request.user)
+        page = DecoPage.objects.filter(pk=pk).first()
+        if page is None:
+            raise ApiError("NOT_FOUND", "微页面不存在", 404)
+        return ok(request, DecoPageSerializer(page).data)
+
+    @extend_schema(operation_id="updateAdminDecoPage")
+    def put(self, request, pk):
+        serializer = DecoPageInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        page = update_page(request.user, pk, serializer.validated_data, request=request)
+        return ok(request, DecoPageSerializer(page).data)
+
+    @extend_schema(operation_id="deleteAdminDecoPage", responses={204: None})
+    def delete(self, request, pk):
+        delete_page(request.user, pk, request=request)
+        return ok(request, None, status_code=204)
+
+
+@extend_schema(tags=["admin"], responses=EnvelopeResponse)
+class AdminDecoPagePublishView(EnvelopeAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = DecoPageInputSerializer
+
+    @extend_schema(operation_id="publishAdminDecoPage")
+    def post(self, request, pk):
+        page = publish_page(request.user, pk, request=request)
+        return ok(request, DecoPageSerializer(page).data)
+
+
+@extend_schema(tags=["storefront"], responses=EnvelopeResponse)
+class PublicStoreNavView(EnvelopeAPIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    serializer_class = StoreNavItemSerializer
+
+    @extend_schema(operation_id="getStoreNav")
+    def get(self, request):
+        return ok(request, StoreNavItemSerializer(public_nav(), many=True).data)
+
+
+@extend_schema(tags=["storefront"], responses=EnvelopeResponse)
+class PublicDecoPageView(EnvelopeAPIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    serializer_class = PublicDecoPageSerializer
+
+    @extend_schema(operation_id="getDecoPage")
+    def get(self, request, slug):
+        page = public_page(slug)
+        if page is None:
+            raise ApiError("NOT_FOUND", "微页面不存在或未发布", 404)
+        return ok(request, PublicDecoPageSerializer(page).data)

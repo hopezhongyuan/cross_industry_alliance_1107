@@ -18,12 +18,13 @@ from .models import Merchant
 from .serializers import (
     AdminMerchantCreateInputSerializer,
     AdminMerchantDetailSerializer,
+    AdminMerchantLocationInputSerializer,
     AdminMerchantSerializer,
     MerchantSerializer,
     MerchantStatusInputSerializer,
     StoreSerializer,
 )
-from .services import change_merchant_status, create_merchant
+from .services import change_merchant_status, create_merchant, update_merchant_location
 
 
 def _distance_meters(lat1, lng1, lat2, lng2) -> int:
@@ -255,3 +256,31 @@ class AdminMerchantStatusView(EnvelopeAPIView):
             request=request,
         )
         return ok(request, {"id": merchant.id, "status": merchant.status, "changed": changed})
+
+
+@extend_schema(
+    tags=["admin"],
+    request=AdminMerchantLocationInputSerializer,
+    responses=EnvelopeResponse,
+)
+class AdminMerchantLocationView(EnvelopeAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AdminMerchantLocationInputSerializer
+
+    @extend_schema(operation_id="updateMerchantLocation")
+    def put(self, request, pk):
+        serializer = AdminMerchantLocationInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        merchant = update_merchant_location(request.user, pk, serializer.validated_data, request=request)
+        return ok(
+            request,
+            {
+                "id": merchant.id,
+                "lng": merchant.lng,
+                "lat": merchant.lat,
+                "province": merchant.province,
+                "city": merchant.city,
+                "district": merchant.district,
+                "address": merchant.address,
+            },
+        )

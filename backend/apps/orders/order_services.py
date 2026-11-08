@@ -3,7 +3,6 @@
 import secrets
 from collections import defaultdict
 from datetime import timedelta
-from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
 from django.db import transaction
@@ -17,6 +16,7 @@ from apps.merchants.services import resolve_commission_rate
 
 from .models import Order, OrderItem
 from .services import transit_order
+from .split_services import build_line_split
 
 
 def _validate_products(merchant_id, order_type, items):
@@ -119,11 +119,12 @@ def create_order(
         slot = _reserve_slot(contexts, appointment)
         sku_need = _check_stock(contexts)
 
-        product_amount = sum(
+        line_amounts = [
             (ctx["sku"].price if ctx["sku"] else ctx["product"].price) * ctx["item"]["quantity"] for ctx in contexts
-        )
+        ]
+        product_amount = sum(line_amounts)
         rate = resolve_commission_rate(merchant)
-        commission_amount = int((Decimal(product_amount) * rate).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        platform_amounts, commission_amount = build_line_split(line_amounts, rate)
         now = timezone.now()
         order = Order.objects.create(
             user=user,
@@ -135,6 +136,8 @@ def create_order(
             payable_amount=product_amount,
             commission_rate=rate,
             commission_amount=commission_amount,
+            platform_income_amount=commission_amount,
+            merchant_income_amount=product_amount - commission_amount,
             contact_json=contact,
             remark=remark,
             expire_at=now + timedelta(minutes=settings.ORDER_PAYMENT_TIMEOUT_MINUTES),
@@ -142,11 +145,13 @@ def create_order(
             idempotency_hash=request_hash,
         )
 
-        for ctx in contexts:
+        for index, ctx in enumerate(contexts):
             product = ctx["product"]
             sku = ctx["sku"]
             price = sku.price if sku else product.price
             quantity = ctx["item"]["quantity"]
+            line_amount = price * quantity
+            platform_amount = platform_amounts[index]
             OrderItem.objects.create(
                 order=order,
                 product=product,
@@ -161,7 +166,11 @@ def create_order(
                 title=product.title,
                 price=price,
                 quantity=quantity,
-                amount=price * quantity,
+                amount=line_amount,
+                paid_amount=line_amount,
+                commission_rate=rate,
+                platform_amount=platform_amount,
+                merchant_amount=line_amount - platform_amount,
             )
 
         for sku_id, quantity in sku_need.items():

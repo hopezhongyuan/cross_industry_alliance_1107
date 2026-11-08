@@ -6,7 +6,8 @@ from django.utils import timezone
 from apps.common.api import ApiError
 from apps.common.utils import generate_no
 
-from .models import AuditTask, OperationLog, RuleVersion
+from .media_services import ensure_media_url
+from .models import AuditTask, MediaAsset, OperationLog, PlatformConfig, RuleVersion
 
 
 def require_platform_admin(user):
@@ -73,6 +74,66 @@ def publish_rule_version(admin_user, snapshot, effective_at=None, remark=""):
             reason=remark,
         )
     return version
+
+
+def get_platform_config() -> PlatformConfig:
+    """读取平台配置单例；不存在时创建默认配置。"""
+    config = PlatformConfig.objects.filter(singleton_key="default").first()
+    if config is None:
+        config = PlatformConfig.objects.create(singleton_key="default")
+    return config
+
+
+def update_platform_config(admin_user, data: dict, request=None):
+    """更新平台配置；密钥字段留空表示保持原值。"""
+    require_platform_admin(admin_user)
+    config = get_platform_config()
+    logo_url = data.get("logo_url", "")
+    if logo_url and logo_url != config.logo_url:
+        ensure_media_url(logo_url, kinds=(MediaAsset.Kind.IMAGE,))
+
+    before = {
+        "platform_name": config.platform_name,
+        "amap_enabled": config.amap_enabled,
+    }
+    for field in (
+        "platform_name",
+        "logo_url",
+        "contact_phone",
+        "company_name",
+        "icp_no",
+        "privacy_policy",
+        "user_agreement",
+        "agreement_version",
+        "miniapp_app_id",
+        "miniapp_original_id",
+        "amap_js_key",
+        "amap_enabled",
+    ):
+        if field in data:
+            setattr(config, field, data[field])
+    for secret_field in ("miniapp_app_secret", "amap_web_key", "amap_js_security_code"):
+        value = data.get(secret_field, "")
+        if value:
+            setattr(config, secret_field, value)
+    config.updated_by_name = getattr(admin_user, "nickname", "") or getattr(admin_user, "phone", "")
+    config.save()
+    log_operation(
+        operator=admin_user,
+        action="PLATFORM_CONFIG_UPDATE",
+        biz_type="PLATFORM_CONFIG",
+        biz_id=config.id,
+        before=before,
+        after={
+            "platform_name": config.platform_name,
+            "amap_enabled": config.amap_enabled,
+            "miniapp_app_secret_configured": bool(config.miniapp_app_secret),
+            "amap_web_key_configured": bool(config.amap_web_key),
+            "amap_js_security_code_configured": bool(config.amap_js_security_code),
+        },
+        request=request,
+    )
+    return config
 
 
 def decide_audit(admin_user, task_id: int, decision: str, reason: str = "", request=None):

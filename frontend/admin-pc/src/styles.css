@@ -524,3 +524,57 @@ th {
   font-size: 13px;
 }
 
+.user-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
+.avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 14px;
+}
+
+.link-target {
+  display: flex;
+  gap: 8px;
+}
+
+.link-target select {
+  flex: 1;
+}
+
+.deco-nav-row {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 14px;
+  background: #fff;
+}
+
+.deco-component {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  background: var(--card);
+}
+
+.deco-subblock {
+  border-left: 3px solid var(--line);
+  padding: 8px 0 8px 12px;
+  margin-bottom: 10px;
+}
+

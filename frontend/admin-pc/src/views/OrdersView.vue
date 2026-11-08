@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { api, ApiError, type AdminOrderRow, type Page } from '../api'
+import { api, ApiError, type AdminOrderDetail, type AdminOrderRow, type Page } from '../api'
 import ModalShell from '../components/ModalShell.vue'
 import { formatDateTime, formatMoney } from '../format'
 
@@ -17,6 +17,9 @@ const actionOrder = ref<AdminOrderRow | null>(null)
 const actionType = ref<'FREEZE' | 'UNFREEZE'>('FREEZE')
 const reason = ref('')
 const submitting = ref(false)
+const detail = ref<AdminOrderDetail | null>(null)
+const detailLoading = ref(false)
+const detailError = ref('')
 
 async function load(target = 1) {
   loading.value = true
@@ -48,6 +51,23 @@ function openAction(row: AdminOrderRow, type: 'FREEZE' | 'UNFREEZE') {
   actionOrder.value = row
   actionType.value = type
   reason.value = ''
+}
+
+async function openDetail(row: AdminOrderRow) {
+  detail.value = null
+  detailError.value = ''
+  detailLoading.value = true
+  try {
+    detail.value = await api.adminOrderDetail(row.id)
+  } catch (exc) {
+    detailError.value = exc instanceof ApiError ? `${exc.code}：${exc.message}` : '加载订单详情失败'
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+function rateText(rate: number): string {
+  return `${(rate * 100).toFixed(1)}%`
 }
 
 async function submitAction() {
@@ -112,7 +132,8 @@ onMounted(() => load(Number(route.query.page ?? 1)))
           <td class="money">{{ formatMoney(row.refunded_amount) }}</td>
           <td>{{ formatDateTime(row.created_at) }}</td>
           <td>
-            <button class="text" @click="openAction(row, 'FREEZE')">冻结</button>
+            <button class="text" @click="openDetail(row)">详情</button>
+            <button class="text" style="margin-left: 8px" @click="openAction(row, 'FREEZE')">冻结</button>
             <button class="text" style="margin-left: 8px" @click="openAction(row, 'UNFREEZE')">解冻</button>
           </td>
         </tr>
@@ -125,6 +146,67 @@ onMounted(() => load(Number(route.query.page ?? 1)))
     <span>第 {{ page.page }} 页 · 共 {{ page.total }} 条</span>
     <button class="text" :disabled="!page.has_more" @click="load(page.page + 1)">下一页</button>
   </div>
+
+  <ModalShell v-if="detailLoading || detail || detailError" title="订单详情" wide @close="detail = null; detailError = ''">
+    <template v-if="detailLoading">
+      <h2>订单详情</h2>
+      <div class="muted">加载中…</div>
+    </template>
+    <template v-else-if="detailError">
+      <h2>加载失败</h2>
+      <div class="error" role="alert">{{ detailError }}</div>
+      <button class="text" @click="detailError = ''">关闭</button>
+    </template>
+    <template v-else-if="detail">
+      <h2>订单详情 · {{ detail.order_no }}</h2>
+      <div class="detail-grid">
+        <span>商户</span><b>{{ detail.merchant_name }}</b>
+        <span>状态</span><b>{{ detail.status }}</b>
+        <span>商品实付</span><b>{{ formatMoney(detail.product_amount) }}</b>
+        <span>配送费</span><b>{{ formatMoney(detail.delivery_fee) }}</b>
+        <span>已退款</span><b>{{ formatMoney(detail.refunded_amount) }}</b>
+        <span>佣金率</span><b>{{ rateText(detail.commission_rate) }}</b>
+        <span>平台分账</span><b>{{ formatMoney(detail.platform_income_amount) }}</b>
+        <span>商家分账</span><b>{{ formatMoney(detail.merchant_income_amount) }}</b>
+        <span>平台承担退款</span><b>{{ formatMoney(detail.platform_refund_amount) }}</b>
+        <span>商家承担退款</span><b>{{ formatMoney(detail.merchant_refund_amount) }}</b>
+      </div>
+
+      <div class="section-title">商品行分账</div>
+      <div class="card" style="padding: 0; overflow-x: auto">
+        <table>
+          <thead>
+            <tr>
+              <th>商品</th>
+              <th class="money">数量</th>
+              <th class="money">行实付</th>
+              <th class="money">平台佣金</th>
+              <th class="money">商家应得</th>
+              <th class="money">退款</th>
+              <th class="money">退款后平台</th>
+              <th class="money">退款后商家</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in detail.items" :key="item.id">
+              <td>{{ item.title }}</td>
+              <td class="money">{{ item.quantity }}</td>
+              <td class="money">{{ formatMoney(item.paid_amount) }}</td>
+              <td class="money">{{ formatMoney(item.platform_amount) }}</td>
+              <td class="money">{{ formatMoney(item.merchant_amount) }}</td>
+              <td class="money">{{ formatMoney(item.refund_amount) }}</td>
+              <td class="money">{{ formatMoney(item.platform_net_amount) }}</td>
+              <td class="money">{{ formatMoney(item.merchant_net_amount) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="muted">规则：平台佣金按商品实付计算，配送费 100% 归商家；退款按行冲回。</div>
+      <div class="toolbar" style="margin: 0">
+        <button class="text" @click="detail = null">关闭</button>
+      </div>
+    </template>
+  </ModalShell>
 
   <ModalShell v-if="actionOrder" :title="actionType === 'FREEZE' ? '冻结结算' : '解冻结算'" @close="actionOrder = null">
     <h2>{{ actionType === 'FREEZE' ? '冻结结算' : '解冻结算' }}</h2>

@@ -117,6 +117,55 @@ class AdminMerchantTests(TestCase):
         self.assertEqual(response.status_code, 422)
 
 
+class AdminMerchantLocationTests(TestCase):
+    def setUp(self):
+        self.admin = AppUser.objects.create_user(phone="13900000401", password="pass12345", is_staff=True)
+        self.consumer = AppUser.objects.create_user(phone="13900000402", password="pass12345")
+        self.merchant = Merchant.objects.create(
+            merchant_no="M1401", name="定位测试商户", status=Merchant.Status.ACTIVE, city="杭州"
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+        self.consumer_client = APIClient()
+        self.consumer_client.force_authenticate(self.consumer)
+
+    def test_update_location(self):
+        response = self.client.put(
+            f"/api/v1/admin/merchants/{self.merchant.id}/location/",
+            {
+                "lng": "120.155100",
+                "lat": "30.274100",
+                "province": "浙江",
+                "city": "杭州",
+                "district": "西湖区",
+                "address": "西湖文化广场",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.merchant.refresh_from_db()
+        self.assertEqual(str(self.merchant.lng), "120.155100")
+        self.assertEqual(str(self.merchant.lat), "30.274100")
+        self.assertEqual(self.merchant.address, "西湖文化广场")
+        self.assertTrue(
+            OperationLog.objects.filter(action="MERCHANT_LOCATION_UPDATE", biz_id=self.merchant.id).exists()
+        )
+
+    def test_location_validation_and_permission(self):
+        invalid = self.client.put(
+            f"/api/v1/admin/merchants/{self.merchant.id}/location/",
+            {"lng": "120.1", "lat": "91"},
+            format="json",
+        )
+        self.assertEqual(invalid.status_code, 422)
+        forbidden = self.consumer_client.put(
+            f"/api/v1/admin/merchants/{self.merchant.id}/location/",
+            {"lng": "120.1", "lat": "30.1"},
+            format="json",
+        )
+        self.assertEqual(forbidden.status_code, 403)
+
+
 class AdminMerchantCreateTests(TestCase):
     def setUp(self):
         self.admin = AppUser.objects.create_user(phone="13900000301", password="pass12345", is_staff=True)

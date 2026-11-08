@@ -1,7 +1,6 @@
 """记账服务：唯一写入口，负责校验借贷平衡、幂等与余额快照。"""
 
 from datetime import timedelta
-from decimal import ROUND_HALF_UP, Decimal
 from typing import Iterable, Optional
 
 from django.db import transaction
@@ -169,7 +168,8 @@ def create_settlement_item(order) -> SettlementItem:
         raise LedgerError("只有已完成订单才能生成结算项")
 
     cycle_days = order.merchant.settlement_cycle_days
-    net_amount = order.product_amount + order.delivery_fee - order.commission_amount - order.refunded_amount
+    commission_amount = order.commission_amount - order.platform_refund_amount
+    net_amount = order.product_amount - order.commission_amount + order.delivery_fee - order.merchant_refund_amount
     item, created = SettlementItem.objects.get_or_create(
         order=order,
         defaults={
@@ -179,7 +179,7 @@ def create_settlement_item(order) -> SettlementItem:
             "product_amount": order.product_amount,
             "delivery_fee": order.delivery_fee,
             "commission_rate": order.commission_rate,
-            "commission_amount": order.commission_amount,
+            "commission_amount": commission_amount,
             "refund_amount": order.refunded_amount,
             "net_amount": net_amount,
         },
@@ -188,12 +188,11 @@ def create_settlement_item(order) -> SettlementItem:
 
 
 def effective_commission(item: SettlementItem) -> int:
-    """按退款后的结算基数重算佣金；佣金按退款金额等比冲回。"""
+    """结算时佣金取订单行分账快照，配送费不参与佣金。"""
     gross = item.product_amount + item.delivery_fee - item.refund_amount
     if gross <= 0:
         return 0
-    commission = int((Decimal(gross) * Decimal(item.commission_rate)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-    return max(0, min(commission, gross))
+    return max(0, min(item.commission_amount, gross))
 
 
 def create_settlement_batch(period_end=None) -> Optional[SettlementBatch]:

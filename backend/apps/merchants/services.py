@@ -116,6 +116,38 @@ def create_merchant(admin_user, payload: dict, idempotency_key: str, request=Non
     return merchant, True
 
 
+def update_merchant_location(admin_user, merchant_id: int, data: dict, request=None):
+    """平台设置商户真实定位；经纬度同时保存，坐标统一为 GCJ-02。"""
+    require_platform_admin(admin_user)
+    with transaction.atomic():
+        merchant = Merchant.objects.select_for_update().filter(pk=merchant_id).first()
+        if merchant is None:
+            raise ApiError("NOT_FOUND", "商户不存在", 404)
+        before = {
+            "lng": str(merchant.lng) if merchant.lng is not None else None,
+            "lat": str(merchant.lat) if merchant.lat is not None else None,
+            "address": merchant.address,
+        }
+        for field in ("lng", "lat", "province", "city", "district", "address"):
+            if field in data:
+                setattr(merchant, field, data[field])
+        merchant.save(update_fields=["lng", "lat", "province", "city", "district", "address", "updated_at"])
+        log_operation(
+            operator=admin_user,
+            action="MERCHANT_LOCATION_UPDATE",
+            biz_type="MERCHANT",
+            biz_id=merchant.id,
+            before=before,
+            after={
+                "lng": str(merchant.lng) if merchant.lng is not None else None,
+                "lat": str(merchant.lat) if merchant.lat is not None else None,
+                "address": merchant.address,
+            },
+            request=request,
+        )
+    return merchant
+
+
 def resolve_commission_rate(merchant: Merchant) -> Decimal:
     """返回下单时应快照的佣金率；两者都未配置时为 0。"""
     if merchant.commission_rate is not None:

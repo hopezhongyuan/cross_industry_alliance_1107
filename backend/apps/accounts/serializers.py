@@ -18,6 +18,48 @@ class AppUserSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class AdminUserListSerializer(serializers.ModelSerializer):
+    """平台后台用户列表：手机号脱敏，按身份归类。"""
+
+    phone_masked = serializers.SerializerMethodField()
+    user_type = serializers.SerializerMethodField()
+    merchant_names = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AppUser
+        fields = (
+            "id",
+            "nickname",
+            "phone_masked",
+            "avatar_url",
+            "gender",
+            "status",
+            "is_staff",
+            "user_type",
+            "merchant_names",
+            "last_login",
+            "created_at",
+        )
+
+    def get_phone_masked(self, obj):
+        phone = obj.phone or ""
+        if not phone:
+            return ""
+        if len(phone) <= 7:
+            return f"{phone[0]}{'*' * (len(phone) - 1)}"
+        return f"{phone[:3]}****{phone[-4:]}"
+
+    def get_user_type(self, obj):
+        if obj.is_staff or obj.is_superuser:
+            return "PLATFORM_ADMIN"
+        if any(role.status == "ACTIVE" for role in obj.merchant_staff_roles.all()):
+            return "MERCHANT_STAFF"
+        return "CONSUMER"
+
+    def get_merchant_names(self, obj):
+        return [role.merchant.name for role in obj.merchant_staff_roles.all() if role.status == "ACTIVE"]
+
+
 class MerchantRoleSerializer(serializers.Serializer):
     merchant_id = serializers.IntegerField()
     merchant_name = serializers.CharField()

@@ -161,6 +161,10 @@ export interface paths {
     /** 商户订单列表（仅本店） */
     get: operations["listMerchantOrders"];
   };
+  "/api/v1/merchant/orders/{id}/": {
+    /** 商户订单详情（商品行平台/商家分账与退款冲回） */
+    get: operations["getMerchantOrder"];
+  };
   "/api/v1/merchant/orders/{id}/accept/": {
     /** 接单（仅待接单可接，超时自动退款） */
     post: operations["acceptOrder"];
@@ -261,6 +265,52 @@ export interface paths {
     /** 手动同步模板到已认领商品 */
     post: operations["syncAdminTemplate"];
   };
+  "/api/v1/admin/users/": {
+    /** 用户只读列表（昵称/脱敏手机号/头像/注册时间/状态/身份） */
+    get: operations["listAdminUsers"];
+  };
+  "/api/v1/platform/config/": {
+    /** 公开平台信息与协议正文（不含密钥） */
+    get: operations["getPlatformConfig"];
+  };
+  "/api/v1/admin/platform-config/": {
+    /** 平台配置读取（密钥只返回是否已配置） */
+    get: operations["getAdminPlatformConfig"];
+    /** 平台配置保存（密钥留空保持原值，Logo 必须来自素材库） */
+    put: operations["updateAdminPlatformConfig"];
+  };
+  "/api/v1/storefront/nav/": {
+    /** 消费者端底部导航（仅启用项） */
+    get: operations["getStoreNav"];
+  };
+  "/api/v1/storefront/pages/{slug}/": {
+    /** 已发布微页面（仅返回发布快照） */
+    get: operations["getDecoPage"];
+  };
+  "/api/v1/admin/storefront/nav/": {
+    /** 底部导航配置读取 */
+    get: operations["getAdminStoreNav"];
+    /** 底部导航整表保存（1–5 项，图标来自素材库，链接仅内部页面） */
+    put: operations["updateAdminStoreNav"];
+  };
+  "/api/v1/admin/storefront/pages/": {
+    /** 微页面列表 */
+    get: operations["listAdminDecoPages"];
+    /** 新建微页面 */
+    post: operations["createAdminDecoPage"];
+  };
+  "/api/v1/admin/storefront/pages/{id}/": {
+    /** 微页面详情（含草稿与已发布组件） */
+    get: operations["getAdminDecoPage"];
+    /** 保存微页面草稿 */
+    put: operations["updateAdminDecoPage"];
+    /** 删除微页面（被底部导航引用时禁止） */
+    delete: operations["deleteAdminDecoPage"];
+  };
+  "/api/v1/admin/storefront/pages/{id}/publish/": {
+    /** 发布微页面（生成已发布快照） */
+    post: operations["publishAdminDecoPage"];
+  };
   "/api/v1/admin/merchants/": {
     /** 商户列表（状态/关键词/类目/城市筛选，含状态计数与经营统计） */
     get: operations["listAdminMerchants"];
@@ -275,9 +325,17 @@ export interface paths {
     /** 停业/恢复/封禁（原因必填；同状态重复提交幂等返回 changed=false） */
     post: operations["changeMerchantStatus"];
   };
+  "/api/v1/admin/merchants/{id}/location/": {
+    /** 设置商户真实定位（经纬度必填，GCJ-02） */
+    put: operations["updateMerchantLocation"];
+  };
   "/api/v1/admin/orders/": {
     /** 平台订单查询（多条件筛选，数据脱敏） */
     get: operations["listAdminOrders"];
+  };
+  "/api/v1/admin/orders/{id}/": {
+    /** 平台订单详情（商品行平台/商家分账与退款冲回） */
+    get: operations["getAdminOrder"];
   };
   "/api/v1/admin/orders/{id}/freeze/": {
     /** 冻结结算（只冻结资金，不影响履约） */
@@ -949,10 +1007,30 @@ export interface components {
       /** Format: int64 */
       sku_id?: number | null;
       title?: string;
-      price_amount?: number;
+      price?: number;
       quantity?: number;
       amount?: number;
+      /** @description 行商品实付，不含配送费 */
+      paid_amount?: number;
+      /**
+       * Format: double
+       * @example 0.05
+       */
+      commission_rate?: number;
+      /** @description 行平台分账 */
+      platform_amount?: number;
+      platform_refund_amount?: number;
+      /** @description 退款后平台分账 */
+      platform_net_amount?: number;
+      /** @description 行商家分账 */
+      merchant_amount?: number;
+      merchant_refund_amount?: number;
+      /** @description 退款后商家分账 */
+      merchant_net_amount?: number;
       refund_amount?: number;
+      snapshot_json?: {
+        [key: string]: unknown;
+      };
     };
     Order: {
       /** Format: int64 */
@@ -978,6 +1056,14 @@ export interface components {
        */
       commission_rate?: number;
       commission_amount?: number;
+      /** @description 当前平台分账合计 */
+      platform_income_amount?: number;
+      /** @description 当前商家分账合计，含配送费 */
+      merchant_income_amount?: number;
+      /** @description 累计平台承担退款 */
+      platform_refund_amount?: number;
+      /** @description 累计商家承担退款 */
+      merchant_refund_amount?: number;
       contact?: components["schemas"]["Contact"];
       remark?: string;
       items?: components["schemas"]["OrderItem"][];
@@ -1023,6 +1109,37 @@ export interface components {
     };
     OrderEnvelope: components["schemas"]["Envelope"] & {
       data?: components["schemas"]["Order"];
+    };
+    AdminOrderDetail: {
+      /** Format: int64 */
+      id?: number;
+      order_no?: string;
+      /** Format: int64 */
+      merchant_id?: number;
+      merchant_name?: string;
+      /** @enum {string} */
+      order_type?: "EXPRESS" | "PICKUP" | "SERVICE";
+      status?: string;
+      product_amount?: number;
+      delivery_fee?: number;
+      payable_amount?: number;
+      paid_amount?: number;
+      refunded_amount?: number;
+      /** Format: double */
+      commission_rate?: number;
+      commission_amount?: number;
+      platform_income_amount?: number;
+      merchant_income_amount?: number;
+      platform_refund_amount?: number;
+      merchant_refund_amount?: number;
+      /** Format: date-time */
+      created_at?: string;
+      /** Format: date-time */
+      completed_at?: string | null;
+      items?: components["schemas"]["OrderItem"][];
+    };
+    AdminOrderDetailEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["AdminOrderDetail"];
     };
     OrderPageEnvelope: components["schemas"]["Envelope"] & {
       data?: {
@@ -1383,6 +1500,197 @@ export interface components {
     });
     AdminMerchantDetailEnvelope: components["schemas"]["Envelope"] & {
       data?: components["schemas"]["AdminMerchantDetail"];
+    };
+    AdminUser: {
+      /** Format: int64 */
+      id?: number;
+      nickname?: string;
+      /** @description 脱敏手机号，如 138****8000 */
+      phone_masked?: string;
+      avatar_url?: string;
+      /** @enum {string} */
+      gender?: "U" | "M" | "F";
+      /** @enum {string} */
+      status?: "ACTIVE" | "DISABLED";
+      is_staff?: boolean;
+      /** @enum {string} */
+      user_type?: "CONSUMER" | "MERCHANT_STAFF" | "PLATFORM_ADMIN";
+      merchant_names?: string[];
+      /** Format: date-time */
+      last_login?: string | null;
+      /** Format: date-time */
+      created_at?: string;
+    };
+    AdminUserPageEnvelope: components["schemas"]["Envelope"] & {
+      data?: {
+        items?: components["schemas"]["AdminUser"][];
+        page?: components["schemas"]["Page"];
+      };
+    };
+    AdminPlatformConfig: {
+      platform_name?: string;
+      /** @description 素材库图片地址 */
+      logo_url?: string;
+      contact_phone?: string;
+      company_name?: string;
+      icp_no?: string;
+      privacy_policy?: string;
+      user_agreement?: string;
+      agreement_version?: string;
+      miniapp_app_id?: string;
+      /** @description 是否已配置，不返回明文 */
+      miniapp_app_secret_configured?: boolean;
+      miniapp_original_id?: string;
+      /** @description 是否已配置，不返回明文 */
+      amap_web_key_configured?: boolean;
+      amap_js_key?: string;
+      /** @description 是否已配置，不返回明文 */
+      amap_js_security_code_configured?: boolean;
+      amap_enabled?: boolean;
+      updated_by_name?: string;
+      /** Format: date-time */
+      updated_at?: string;
+    };
+    AdminPlatformConfigInput: {
+      platform_name: string;
+      /** @description 必须来自素材库 */
+      logo_url?: string;
+      contact_phone?: string;
+      company_name?: string;
+      icp_no?: string;
+      privacy_policy?: string;
+      user_agreement?: string;
+      agreement_version?: string;
+      miniapp_app_id?: string;
+      /** @description 留空表示保持原值 */
+      miniapp_app_secret?: string;
+      miniapp_original_id?: string;
+      /** @description 留空表示保持原值 */
+      amap_web_key?: string;
+      amap_js_key?: string;
+      /** @description 留空表示保持原值 */
+      amap_js_security_code?: string;
+      amap_enabled?: boolean;
+    };
+    /** @description 公开信息，不含任何密钥明文 */
+    PublicPlatformConfig: {
+      platform_name?: string;
+      logo_url?: string;
+      contact_phone?: string;
+      company_name?: string;
+      icp_no?: string;
+      privacy_policy?: string;
+      user_agreement?: string;
+      agreement_version?: string;
+      amap_enabled?: boolean;
+      amap_js_key?: string;
+      amap_js_security_code?: string;
+    };
+    PlatformConfigEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["PublicPlatformConfig"];
+    };
+    AdminPlatformConfigEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["AdminPlatformConfig"];
+    };
+    StoreNavItem: {
+      /** Format: int64 */
+      id?: number;
+      title?: string;
+      /** @description 选中图标，素材库地址 */
+      icon_selected?: string;
+      /** @description 未选中图标，素材库地址 */
+      icon_unselected?: string;
+      /** @enum {string} */
+      link_type?: "FUNCTION" | "MICRO_PAGE" | "CATEGORY" | "MERCHANT" | "PRODUCT";
+      link_value?: string;
+      sort?: number;
+      /** @enum {string} */
+      status?: "ENABLED" | "DISABLED";
+    };
+    StoreNavInput: {
+      items: ({
+          title: string;
+          icon_selected?: string;
+          icon_unselected?: string;
+          /** @enum {string} */
+          link_type: "FUNCTION" | "MICRO_PAGE" | "CATEGORY" | "MERCHANT" | "PRODUCT";
+          /** @description 功能页 HOME/CATEGORY/CART/ORDERS/ME/SEARCH/MERCHANT_LIST，其他为 ID 或 slug */
+          link_value?: string;
+          /** @enum {string} */
+          status?: "ENABLED" | "DISABLED";
+        })[];
+    };
+    StoreNavEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["StoreNavItem"][];
+    };
+    DecoComponent: {
+      id: string;
+      /** @enum {string} */
+      type: "AD" | "CAROUSEL" | "IMAGE_HOTSPOT" | "PRODUCT" | "SEARCH" | "LOCATION" | "DIVIDER" | "LINK";
+      /** @description 按组件类型的前端配置，后端严格校验素材与链接 */
+      config: {
+        [key: string]: unknown;
+      };
+    };
+    DecoPageList: {
+      /** Format: int64 */
+      id?: number;
+      slug?: string;
+      title?: string;
+      /** @enum {string} */
+      status?: "DRAFT" | "PUBLISHED";
+      component_count?: number;
+      /** Format: date-time */
+      published_at?: string | null;
+      updated_by_name?: string;
+      /** Format: date-time */
+      updated_at?: string;
+    };
+    DecoPagePageEnvelope: components["schemas"]["Envelope"] & {
+      data?: {
+        items?: components["schemas"]["DecoPageList"][];
+        page?: components["schemas"]["Page"];
+      };
+    };
+    DecoPage: components["schemas"]["DecoPageList"] & {
+      share_title?: string;
+      share_image?: string;
+      draft_components?: components["schemas"]["DecoComponent"][];
+      published_components?: components["schemas"]["DecoComponent"][];
+    };
+    DecoPageInput: {
+      /** @description 2–40 位小写字母、数字或连字符 */
+      slug: string;
+      title: string;
+      share_title?: string;
+      /** @description 素材库图片 */
+      share_image?: string;
+      draft_components?: components["schemas"]["DecoComponent"][];
+    };
+    DecoPageEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["DecoPage"];
+    };
+    PublicDecoPage: {
+      slug?: string;
+      title?: string;
+      share_title?: string;
+      share_image?: string;
+      components?: components["schemas"]["DecoComponent"][];
+      /** Format: date-time */
+      published_at?: string;
+    };
+    PublicDecoPageEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["PublicDecoPage"];
+    };
+    MerchantLocationInput: {
+      /** @description 高德 GCJ-02 经度 */
+      lng: number;
+      /** @description 高德 GCJ-02 纬度 */
+      lat: number;
+      province?: string;
+      city?: string;
+      district?: string;
+      address?: string;
     };
     AdminMerchantCreateInput: {
       name: string;
@@ -2560,6 +2868,24 @@ export interface operations {
       403: components["responses"]["Forbidden"];
     };
   };
+  /** 商户订单详情（商品行平台/商家分账与退款冲回） */
+  getMerchantOrder: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["OrderEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
   /** 接单（仅待接单可接，超时自动退款） */
   acceptOrder: {
     parameters: {
@@ -3158,6 +3484,247 @@ export interface operations {
       };
     };
   };
+  /** 用户只读列表（昵称/脱敏手机号/头像/注册时间/状态/身份） */
+  listAdminUsers: {
+    parameters: {
+      query?: {
+        status?: "ACTIVE" | "DISABLED";
+        user_type?: "CONSUMER" | "MERCHANT_STAFF" | "PLATFORM_ADMIN";
+        /** @description 昵称或手机号 */
+        q?: string;
+        page?: components["parameters"]["PageParam"];
+        page_size?: components["parameters"]["PageSizeParam"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["AdminUserPageEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 公开平台信息与协议正文（不含密钥） */
+  getPlatformConfig: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PlatformConfigEnvelope"];
+        };
+      };
+    };
+  };
+  /** 平台配置读取（密钥只返回是否已配置） */
+  getAdminPlatformConfig: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["AdminPlatformConfigEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 平台配置保存（密钥留空保持原值，Logo 必须来自素材库） */
+  updateAdminPlatformConfig: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminPlatformConfigInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["AdminPlatformConfigEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 消费者端底部导航（仅启用项） */
+  getStoreNav: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["StoreNavEnvelope"];
+        };
+      };
+    };
+  };
+  /** 已发布微页面（仅返回发布快照） */
+  getDecoPage: {
+    parameters: {
+      path: {
+        slug: string;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PublicDecoPageEnvelope"];
+        };
+      };
+      404: components["responses"]["NotFound"];
+    };
+  };
+  /** 底部导航配置读取 */
+  getAdminStoreNav: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["StoreNavEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 底部导航整表保存（1–5 项，图标来自素材库，链接仅内部页面） */
+  updateAdminStoreNav: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StoreNavInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["StoreNavEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 微页面列表 */
+  listAdminDecoPages: {
+    parameters: {
+      query?: {
+        status?: "DRAFT" | "PUBLISHED";
+        page?: components["parameters"]["PageParam"];
+        page_size?: components["parameters"]["PageSizeParam"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DecoPagePageEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 新建微页面 */
+  createAdminDecoPage: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DecoPageInput"];
+      };
+    };
+    responses: {
+      /** @description 创建成功 */
+      201: {
+        content: {
+          "application/json": components["schemas"]["DecoPageEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 微页面详情（含草稿与已发布组件） */
+  getAdminDecoPage: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DecoPageEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+    };
+  };
+  /** 保存微页面草稿 */
+  updateAdminDecoPage: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DecoPageInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DecoPageEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 删除微页面（被底部导航引用时禁止） */
+  deleteAdminDecoPage: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description 已删除 */
+      204: {
+        content: never;
+      };
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      /** @description 页面被导航引用 */
+      409: {
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
+  /** 发布微页面（生成已发布快照） */
+  publishAdminDecoPage: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["DecoPageEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
   /** 商户列表（状态/关键词/类目/城市筛选，含状态计数与经营统计） */
   listAdminMerchants: {
     parameters: {
@@ -3255,6 +3822,41 @@ export interface operations {
       };
     };
   };
+  /** 设置商户真实定位（经纬度必填，GCJ-02） */
+  updateMerchantLocation: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MerchantLocationInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Envelope"] & {
+            data?: {
+              /** Format: int64 */
+              id?: number;
+              lng?: number;
+              lat?: number;
+              province?: string;
+              city?: string;
+              district?: string;
+              address?: string;
+            };
+          };
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
   /** 平台订单查询（多条件筛选，数据脱敏） */
   listAdminOrders: {
     parameters: {
@@ -3276,6 +3878,24 @@ export interface operations {
         };
       };
       403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 平台订单详情（商品行平台/商家分账与退款冲回） */
+  getAdminOrder: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["AdminOrderDetailEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
     };
   };
   /** 冻结结算（只冻结资金，不影响履约） */

@@ -20,6 +20,34 @@ export type AdminOrderRow = {
   completed_at: string | null
 }
 
+export type AdminOrderItem = {
+  id: number
+  title: string
+  quantity: number
+  amount: number
+  paid_amount: number
+  commission_rate: number
+  platform_amount: number
+  platform_refund_amount: number
+  platform_net_amount: number
+  merchant_amount: number
+  merchant_refund_amount: number
+  merchant_net_amount: number
+  refund_amount: number
+}
+
+export type AdminOrderDetail = AdminOrderRow & {
+  product_amount: number
+  delivery_fee: number
+  commission_rate: number
+  commission_amount: number
+  platform_income_amount: number
+  merchant_income_amount: number
+  platform_refund_amount: number
+  merchant_refund_amount: number
+  items: AdminOrderItem[]
+}
+
 export type StatementRow = RequiredPick<
   Schemas['StatementItem'],
   | 'order_no'
@@ -197,6 +225,110 @@ export type AuditPage = { items: AuditTaskRow[]; page: Page; summary: Record<str
 export type CategoryRow = { id: number; parent: number | null; name: string; icon_url: string; level: number; sort: number }
 
 export type StaffUser = { id: number; phone: string; nickname: string; status: string }
+
+export type AdminUserRow = {
+  id: number
+  nickname: string
+  phone_masked: string
+  avatar_url: string
+  gender: string
+  status: string
+  is_staff: boolean
+  user_type: string
+  merchant_names: string[]
+  last_login: string | null
+  created_at: string
+}
+
+export type AdminPlatformConfig = {
+  platform_name: string
+  logo_url: string
+  contact_phone: string
+  company_name: string
+  icp_no: string
+  privacy_policy: string
+  user_agreement: string
+  agreement_version: string
+  miniapp_app_id: string
+  miniapp_app_secret_configured: boolean
+  miniapp_original_id: string
+  amap_web_key_configured: boolean
+  amap_js_key: string
+  amap_js_security_code_configured: boolean
+  amap_enabled: boolean
+  updated_by_name: string
+  updated_at: string
+}
+
+export type AdminPlatformConfigPayload = {
+  platform_name: string
+  logo_url: string
+  contact_phone: string
+  company_name: string
+  icp_no: string
+  privacy_policy: string
+  user_agreement: string
+  agreement_version: string
+  miniapp_app_id: string
+  miniapp_app_secret: string
+  miniapp_original_id: string
+  amap_web_key: string
+  amap_js_key: string
+  amap_js_security_code: string
+  amap_enabled: boolean
+}
+
+export type StoreNavItem = {
+  id?: number
+  title: string
+  icon_selected: string
+  icon_unselected: string
+  link_type: string
+  link_value: string
+  sort?: number
+  status: string
+}
+
+export type DecoComponent = {
+  id: string
+  type: string
+  config: Record<string, any>
+}
+
+export type DecoPageRow = {
+  id: number
+  slug: string
+  title: string
+  status: string
+  component_count: number
+  published_at: string | null
+  updated_by_name: string
+  updated_at: string
+}
+
+export type DecoPageDetail = DecoPageRow & {
+  share_title: string
+  share_image: string
+  draft_components: DecoComponent[]
+  published_components: DecoComponent[]
+}
+
+export type DecoPagePayload = {
+  slug: string
+  title: string
+  share_title: string
+  share_image: string
+  draft_components: DecoComponent[]
+}
+
+export type MerchantLocationPayload = {
+  lng: string
+  lat: string
+  province?: string
+  city?: string
+  district?: string
+  address?: string
+}
 
 export type MerchantSkuRow = {
   id: number
@@ -444,6 +576,10 @@ export const api = {
     return request<Paged<AdminOrderRow>>(`/admin/orders/${query(params)}`)
   },
 
+  adminOrderDetail(orderId: number) {
+    return request<AdminOrderDetail>(`/admin/orders/${orderId}/`)
+  },
+
   freezeOrder(orderId: number, action: 'FREEZE' | 'UNFREEZE', reason: string) {
     return request<{ order_id: number; status: string }>(`/admin/orders/${orderId}/freeze/`, {
       method: 'POST',
@@ -481,6 +617,57 @@ export const api = {
 
   staffUsers(keyword: string) {
     return request<StaffUser[]>(`/accounts/staff/users/${query({ keyword })}`)
+  },
+
+  adminUsers(params: { status?: string; user_type?: string; q?: string; page?: number; page_size?: number }) {
+    return request<Paged<AdminUserRow>>(`/admin/users/${query(params)}`)
+  },
+
+  adminPlatformConfig() {
+    return request<AdminPlatformConfig>('/admin/platform-config/')
+  },
+
+  saveAdminPlatformConfig(payload: AdminPlatformConfigPayload) {
+    return request<AdminPlatformConfig>('/admin/platform-config/', { method: 'PUT', body: payload })
+  },
+
+  adminStoreNav() {
+    return request<StoreNavItem[]>('/admin/storefront/nav/')
+  },
+
+  saveAdminStoreNav(items: StoreNavItem[]) {
+    return request<StoreNavItem[]>('/admin/storefront/nav/', { method: 'PUT', body: { items } })
+  },
+
+  adminDecoPages(params: { status?: string; page?: number; page_size?: number } = {}) {
+    return request<Paged<DecoPageRow>>(`/admin/storefront/pages/${query(params)}`)
+  },
+
+  adminDecoPage(pageId: number) {
+    return request<DecoPageDetail>(`/admin/storefront/pages/${pageId}/`)
+  },
+
+  createDecoPage(payload: DecoPagePayload) {
+    return request<DecoPageDetail>('/admin/storefront/pages/', { method: 'POST', body: payload })
+  },
+
+  updateDecoPage(pageId: number, payload: DecoPagePayload) {
+    return request<DecoPageDetail>(`/admin/storefront/pages/${pageId}/`, { method: 'PUT', body: payload })
+  },
+
+  deleteDecoPage(pageId: number) {
+    return request<void>(`/admin/storefront/pages/${pageId}/`, { method: 'DELETE' })
+  },
+
+  publishDecoPage(pageId: number) {
+    return request<DecoPageDetail>(`/admin/storefront/pages/${pageId}/publish/`, { method: 'POST', body: {} })
+  },
+
+  updateMerchantLocation(merchantId: number, payload: MerchantLocationPayload) {
+    return request<{ id: number; lng: string; lat: string; address: string }>(
+      `/admin/merchants/${merchantId}/location/`,
+      { method: 'PUT', body: payload },
+    )
   },
 
   changeMerchantStatus(merchantId: number, status: string, reason: string) {

@@ -1,7 +1,9 @@
 import { useLoad } from '@tarojs/taro'
 import { View, Text, Input, Button, Navigator } from '@tarojs/components'
 import { useState } from 'react'
-import { api, ApiError, type CategoryRow, type StoreRow } from '../../api'
+import { api, ApiError, type CategoryRow, type DecoPageData, type StoreRow } from '../../api'
+import BottomNav from '../../components/BottomNav'
+import MicroPageRenderer from '../../components/MicroPageRenderer'
 
 const DEFAULT_LAT = 30.2741
 const DEFAULT_LNG = 120.1551
@@ -13,6 +15,7 @@ export default function Index() {
   const [keyword, setKeyword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [home, setHome] = useState<DecoPageData | null>(null)
 
   async function load(query = keyword, category = categoryId) {
     setLoading(true)
@@ -34,6 +37,13 @@ export default function Index() {
 
   useLoad(async () => {
     try {
+      setHome(await api.decoPage('home'))
+      setLoading(false)
+      return
+    } catch (ignored) {
+      setHome(null)
+    }
+    try {
       setCategories(await api.categories())
     } catch (ignored) {
       setCategories([])
@@ -45,6 +55,15 @@ export default function Index() {
     const next = categoryId === id ? 0 : id
     setCategoryId(next)
     load(keyword, next)
+  }
+
+  if (home) {
+    return (
+      <View className="page deco-page-shell">
+        <MicroPageRenderer components={home.components} />
+        <BottomNav />
+      </View>
+    )
   }
 
   return (
@@ -102,6 +121,7 @@ export default function Index() {
         </Navigator>
       ))}
       {!loading && !stores.length && !error && <View className="muted">附近暂无营业门店</View>}
+      <BottomNav />
     </View>
   )
 }

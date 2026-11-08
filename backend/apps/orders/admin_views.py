@@ -9,6 +9,7 @@ from apps.common.api import ApiError, EnvelopeAPIView, EnvelopeResponse, ok, pag
 from apps.governance.services import require_platform_admin
 
 from .models import Order
+from .serializers import OrderItemSerializer
 
 
 class AdminOrderListSerializer(serializers.ModelSerializer):
@@ -29,6 +30,50 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
             "created_at",
             "completed_at",
         )
+
+
+class AdminOrderDetailSerializer(serializers.ModelSerializer):
+    merchant_name = serializers.CharField(source="merchant.name", read_only=True)
+    items = OrderItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = (
+            "id",
+            "order_no",
+            "merchant_id",
+            "merchant_name",
+            "order_type",
+            "status",
+            "product_amount",
+            "delivery_fee",
+            "payable_amount",
+            "paid_amount",
+            "refunded_amount",
+            "commission_rate",
+            "commission_amount",
+            "platform_income_amount",
+            "merchant_income_amount",
+            "platform_refund_amount",
+            "merchant_refund_amount",
+            "created_at",
+            "completed_at",
+            "items",
+        )
+
+
+@extend_schema(tags=["admin"], responses=EnvelopeResponse)
+class AdminOrderDetailView(EnvelopeAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AdminOrderDetailSerializer
+
+    @extend_schema(operation_id="getAdminOrder")
+    def get(self, request, pk):
+        require_platform_admin(request.user)
+        order = Order.objects.select_related("merchant").prefetch_related("items").filter(pk=pk).first()
+        if order is None:
+            raise ApiError("NOT_FOUND", "订单不存在", 404)
+        return ok(request, AdminOrderDetailSerializer(order).data)
 
 
 @extend_schema(tags=["admin"], responses=EnvelopeResponse)

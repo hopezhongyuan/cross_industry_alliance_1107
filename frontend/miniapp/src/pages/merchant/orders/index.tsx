@@ -100,6 +100,13 @@ export default function MerchantOrders() {
               去核销
             </Button>
           )}
+          <Button
+            className="chip"
+            style={{ marginTop: '10px' }}
+            onClick={() => Taro.navigateTo({ url: `/pages/merchant/order-detail/index?id=${order.id}` })}
+          >
+            分账明细
+          </Button>
         </View>
       ))}
       {!items.length && <View className="muted">当前状态下暂无订单</View>}

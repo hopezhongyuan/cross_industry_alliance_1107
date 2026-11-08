@@ -159,6 +159,27 @@ class MerchantStatusInputSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=200)
 
 
+class AdminMerchantLocationInputSerializer(serializers.Serializer):
+    """平台设置商户真实坐标，统一使用高德 GCJ-02。"""
+
+    lng = serializers.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        min_value=Decimal("-180"),
+        max_value=Decimal("180"),
+    )
+    lat = serializers.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        min_value=Decimal("-90"),
+        max_value=Decimal("90"),
+    )
+    province = serializers.CharField(max_length=32, required=False, allow_blank=True, default="")
+    city = serializers.CharField(max_length=32, required=False, allow_blank=True, default="")
+    district = serializers.CharField(max_length=32, required=False, allow_blank=True, default="")
+    address = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+
+
 class AdminMerchantQualificationInputSerializer(serializers.Serializer):
     type = serializers.ChoiceField(choices=MerchantQualification.Type.choices)
     file_url = serializers.CharField(max_length=300)

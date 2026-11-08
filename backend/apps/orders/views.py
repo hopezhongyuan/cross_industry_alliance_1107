@@ -175,6 +175,27 @@ class MerchantOrderListView(EnvelopeAPIView):
 
 
 @extend_schema(tags=["merchant"], responses=EnvelopeResponse)
+class MerchantOrderDetailView(EnvelopeAPIView):
+    """商户订单详情（含商品行平台/商家分账）。"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = OrderDetailSerializer
+
+    @extend_schema(operation_id="getMerchantOrder")
+    def get(self, request, pk):
+        merchant = get_active_staff_merchant(request.user)
+        order = (
+            Order.objects.select_related("merchant")
+            .prefetch_related("items", "verify_codes", "status_logs", "reviews")
+            .filter(pk=pk, merchant=merchant)
+            .first()
+        )
+        if order is None:
+            raise ApiError("NOT_FOUND", "订单不存在", 404)
+        return ok(request, OrderDetailSerializer(order).data)
+
+
+@extend_schema(tags=["merchant"], responses=EnvelopeResponse)
 class MerchantAcceptView(EnvelopeAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = OrderContractSerializer

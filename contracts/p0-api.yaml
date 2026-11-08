@@ -769,10 +769,19 @@ components:
         product_id: { type: integer, format: int64 }
         sku_id: { type: integer, format: int64, nullable: true }
         title: { type: string }
-        price_amount: { type: integer }
+        price: { type: integer }
         quantity: { type: integer }
         amount: { type: integer }
+        paid_amount: { type: integer, description: 行商品实付，不含配送费 }
+        commission_rate: { type: number, format: double, example: 0.05 }
+        platform_amount: { type: integer, description: 行平台分账 }
+        platform_refund_amount: { type: integer }
+        platform_net_amount: { type: integer, description: 退款后平台分账 }
+        merchant_amount: { type: integer, description: 行商家分账 }
+        merchant_refund_amount: { type: integer }
+        merchant_net_amount: { type: integer, description: 退款后商家分账 }
         refund_amount: { type: integer }
+        snapshot_json: { type: object, additionalProperties: true }
     Order:
       type: object
       properties:
@@ -794,6 +803,10 @@ components:
         refunded_amount: { type: integer }
         commission_rate: { type: number, format: double, example: 0.05 }
         commission_amount: { type: integer }
+        platform_income_amount: { type: integer, description: 当前平台分账合计 }
+        merchant_income_amount: { type: integer, description: 当前商家分账合计，含配送费 }
+        platform_refund_amount: { type: integer, description: 累计平台承担退款 }
+        merchant_refund_amount: { type: integer, description: 累计商家承担退款 }
         contact: { $ref: '#/components/schemas/Contact' }
         remark: { type: string }
         items:
@@ -840,6 +853,37 @@ components:
         - type: object
           properties:
             data: { $ref: '#/components/schemas/Order' }
+    AdminOrderDetail:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        order_no: { type: string }
+        merchant_id: { type: integer, format: int64 }
+        merchant_name: { type: string }
+        order_type: { type: string, enum: [EXPRESS, PICKUP, SERVICE] }
+        status: { type: string }
+        product_amount: { type: integer }
+        delivery_fee: { type: integer }
+        payable_amount: { type: integer }
+        paid_amount: { type: integer }
+        refunded_amount: { type: integer }
+        commission_rate: { type: number, format: double }
+        commission_amount: { type: integer }
+        platform_income_amount: { type: integer }
+        merchant_income_amount: { type: integer }
+        platform_refund_amount: { type: integer }
+        merchant_refund_amount: { type: integer }
+        created_at: { type: string, format: date-time }
+        completed_at: { type: string, format: date-time, nullable: true }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/OrderItem' }
+    AdminOrderDetailEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/AdminOrderDetail' }
     OrderPageEnvelope:
       allOf:
         - $ref: '#/components/schemas/Envelope'
@@ -1223,6 +1267,225 @@ components:
         - type: object
           properties:
             data: { $ref: '#/components/schemas/AdminMerchantDetail' }
+    AdminUser:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        nickname: { type: string }
+        phone_masked: { type: string, description: 脱敏手机号，如 138****8000 }
+        avatar_url: { type: string }
+        gender: { type: string, enum: [U, M, F] }
+        status: { type: string, enum: [ACTIVE, DISABLED] }
+        is_staff: { type: boolean }
+        user_type: { type: string, enum: [CONSUMER, MERCHANT_STAFF, PLATFORM_ADMIN] }
+        merchant_names: { type: array, items: { type: string } }
+        last_login: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    AdminUserPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/AdminUser' }
+                page: { $ref: '#/components/schemas/Page' }
+    AdminPlatformConfig:
+      type: object
+      properties:
+        platform_name: { type: string }
+        logo_url: { type: string, description: 素材库图片地址 }
+        contact_phone: { type: string }
+        company_name: { type: string }
+        icp_no: { type: string }
+        privacy_policy: { type: string }
+        user_agreement: { type: string }
+        agreement_version: { type: string }
+        miniapp_app_id: { type: string }
+        miniapp_app_secret_configured: { type: boolean, description: 是否已配置，不返回明文 }
+        miniapp_original_id: { type: string }
+        amap_web_key_configured: { type: boolean, description: 是否已配置，不返回明文 }
+        amap_js_key: { type: string }
+        amap_js_security_code_configured: { type: boolean, description: 是否已配置，不返回明文 }
+        amap_enabled: { type: boolean }
+        updated_by_name: { type: string }
+        updated_at: { type: string, format: date-time }
+    AdminPlatformConfigInput:
+      type: object
+      required: [platform_name]
+      properties:
+        platform_name: { type: string, maxLength: 80 }
+        logo_url: { type: string, maxLength: 300, description: 必须来自素材库 }
+        contact_phone: { type: string, maxLength: 20 }
+        company_name: { type: string, maxLength: 120 }
+        icp_no: { type: string, maxLength: 80 }
+        privacy_policy: { type: string }
+        user_agreement: { type: string }
+        agreement_version: { type: string, maxLength: 32 }
+        miniapp_app_id: { type: string, maxLength: 64 }
+        miniapp_app_secret: { type: string, maxLength: 128, writeOnly: true, description: 留空表示保持原值 }
+        miniapp_original_id: { type: string, maxLength: 64 }
+        amap_web_key: { type: string, maxLength: 128, writeOnly: true, description: 留空表示保持原值 }
+        amap_js_key: { type: string, maxLength: 100 }
+        amap_js_security_code: { type: string, maxLength: 128, writeOnly: true, description: 留空表示保持原值 }
+        amap_enabled: { type: boolean }
+    PublicPlatformConfig:
+      type: object
+      description: 公开信息，不含任何密钥明文
+      properties:
+        platform_name: { type: string }
+        logo_url: { type: string }
+        contact_phone: { type: string }
+        company_name: { type: string }
+        icp_no: { type: string }
+        privacy_policy: { type: string }
+        user_agreement: { type: string }
+        agreement_version: { type: string }
+        amap_enabled: { type: boolean }
+        amap_js_key: { type: string }
+        amap_js_security_code: { type: string }
+    PlatformConfigEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/PublicPlatformConfig' }
+    AdminPlatformConfigEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/AdminPlatformConfig' }
+    StoreNavItem:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        icon_selected: { type: string, description: 选中图标，素材库地址 }
+        icon_unselected: { type: string, description: 未选中图标，素材库地址 }
+        link_type: { type: string, enum: [FUNCTION, MICRO_PAGE, CATEGORY, MERCHANT, PRODUCT] }
+        link_value: { type: string }
+        sort: { type: integer }
+        status: { type: string, enum: [ENABLED, DISABLED] }
+    StoreNavInput:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 5
+          items:
+            type: object
+            required: [title, link_type]
+            properties:
+              title: { type: string, maxLength: 20 }
+              icon_selected: { type: string, maxLength: 300 }
+              icon_unselected: { type: string, maxLength: 300 }
+              link_type: { type: string, enum: [FUNCTION, MICRO_PAGE, CATEGORY, MERCHANT, PRODUCT] }
+              link_value: { type: string, maxLength: 200, description: 功能页 HOME/CATEGORY/CART/ORDERS/ME/SEARCH/MERCHANT_LIST，其他为 ID 或 slug }
+              status: { type: string, enum: [ENABLED, DISABLED] }
+    StoreNavEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/StoreNavItem' }
+    DecoComponent:
+      type: object
+      required: [id, type, config]
+      properties:
+        id: { type: string }
+        type: { type: string, enum: [AD, CAROUSEL, IMAGE_HOTSPOT, PRODUCT, SEARCH, LOCATION, DIVIDER, LINK] }
+        config:
+          type: object
+          additionalProperties: true
+          description: 按组件类型的前端配置，后端严格校验素材与链接
+    DecoPageList:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        slug: { type: string }
+        title: { type: string }
+        status: { type: string, enum: [DRAFT, PUBLISHED] }
+        component_count: { type: integer }
+        published_at: { type: string, format: date-time, nullable: true }
+        updated_by_name: { type: string }
+        updated_at: { type: string, format: date-time }
+    DecoPagePageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/DecoPageList' }
+                page: { $ref: '#/components/schemas/Page' }
+    DecoPage:
+      allOf:
+        - $ref: '#/components/schemas/DecoPageList'
+        - type: object
+          properties:
+            share_title: { type: string }
+            share_image: { type: string }
+            draft_components:
+              type: array
+              items: { $ref: '#/components/schemas/DecoComponent' }
+            published_components:
+              type: array
+              items: { $ref: '#/components/schemas/DecoComponent' }
+    DecoPageInput:
+      type: object
+      required: [slug, title]
+      properties:
+        slug: { type: string, maxLength: 40, description: 2–40 位小写字母、数字或连字符 }
+        title: { type: string, maxLength: 80 }
+        share_title: { type: string, maxLength: 80 }
+        share_image: { type: string, maxLength: 300, description: 素材库图片 }
+        draft_components:
+          type: array
+          maxItems: 40
+          items: { $ref: '#/components/schemas/DecoComponent' }
+    DecoPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/DecoPage' }
+    PublicDecoPage:
+      type: object
+      properties:
+        slug: { type: string }
+        title: { type: string }
+        share_title: { type: string }
+        share_image: { type: string }
+        components:
+          type: array
+          items: { $ref: '#/components/schemas/DecoComponent' }
+        published_at: { type: string, format: date-time }
+    PublicDecoPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/PublicDecoPage' }
+    MerchantLocationInput:
+      type: object
+      required: [lng, lat]
+      properties:
+        lng: { type: number, minimum: -180, maximum: 180, description: 高德 GCJ-02 经度 }
+        lat: { type: number, minimum: -90, maximum: 90, description: 高德 GCJ-02 纬度 }
+        province: { type: string, maxLength: 32 }
+        city: { type: string, maxLength: 32 }
+        district: { type: string, maxLength: 32 }
+        address: { type: string, maxLength: 200 }
     AdminMerchantCreateInput:
       type: object
       required: [name, category_id, contact_phone, city, district, address, owner_phone]
@@ -2426,6 +2689,26 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/OrderPageEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/merchant/orders/{id}/:
+    get:
+      tags: [merchant]
+      operationId: getMerchantOrder
+      summary: 商户订单详情（商品行平台/商家分账与退款冲回）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/v1/merchant/orders/{id}/accept/:
     post:
       tags: [merchant]
@@ -3059,6 +3342,266 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Envelope' }
 
+  /api/v1/admin/users/:
+    get:
+      tags: [admin]
+      operationId: listAdminUsers
+      summary: 用户只读列表（昵称/脱敏手机号/头像/注册时间/状态/身份）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, DISABLED] }
+        - name: user_type
+          in: query
+          schema: { type: string, enum: [CONSUMER, MERCHANT_STAFF, PLATFORM_ADMIN] }
+        - name: q
+          in: query
+          schema: { type: string }
+          description: 昵称或手机号
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminUserPageEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/platform/config/:
+    get:
+      tags: [platform]
+      operationId: getPlatformConfig
+      summary: 公开平台信息与协议正文（不含密钥）
+      x-status: implemented
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformConfigEnvelope' }
+  /api/v1/admin/platform-config/:
+    get:
+      tags: [admin]
+      operationId: getAdminPlatformConfig
+      summary: 平台配置读取（密钥只返回是否已配置）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPlatformConfigEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [admin]
+      operationId: updateAdminPlatformConfig
+      summary: 平台配置保存（密钥留空保持原值，Logo 必须来自素材库）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminPlatformConfigInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPlatformConfigEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/storefront/nav/:
+    get:
+      tags: [storefront]
+      operationId: getStoreNav
+      summary: 消费者端底部导航（仅启用项）
+      x-status: implemented
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoreNavEnvelope' }
+  /api/v1/storefront/pages/{slug}/:
+    get:
+      tags: [storefront]
+      operationId: getDecoPage
+      summary: 已发布微页面（仅返回发布快照）
+      x-status: implemented
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicDecoPageEnvelope' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/admin/storefront/nav/:
+    get:
+      tags: [admin]
+      operationId: getAdminStoreNav
+      summary: 底部导航配置读取
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoreNavEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [admin]
+      operationId: updateAdminStoreNav
+      summary: 底部导航整表保存（1–5 项，图标来自素材库，链接仅内部页面）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StoreNavInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoreNavEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/admin/storefront/pages/:
+    get:
+      tags: [admin]
+      operationId: listAdminDecoPages
+      summary: 微页面列表
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [DRAFT, PUBLISHED] }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DecoPagePageEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [admin]
+      operationId: createAdminDecoPage
+      summary: 新建微页面
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DecoPageInput' }
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DecoPageEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/admin/storefront/pages/{id}/:
+    get:
+      tags: [admin]
+      operationId: getAdminDecoPage
+      summary: 微页面详情（含草稿与已发布组件）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DecoPageEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [admin]
+      operationId: updateAdminDecoPage
+      summary: 保存微页面草稿
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DecoPageInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DecoPageEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [admin]
+      operationId: deleteAdminDecoPage
+      summary: 删除微页面（被底部导航引用时禁止）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204': { description: 已删除 }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: 页面被导航引用
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  /api/v1/admin/storefront/pages/{id}/publish/:
+    post:
+      tags: [admin]
+      operationId: publishAdminDecoPage
+      summary: 发布微页面（生成已发布快照）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DecoPageEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/admin/merchants/:
     get:
       tags: [admin]
@@ -3163,6 +3706,46 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  /api/v1/admin/merchants/{id}/location/:
+    put:
+      tags: [admin]
+      operationId: updateMerchantLocation
+      summary: 设置商户真实定位（经纬度必填，GCJ-02）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MerchantLocationInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id: { type: integer, format: int64 }
+                          lng: { type: number }
+                          lat: { type: number }
+                          province: { type: string }
+                          city: { type: string }
+                          district: { type: string }
+                          address: { type: string }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/admin/orders/:
     get:
       tags: [admin]
@@ -3195,6 +3778,26 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/OrderPageEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/orders/{id}/:
+    get:
+      tags: [admin]
+      operationId: getAdminOrder
+      summary: 平台订单详情（商品行平台/商家分账与退款冲回）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminOrderDetailEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/v1/admin/orders/{id}/freeze/:
     post:
       tags: [admin]

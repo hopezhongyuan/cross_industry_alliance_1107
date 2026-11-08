@@ -1,17 +1,19 @@
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.common.api import EnvelopeAPIView, EnvelopeResponse, ok
+from apps.common.api import ApiError, EnvelopeAPIView, EnvelopeResponse, ok, paginated
+from apps.governance.services import require_platform_admin
 
 from .models import AppUser, UserAddress
 from .serializers import (
     AddressInputSerializer,
     AddressSerializer,
+    AdminUserListSerializer,
     AppUserSerializer,
     MeSerializer,
     SmsLoginSerializer,
@@ -19,6 +21,40 @@ from .serializers import (
     WechatLoginSerializer,
 )
 from .services import issue_tokens, login_with_sms, login_with_wechat, send_sms_code
+
+
+@extend_schema(tags=["admin"], responses=EnvelopeResponse)
+class AdminUserListView(EnvelopeAPIView):
+    """平台后台：用户只读列表，手机号脱敏。"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = AdminUserListSerializer
+
+    @extend_schema(operation_id="listAdminUsers")
+    def get(self, request):
+        require_platform_admin(request.user)
+        queryset = AppUser.objects.prefetch_related("merchant_staff_roles__merchant").order_by("-created_at", "-id")
+        status = request.query_params.get("status")
+        if status:
+            if status not in AppUser.Status.values:
+                raise ApiError("VALIDATION_ERROR", "status 取值非法", 422)
+            queryset = queryset.filter(status=status)
+        user_type = request.query_params.get("user_type")
+        if user_type:
+            if user_type not in ("CONSUMER", "MERCHANT_STAFF", "PLATFORM_ADMIN"):
+                raise ApiError("VALIDATION_ERROR", "user_type 取值非法", 422)
+            if user_type == "PLATFORM_ADMIN":
+                queryset = queryset.filter(Q(is_staff=True) | Q(is_superuser=True))
+            elif user_type == "MERCHANT_STAFF":
+                queryset = queryset.filter(merchant_staff_roles__status="ACTIVE").distinct()
+            else:
+                queryset = queryset.exclude(Q(is_staff=True) | Q(is_superuser=True)).exclude(
+                    merchant_staff_roles__status="ACTIVE"
+                )
+        keyword = request.query_params.get("q")
+        if keyword:
+            queryset = queryset.filter(Q(phone__icontains=keyword) | Q(nickname__icontains=keyword))
+        return ok(request, paginated(request, queryset, AdminUserListSerializer))
 
 
 class MeView(APIView):
