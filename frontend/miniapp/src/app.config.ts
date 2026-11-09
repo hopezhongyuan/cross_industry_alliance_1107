@@ -10,7 +10,9 @@ export default defineAppConfig({
     'pages/orders/index',
     'pages/order-detail/index',
     'pages/me/index',
+    'pages/me/coupons/index',
     'pages/points/index',
+    'pages/coupons/index',
     'pages/addresses/index',
     'pages/about/index',
     'pages/micro/index',
@@ -26,6 +28,7 @@ export default defineAppConfig({
     'pages/merchant/statements/index',
     'pages/merchant/account/index',
     'pages/merchant/after-sales/index',
+    'pages/merchant/coupons/index',
     'pages/merchant/settings/index',
   ],
   window: {

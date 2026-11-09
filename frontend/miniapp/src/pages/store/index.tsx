@@ -67,6 +67,13 @@ export default function StoreDetail() {
             导航到店
           </Button>
         )}
+        <Button
+          className="btn"
+          style={{ marginTop: '12px', background: 'rgba(253,249,240,0.15)', color: '#fdf9f0', borderColor: 'rgba(253,249,240,0.4)' }}
+          onClick={() => Taro.navigateTo({ url: `/pages/coupons/index?merchant_id=${storeId}` })}
+        >
+          🎟️ 领取本店优惠券
+        </Button>
       </View>
 
       <View className="section-head">

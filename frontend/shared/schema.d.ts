@@ -453,6 +453,42 @@ export interface paths {
     /** 配置商户号、APIv3 密钥与证书（加密存储） */
     put: operations["updatePaymentConfig"];
   };
+  "/api/v1/coupons/": {
+    /** 领券中心（平台券 + 指定商户券） */
+    get: operations["couponCenter"];
+  };
+  "/api/v1/coupons/{coupon_id}/claim/": {
+    /** 领取优惠券 */
+    post: operations["claimCoupon"];
+  };
+  "/api/v1/user/coupons/": {
+    /** 我的优惠券 */
+    get: operations["myCoupons"];
+  };
+  "/api/v1/user/coupons/available/": {
+    /** 下单可用券 */
+    get: operations["availableCoupons"];
+  };
+  "/api/v1/admin/coupons/": {
+    /** 平台优惠券列表 */
+    get: operations["adminCouponList"];
+    /** 创建平台优惠券 */
+    post: operations["adminCouponCreate"];
+  };
+  "/api/v1/admin/coupons/{coupon_id}/{action}/": {
+    /** 平台券暂停/启用 */
+    post: operations["adminCouponStatus"];
+  };
+  "/api/v1/merchant/coupons/": {
+    /** 商户优惠券列表 */
+    get: operations["merchantCouponList"];
+    /** 创建商户优惠券 */
+    post: operations["merchantCouponCreate"];
+  };
+  "/api/v1/merchant/coupons/{coupon_id}/{action}/": {
+    /** 商户券暂停/启用 */
+    post: operations["merchantCouponStatus"];
+  };
   "/api/v1/callback/wechat/pay/": {
     /**
      * 微信支付回调（验签、金额校验、幂等记账）
@@ -2230,6 +2266,76 @@ export interface components {
       /** @enum {string} */
       code?: "SUCCESS" | "FAIL";
       message?: string;
+    };
+    Coupon: {
+      /** Format: int64 */
+      id?: number;
+      coupon_no?: string;
+      name?: string;
+      /** @enum {string} */
+      type?: "PLATFORM" | "MERCHANT";
+      type_label?: string;
+      /** Format: int64 */
+      merchant_id?: number | null;
+      merchant_name?: string | null;
+      /** @description 面额（分） */
+      face_value?: number;
+      /** @description 满减门槛（分，0=无门槛） */
+      min_amount?: number;
+      /** @enum {string} */
+      scope_type?: "ALL" | "CATEGORY" | "PRODUCT";
+      scope_type_label?: string;
+      scope_category_ids?: number[];
+      scope_product_ids?: number[];
+      total_stock?: number;
+      issued_count?: number;
+      remaining_stock?: number | null;
+      per_user_limit?: number;
+      /** Format: date-time */
+      valid_from?: string;
+      /** Format: date-time */
+      valid_to?: string;
+      /** @enum {string} */
+      status?: "DRAFT" | "ACTIVE" | "PAUSED" | "EXPIRED";
+      status_label?: string;
+      description?: string;
+    };
+    UserCoupon: {
+      /** Format: int64 */
+      id?: number;
+      user_coupon_no?: string;
+      coupon?: components["schemas"]["Coupon"];
+      /** @enum {string} */
+      status?: "UNUSED" | "USED" | "EXPIRED";
+      status_label?: string;
+      /** Format: date-time */
+      expire_at?: string | null;
+      /** Format: date-time */
+      used_at?: string | null;
+      order_no?: string;
+    };
+    CouponCreateInput: {
+      name: string;
+      face_value: number;
+      /** @default 0 */
+      min_amount?: number;
+      /**
+       * @default ALL
+       * @enum {string}
+       */
+      scope_type?: "ALL" | "CATEGORY" | "PRODUCT";
+      scope_category_ids?: number[];
+      scope_product_ids?: number[];
+      target_merchant_ids?: number[];
+      /** @default 0 */
+      total_stock?: number;
+      /** @default 1 */
+      per_user_limit?: number;
+      /** Format: date-time */
+      valid_from: string;
+      /** Format: date-time */
+      valid_to: string;
+      description?: string;
     };
   };
   responses: {
@@ -4812,6 +4918,178 @@ export interface operations {
       };
       403: components["responses"]["Forbidden"];
       422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 领券中心（平台券 + 指定商户券） */
+  couponCenter: {
+    parameters: {
+      query?: {
+        merchant_id?: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["Coupon"][];
+          };
+        };
+      };
+    };
+  };
+  /** 领取优惠券 */
+  claimCoupon: {
+    parameters: {
+      path: {
+        coupon_id: number;
+      };
+    };
+    responses: {
+      /** @description 领取成功 */
+      201: {
+        content: {
+          "application/json": components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["UserCoupon"];
+          };
+        };
+      };
+      /** @description COUPON_OUT_OF_STOCK / COUPON_CLAIM_LIMIT / COUPON_EXPIRED */
+      409: {
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
+  /** 我的优惠券 */
+  myCoupons: {
+    parameters: {
+      query?: {
+        status?: "UNUSED" | "USED" | "EXPIRED";
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["UserCoupon"][];
+          };
+        };
+      };
+    };
+  };
+  /** 下单可用券 */
+  availableCoupons: {
+    parameters: {
+      query: {
+        merchant_id: number;
+        product_id: number[];
+        amount: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["UserCoupon"][];
+          };
+        };
+      };
+    };
+  };
+  /** 平台优惠券列表 */
+  adminCouponList: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["Coupon"][];
+          };
+        };
+      };
+    };
+  };
+  /** 创建平台优惠券 */
+  adminCouponCreate: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CouponCreateInput"];
+      };
+    };
+    responses: {
+      /** @description 创建成功 */
+      201: {
+        content: {
+          "application/json": components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["Coupon"];
+          };
+        };
+      };
+    };
+  };
+  /** 平台券暂停/启用 */
+  adminCouponStatus: {
+    parameters: {
+      path: {
+        coupon_id: number;
+        action: "pause" | "activate";
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: never;
+      };
+    };
+  };
+  /** 商户优惠券列表 */
+  merchantCouponList: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["Coupon"][];
+          };
+        };
+      };
+    };
+  };
+  /** 创建商户优惠券 */
+  merchantCouponCreate: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CouponCreateInput"];
+      };
+    };
+    responses: {
+      /** @description 创建成功 */
+      201: {
+        content: {
+          "application/json": components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["Coupon"];
+          };
+        };
+      };
+    };
+  };
+  /** 商户券暂停/启用 */
+  merchantCouponStatus: {
+    parameters: {
+      path: {
+        coupon_id: number;
+        action: "pause" | "activate";
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: never;
+      };
     };
   };
   /**

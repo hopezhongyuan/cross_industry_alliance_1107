@@ -62,6 +62,7 @@ const routes = [
   },
   { path: '/users', component: () => import('./views/UsersView.vue'), meta: { group: '用户', title: '用户列表' } },
   { path: '/points/users', component: () => import('./views/PointsManagementView.vue'), meta: { group: '用户', title: '积分管理' } },
+  { path: '/coupons', component: () => import('./views/PlatformCouponsView.vue'), meta: { group: '营销', title: '平台优惠券' } },
   { path: '/audits', component: () => import('./views/AuditsView.vue'), meta: { group: '审核', title: '审核中心' } },
   {
     path: '/settlements',

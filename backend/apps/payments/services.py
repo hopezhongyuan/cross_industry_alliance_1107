@@ -86,25 +86,35 @@ def process_payment_success(payment_no: str, transaction_id: str, amount: int) -
         order.save(update_fields=["paid_amount", "updated_at"])
 
         transit_order(order.id, "PAY_SUCCESS", operator_type="SYSTEM")
+        entries = [
+            {
+                "account_type": AccountType.PLATFORM_CASH,
+                "account_id": 0,
+                "direction": Direction.DEBIT,
+                "amount": payment.amount,
+            },
+            {
+                "account_type": AccountType.MERCHANT_PENDING,
+                "account_id": order.merchant_id,
+                "direction": Direction.CREDIT,
+                "amount": payment.amount + order.platform_subsidy_amount,
+            },
+        ]
+        if order.platform_subsidy_amount > 0:
+            entries.append(
+                {
+                    "account_type": AccountType.PLATFORM_MARKETING_EXPENSE,
+                    "account_id": 0,
+                    "direction": Direction.DEBIT,
+                    "amount": order.platform_subsidy_amount,
+                }
+            )
         post_transaction(
             biz_type="PAYMENT",
             biz_id=payment.id,
             event_type="PAY_SUCCESS",
             idempotency_key=f"payment:{payment.payment_no}",
-            entries=[
-                {
-                    "account_type": AccountType.PLATFORM_CASH,
-                    "account_id": 0,
-                    "direction": Direction.DEBIT,
-                    "amount": payment.amount,
-                },
-                {
-                    "account_type": AccountType.MERCHANT_PENDING,
-                    "account_id": order.merchant_id,
-                    "direction": Direction.CREDIT,
-                    "amount": payment.amount,
-                },
-            ],
+            entries=entries,
         )
         mark_order_paid(order)
 
@@ -193,25 +203,35 @@ def process_group_payment_success(group_no: str, transaction_id: str, amount: in
             order.paid_amount = order.payable_amount
             order.save(update_fields=["paid_amount", "updated_at"])
             transit_order(order.id, "PAY_SUCCESS", operator_type="SYSTEM")
+            entries = [
+                {
+                    "account_type": AccountType.PLATFORM_CASH,
+                    "account_id": 0,
+                    "direction": Direction.DEBIT,
+                    "amount": order.payable_amount,
+                },
+                {
+                    "account_type": AccountType.MERCHANT_PENDING,
+                    "account_id": order.merchant_id,
+                    "direction": Direction.CREDIT,
+                    "amount": order.payable_amount + order.platform_subsidy_amount,
+                },
+            ]
+            if order.platform_subsidy_amount > 0:
+                entries.append(
+                    {
+                        "account_type": AccountType.PLATFORM_MARKETING_EXPENSE,
+                        "account_id": 0,
+                        "direction": Direction.DEBIT,
+                        "amount": order.platform_subsidy_amount,
+                    }
+                )
             post_transaction(
                 biz_type="PAYMENT",
                 biz_id=group.id,
                 event_type="PAY_SUCCESS",
                 idempotency_key=f"payment:{order.order_no}",
-                entries=[
-                    {
-                        "account_type": AccountType.PLATFORM_CASH,
-                        "account_id": 0,
-                        "direction": Direction.DEBIT,
-                        "amount": order.payable_amount,
-                    },
-                    {
-                        "account_type": AccountType.MERCHANT_PENDING,
-                        "account_id": order.merchant_id,
-                        "direction": Direction.CREDIT,
-                        "amount": order.payable_amount,
-                    },
-                ],
+                entries=entries,
             )
             mark_order_paid(order)
             award_for_order_payment(

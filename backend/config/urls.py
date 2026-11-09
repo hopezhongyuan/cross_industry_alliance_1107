@@ -17,6 +17,7 @@ urlpatterns = [
     path("api/v1/", include("apps.accounts.consumer_urls")),
     path("api/v1/", include("apps.governance.public_urls")),
     path("api/v1/", include("apps.points.consumer_urls")),
+    path("api/v1/", include("apps.coupons.consumer_urls")),
     path("api/v1/", include("apps.payments.consumer_urls")),
     path("api/v1/after-sales/", include("apps.aftersales.urls")),
     path("api/v1/merchant/", include("apps.orders.merchant_urls")),
@@ -24,6 +25,7 @@ urlpatterns = [
     path("api/v1/merchant/", include("apps.aftersales.merchant_urls")),
     path("api/v1/merchant/", include("apps.ledger.merchant_urls")),
     path("api/v1/merchant/", include("apps.merchants.merchant_urls")),
+    path("api/v1/merchant/", include("apps.coupons.merchant_urls")),
     path("api/v1/admin/", include("apps.accounts.admin_urls")),
     path("api/v1/admin/", include("apps.merchants.admin_urls")),
     path("api/v1/admin/", include("apps.catalog.admin_urls")),
@@ -33,6 +35,7 @@ urlpatterns = [
     path("api/v1/admin/", include("apps.governance.urls")),
     path("api/v1/admin/", include("apps.payments.admin_urls")),
     path("api/v1/admin/", include("apps.points.admin_urls")),
+    path("api/v1/admin/", include("apps.coupons.admin_urls")),
     path("api/v1/callback/wechat/", include("apps.payments.urls")),
     path("api/v1/accounts/", include("apps.accounts.urls")),
 ]

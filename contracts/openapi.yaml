@@ -387,6 +387,73 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/admin/coupons/:
+    get:
+      operationId: v1_admin_coupons_retrieve
+      tags:
+      - admin-coupon
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    post:
+      operationId: v1_admin_coupons_create
+      tags:
+      - admin-coupon
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CouponCreateInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CouponCreateInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CouponCreateInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/coupons/{coupon_id}/{action}/:
+    post:
+      operationId: v1_admin_coupons_create_2
+      parameters:
+      - in: path
+        name: action
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: coupon_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin-coupon
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/admin/logs/:
     get:
       operationId: v1_admin_logs_retrieve
@@ -1899,6 +1966,56 @@ paths:
               schema:
                 $ref: '#/components/schemas/Category'
           description: ''
+  /api/v1/coupons/:
+    get:
+      operationId: v1_coupons_retrieve
+      description: 领券中心：平台券 + 指定商户券。
+      tags:
+      - coupon
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/coupons/{coupon_id}/claim/:
+    post:
+      operationId: v1_coupons_claim_create
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: coupon_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - coupon
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCouponRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserCouponRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserCouponRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/health/:
     get:
       operationId: v1_health_retrieve
@@ -1969,6 +2086,73 @@ paths:
             schema:
               $ref: '#/components/schemas/AfterSaleDecisionRequest'
         required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/merchant/coupons/:
+    get:
+      operationId: v1_merchant_coupons_retrieve
+      tags:
+      - merchant-coupon
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    post:
+      operationId: v1_merchant_coupons_create
+      tags:
+      - merchant-coupon
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CouponCreateInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CouponCreateInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CouponCreateInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/merchant/coupons/{coupon_id}/{action}/:
+    post:
+      operationId: v1_merchant_coupons_create_2
+      parameters:
+      - in: path
+        name: action
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: coupon_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - merchant-coupon
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -3148,6 +3332,37 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/user/coupons/:
+    get:
+      operationId: v1_user_coupons_retrieve
+      tags:
+      - coupon
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/user/coupons/available/:
+    get:
+      operationId: v1_user_coupons_available_retrieve
+      description: 下单页可用券：按商户+商品+金额匹配。
+      tags:
+      - coupon
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
 components:
   schemas:
     Action3f4Enum:
@@ -3795,6 +4010,9 @@ components:
           allOf:
           - $ref: '#/components/schemas/AppointmentInputRequest'
           nullable: true
+        user_coupon_id:
+          type: integer
+          nullable: true
       required:
       - items
       - merchant_id
@@ -3925,6 +4143,161 @@ components:
       required:
       - name
       - phone
+    CouponCreateInputRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        face_value:
+          type: integer
+          minimum: 1
+        min_amount:
+          type: integer
+          minimum: 0
+          default: 0
+        scope_type:
+          allOf:
+          - $ref: '#/components/schemas/CouponCreateInputScopeTypeEnum'
+          default: ALL
+        scope_category_ids:
+          type: array
+          items:
+            type: integer
+        scope_product_ids:
+          type: array
+          items:
+            type: integer
+        target_merchant_ids:
+          type: array
+          items:
+            type: integer
+        total_stock:
+          type: integer
+          minimum: 0
+          default: 0
+        per_user_limit:
+          type: integer
+          minimum: 0
+          default: 1
+        valid_from:
+          type: string
+          format: date-time
+        valid_to:
+          type: string
+          format: date-time
+        description:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - face_value
+      - name
+      - valid_from
+      - valid_to
+    CouponCreateInputScopeTypeEnum:
+      enum:
+      - ALL
+      - CATEGORY
+      - PRODUCT
+      type: string
+      description: |-
+        * `ALL` - ALL
+        * `CATEGORY` - CATEGORY
+        * `PRODUCT` - PRODUCT
+    CouponRequest:
+      type: object
+      properties:
+        coupon_no:
+          type: string
+          minLength: 1
+          title: 券编号
+          maxLength: 32
+        name:
+          type: string
+          minLength: 1
+          title: 名称
+          maxLength: 60
+        type:
+          allOf:
+          - $ref: '#/components/schemas/CouponTypeEnum'
+          title: 类型
+        face_value:
+          type: integer
+          title: 面额（分）
+        min_amount:
+          type: integer
+          title: 满减门槛（分，0=无门槛）
+        scope_type:
+          allOf:
+          - $ref: '#/components/schemas/CouponScopeTypeEnum'
+          title: 适用范围
+        scope_category_ids:
+          title: 适用类目 ID 列表
+        scope_product_ids:
+          title: 适用商品 ID 列表
+        total_stock:
+          type: integer
+          title: 发放总量（0=不限）
+        issued_count:
+          type: integer
+          title: 已领取数
+        per_user_limit:
+          type: integer
+          title: 每人限领（0=不限）
+        valid_from:
+          type: string
+          format: date-time
+          title: 生效时间
+        valid_to:
+          type: string
+          format: date-time
+          title: 失效时间
+        status:
+          allOf:
+          - $ref: '#/components/schemas/CouponStatusEnum'
+          title: 状态
+        description:
+          type: string
+          title: 使用说明
+          maxLength: 200
+      required:
+      - face_value
+      - name
+      - type
+      - valid_from
+      - valid_to
+    CouponScopeTypeEnum:
+      enum:
+      - ALL
+      - CATEGORY
+      - PRODUCT
+      type: string
+      description: |-
+        * `ALL` - 全场
+        * `CATEGORY` - 指定类目
+        * `PRODUCT` - 指定商品
+    CouponStatusEnum:
+      enum:
+      - DRAFT
+      - ACTIVE
+      - PAUSED
+      - EXPIRED
+      type: string
+      description: |-
+        * `DRAFT` - 草稿
+        * `ACTIVE` - 发放中
+        * `PAUSED` - 已暂停
+        * `EXPIRED` - 已过期
+    CouponTypeEnum:
+      enum:
+      - PLATFORM
+      - MERCHANT
+      type: string
+      description: |-
+        * `PLATFORM` - 平台券
+        * `MERCHANT` - 商户券
     Decision328Enum:
       enum:
       - APPROVE
@@ -4525,6 +4898,9 @@ components:
           type: string
           default: ''
           maxLength: 200
+        user_coupon_id:
+          type: integer
+          nullable: true
       required:
       - contact
       - items
@@ -5701,6 +6077,43 @@ components:
         * `WECHAT_MINI` - 微信小程序
         * `WECHAT_H5` - 微信 H5
         * `APP` - APP
+    UserCouponRequest:
+      type: object
+      properties:
+        user_coupon_no:
+          type: string
+          minLength: 1
+          title: 用户券编号
+          maxLength: 32
+        status:
+          allOf:
+          - $ref: '#/components/schemas/UserCouponStatusEnum'
+          title: 状态
+        expire_at:
+          type: string
+          format: date-time
+          title: 过期时间
+        used_at:
+          type: string
+          format: date-time
+          nullable: true
+          title: 使用时间
+        order_no:
+          type: string
+          title: 使用订单号
+          maxLength: 32
+      required:
+      - expire_at
+    UserCouponStatusEnum:
+      enum:
+      - UNUSED
+      - USED
+      - EXPIRED
+      type: string
+      description: |-
+        * `UNUSED` - 未使用
+        * `USED` - 已使用
+        * `EXPIRED` - 已过期
     UserIdentity:
       type: object
       properties:

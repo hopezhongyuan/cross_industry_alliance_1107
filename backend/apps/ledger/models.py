@@ -165,6 +165,7 @@ class SettlementItem(TimeStampedModel):
     commission_rate = models.DecimalField("佣金率快照", max_digits=5, decimal_places=4, default=0)
     commission_amount = models.BigIntegerField("佣金（分）", default=0)
     refund_amount = models.BigIntegerField("结算前退款（分）", default=0)
+    merchant_discount_amount = models.BigIntegerField("商户承担优惠（分）", default=0)
     net_amount = models.BigIntegerField("应结金额（分）", default=0)
     status = models.CharField("状态", max_length=16, choices=Status.choices, default=Status.PENDING, db_index=True)
     settled_at = models.DateTimeField("结算时间", null=True, blank=True)

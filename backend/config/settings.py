@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "apps.governance",
     "apps.notifications",
     "apps.points",
+    "apps.coupons",
 ]
 
 MIDDLEWARE = [
@@ -155,6 +156,10 @@ SPECTACULAR_SETTINGS = {
         "RefundStatusEnum": "apps.payments.models.RefundOrder.Status",
         "AfterSaleStatusEnum": "apps.aftersales.models.AfterSale.Status",
         "WithdrawalStatusEnum": "apps.ledger.models.WithdrawalOrder.Status",
+        "CouponTypeEnum": "apps.coupons.models.Coupon.Type",
+        "CouponScopeTypeEnum": "apps.coupons.models.Coupon.ScopeType",
+        "CouponStatusEnum": "apps.coupons.models.Coupon.Status",
+        "UserCouponStatusEnum": "apps.coupons.models.UserCoupon.Status",
     },
 }
 

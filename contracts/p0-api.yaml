@@ -2014,6 +2014,58 @@ components:
       properties:
         code: { type: string, enum: [SUCCESS, FAIL] }
         message: { type: string }
+    Coupon:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        coupon_no: { type: string }
+        name: { type: string }
+        type: { type: string, enum: [PLATFORM, MERCHANT] }
+        type_label: { type: string }
+        merchant_id: { type: integer, format: int64, nullable: true }
+        merchant_name: { type: string, nullable: true }
+        face_value: { type: integer, description: 面额（分） }
+        min_amount: { type: integer, description: 满减门槛（分，0=无门槛） }
+        scope_type: { type: string, enum: [ALL, CATEGORY, PRODUCT] }
+        scope_type_label: { type: string }
+        scope_category_ids: { type: array, items: { type: integer } }
+        scope_product_ids: { type: array, items: { type: integer } }
+        total_stock: { type: integer }
+        issued_count: { type: integer }
+        remaining_stock: { type: integer, nullable: true }
+        per_user_limit: { type: integer }
+        valid_from: { type: string, format: date-time }
+        valid_to: { type: string, format: date-time }
+        status: { type: string, enum: [DRAFT, ACTIVE, PAUSED, EXPIRED] }
+        status_label: { type: string }
+        description: { type: string }
+    UserCoupon:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        user_coupon_no: { type: string }
+        coupon: { $ref: '#/components/schemas/Coupon' }
+        status: { type: string, enum: [UNUSED, USED, EXPIRED] }
+        status_label: { type: string }
+        expire_at: { type: string, format: date-time, nullable: true }
+        used_at: { type: string, format: date-time, nullable: true }
+        order_no: { type: string }
+    CouponCreateInput:
+      type: object
+      required: [name, face_value, valid_from, valid_to]
+      properties:
+        name: { type: string, maxLength: 60 }
+        face_value: { type: integer, minimum: 1 }
+        min_amount: { type: integer, minimum: 0, default: 0 }
+        scope_type: { type: string, enum: [ALL, CATEGORY, PRODUCT], default: ALL }
+        scope_category_ids: { type: array, items: { type: integer } }
+        scope_product_ids: { type: array, items: { type: integer } }
+        target_merchant_ids: { type: array, items: { type: integer } }
+        total_stock: { type: integer, minimum: 0, default: 0 }
+        per_user_limit: { type: integer, minimum: 0, default: 1 }
+        valid_from: { type: string, format: date-time }
+        valid_to: { type: string, format: date-time }
+        description: { type: string, maxLength: 200 }
 paths:
   /api/v1/health/:
     get:
@@ -4725,6 +4777,237 @@ paths:
               schema: { $ref: '#/components/schemas/PaymentConfigEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/coupons/:
+    get:
+      tags: [coupon]
+      operationId: couponCenter
+      summary: 领券中心（平台券 + 指定商户券）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: merchant_id
+          in: query
+          required: false
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Coupon' }
+  /api/v1/coupons/{coupon_id}/claim/:
+    post:
+      tags: [coupon]
+      operationId: claimCoupon
+      summary: 领取优惠券
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: coupon_id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '201':
+          description: 领取成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/UserCoupon' }
+        '409':
+          description: COUPON_OUT_OF_STOCK / COUPON_CLAIM_LIMIT / COUPON_EXPIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  /api/v1/user/coupons/:
+    get:
+      tags: [coupon]
+      operationId: myCoupons
+      summary: 我的优惠券
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [UNUSED, USED, EXPIRED] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/UserCoupon' }
+  /api/v1/user/coupons/available/:
+    get:
+      tags: [coupon]
+      operationId: availableCoupons
+      summary: 下单可用券
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: merchant_id
+          in: query
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: product_id
+          in: query
+          required: true
+          schema: { type: array, items: { type: integer, format: int64 } }
+        - name: amount
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/UserCoupon' }
+  /api/v1/admin/coupons/:
+    get:
+      tags: [admin-coupon]
+      operationId: adminCouponList
+      summary: 平台优惠券列表
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Coupon' }
+    post:
+      tags: [admin-coupon]
+      operationId: adminCouponCreate
+      summary: 创建平台优惠券
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CouponCreateInput' }
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Coupon' }
+  /api/v1/admin/coupons/{coupon_id}/{action}/:
+    post:
+      tags: [admin-coupon]
+      operationId: adminCouponStatus
+      summary: 平台券暂停/启用
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: coupon_id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: action
+          in: path
+          required: true
+          schema: { type: string, enum: [pause, activate] }
+      responses:
+        '200': { description: OK }
+  /api/v1/merchant/coupons/:
+    get:
+      tags: [merchant-coupon]
+      operationId: merchantCouponList
+      summary: 商户优惠券列表
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Coupon' }
+    post:
+      tags: [merchant-coupon]
+      operationId: merchantCouponCreate
+      summary: 创建商户优惠券
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CouponCreateInput' }
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Coupon' }
+  /api/v1/merchant/coupons/{coupon_id}/{action}/:
+    post:
+      tags: [merchant-coupon]
+      operationId: merchantCouponStatus
+      summary: 商户券暂停/启用
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: coupon_id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: action
+          in: path
+          required: true
+          schema: { type: string, enum: [pause, activate] }
+      responses:
+        '200': { description: OK }
   /api/v1/callback/wechat/pay/:
     post:
       tags: [callback]

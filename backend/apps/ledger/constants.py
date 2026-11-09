@@ -14,6 +14,7 @@ class AccountType(models.TextChoices):
     MERCHANT_AVAILABLE = "MERCHANT_AVAILABLE", "商户可提现"
     MERCHANT_WITHDRAWING = "MERCHANT_WITHDRAWING", "商户提现中"
     PLATFORM_COMMISSION_REVENUE = "PLATFORM_COMMISSION_REVENUE", "平台佣金收入"
+    PLATFORM_MARKETING_EXPENSE = "PLATFORM_MARKETING_EXPENSE", "平台营销费用"
 
 
 class Direction(models.TextChoices):
@@ -21,8 +22,8 @@ class Direction(models.TextChoices):
     CREDIT = "C", "贷"
 
 
-# 借方为正的科目（资产）；其余为贷方为正（负债 / 收入）
-DEBIT_NORMAL_ACCOUNTS = {AccountType.PLATFORM_CASH}
+# 借方为正的科目（资产/费用）；其余为贷方为正（负债 / 收入）
+DEBIT_NORMAL_ACCOUNTS = {AccountType.PLATFORM_CASH, AccountType.PLATFORM_MARKETING_EXPENSE}
 
 # 需要维护 merchant_account 余额快照的科目
 MERCHANT_BALANCE_FIELD = {

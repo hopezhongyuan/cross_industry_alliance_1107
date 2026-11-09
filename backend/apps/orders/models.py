@@ -69,6 +69,18 @@ class Order(TimeStampedModel):
     merchant_income_amount = models.BigIntegerField("商家分账（分）", default=0)
     platform_refund_amount = models.BigIntegerField("平台承担退款（分）", default=0)
     merchant_refund_amount = models.BigIntegerField("商家承担退款（分）", default=0)
+    coupon = models.ForeignKey(
+        "coupons.Coupon",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="orders",
+        verbose_name="使用的优惠券",
+    )
+    coupon_snapshot_json = models.JSONField("优惠券快照", default=dict, blank=True)
+    discount_amount = models.BigIntegerField("优惠总额（分）", default=0)
+    platform_subsidy_amount = models.BigIntegerField("平台承担优惠（分）", default=0)
+    merchant_discount_amount = models.BigIntegerField("商户承担优惠（分）", default=0)
     contact_json = models.JSONField("联系人快照", default=dict, blank=True)
     remark = models.CharField("用户备注", max_length=200, blank=True, default="")
     cancel_reason = models.CharField("取消原因", max_length=200, blank=True, default="")

@@ -933,4 +933,21 @@ export const api = {
   adjustPoints(payload: { user_id: number; delta: number; reason: string }) {
     return request<Schemas['PointTransaction']>('/admin/points/adjust/', { method: 'POST', body: payload })
   },
+
+  // ---------- 平台优惠券 ----------
+  adminCoupons() {
+    return request<Schemas['Coupon'][]>('/admin/coupons/')
+  },
+
+  createAdminCoupon(payload: Schemas['CouponCreateInput']) {
+    return request<Schemas['Coupon']>('/admin/coupons/', {
+      method: 'POST',
+      body: payload,
+      headers: { 'Idempotency-Key': idempotencyKey() },
+    })
+  },
+
+  adminCouponStatus(couponId: number, action: 'pause' | 'activate') {
+    return request<Schemas['Coupon']>(`/admin/coupons/${couponId}/${action}/`, { method: 'POST' })
+  },
 }

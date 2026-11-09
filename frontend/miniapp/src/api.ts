@@ -452,6 +452,7 @@ export const api = {
     contact: { name: string; phone: string; address_detail: string }
     appointment?: { slot_id: number; remark?: string }
     remark?: string
+    user_coupon_id?: number | null
   }) {
     return request<OrderRow>('/orders/', {
       method: 'POST',
@@ -490,6 +491,7 @@ export const api = {
       order_type: string
       items: Array<{ product_id: number; sku_id: number | null; quantity: number }>
       appointment?: { slot_id: number; remark?: string }
+      user_coupon_id?: number | null
     }>
     contact: { name: string; phone: string; address_detail: string }
     remark?: string
@@ -709,5 +711,47 @@ export const api = {
 
   pointRules() {
     return request<Schemas['PointsConfig']>('/points/rules/')
+  },
+
+  // ---------- 优惠券（消费者） ----------
+  couponCenter(merchantId?: number) {
+    const qs = new URLSearchParams()
+    if (merchantId) qs.set('merchant_id', String(merchantId))
+    const suffix = qs.toString()
+    return request<Schemas['Coupon'][]>(`/coupons/${suffix ? `?${suffix}` : ''}`)
+  },
+
+  claimCoupon(couponId: number) {
+    return request<Schemas['UserCoupon']>(`/coupons/${couponId}/claim/`, { method: 'POST' })
+  },
+
+  myCoupons(status?: 'UNUSED' | 'USED' | 'EXPIRED') {
+    const qs = new URLSearchParams()
+    if (status) qs.set('status', status)
+    const suffix = qs.toString()
+    return request<Schemas['UserCoupon'][]>(`/user/coupons/${suffix ? `?${suffix}` : ''}`)
+  },
+
+  availableCoupons(merchantId: number, productIds: number[], amount: number) {
+    const qs = new URLSearchParams({ merchant_id: String(merchantId), amount: String(amount) })
+    productIds.forEach((pid) => qs.append('product_id', String(pid)))
+    return request<Schemas['UserCoupon'][]>(`/user/coupons/available/?${qs.toString()}`)
+  },
+
+  // ---------- 优惠券（商户中心） ----------
+  merchantCoupons() {
+    return request<Schemas['Coupon'][]>('/merchant/coupons/')
+  },
+
+  createMerchantCoupon(payload: Schemas['CouponCreateInput']) {
+    return request<Schemas['Coupon']>('/merchant/coupons/', {
+      method: 'POST',
+      data: payload,
+      headers: { 'Idempotency-Key': idempotencyKey() },
+    })
+  },
+
+  merchantCouponStatus(couponId: number, action: 'pause' | 'activate') {
+    return request<Schemas['Coupon']>(`/merchant/coupons/${couponId}/${action}/`, { method: 'POST' })
   },
 }

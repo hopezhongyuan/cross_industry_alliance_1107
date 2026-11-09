@@ -7,8 +7,9 @@ import BottomNav from '../../components/BottomNav'
 
 const menus = [
   { label: '我的积分', action: () => Taro.navigateTo({ url: '/pages/points/index' }) },
+  { label: '领券中心', action: () => Taro.navigateTo({ url: '/pages/coupons/index' }) },
+  { label: '我的优惠券', action: () => Taro.navigateTo({ url: '/pages/me/coupons/index' }) },
   { label: '收货地址', action: () => Taro.navigateTo({ url: '/pages/addresses/index' }) },
-  { label: '优惠券', hint: 'P1 未开放', action: () => Taro.showToast({ title: 'P1 开放优惠券', icon: 'none' }) },
   { label: '客服与帮助', action: () => Taro.showToast({ title: '客服入口将在正式版开放', icon: 'none' }) },
   { label: '关于平台与协议', action: () => Taro.navigateTo({ url: '/pages/about/index' }) },
   { label: '设置', action: () => Taro.showToast({ title: '设置项将在正式版开放', icon: 'none' }) },
@@ -99,7 +100,7 @@ export default function Me() {
         {menus.map((menu) => (
           <View key={menu.label} className="row" onClick={menu.action}>
             <Text>{menu.label}</Text>
-            <Text className="muted">{menu.hint ?? '›'}</Text>
+            <Text className="muted">›</Text>
           </View>
         ))}
       </View>

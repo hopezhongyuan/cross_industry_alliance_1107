@@ -215,4 +215,8 @@ def refund_order(
             "REFUND_SUCCESS_FULL" if full_refund else "REFUND_SUCCESS_PARTIAL",
             operator_type="SYSTEM",
         )
+        if full_refund:
+            from apps.coupons.services import release_user_coupon_by_order
+
+            release_user_coupon_by_order(order.id)
     return refund

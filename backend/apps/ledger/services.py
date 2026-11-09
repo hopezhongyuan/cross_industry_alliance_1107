@@ -169,7 +169,13 @@ def create_settlement_item(order) -> SettlementItem:
 
     cycle_days = order.merchant.settlement_cycle_days
     commission_amount = order.commission_amount - order.platform_refund_amount
-    net_amount = order.product_amount - order.commission_amount + order.delivery_fee - order.merchant_refund_amount
+    net_amount = (
+        order.product_amount
+        - order.merchant_discount_amount
+        - order.commission_amount
+        + order.delivery_fee
+        - order.merchant_refund_amount
+    )
     item, created = SettlementItem.objects.get_or_create(
         order=order,
         defaults={
@@ -181,6 +187,7 @@ def create_settlement_item(order) -> SettlementItem:
             "commission_rate": order.commission_rate,
             "commission_amount": commission_amount,
             "refund_amount": order.refunded_amount,
+            "merchant_discount_amount": order.merchant_discount_amount,
             "net_amount": net_amount,
         },
     )
@@ -189,7 +196,7 @@ def create_settlement_item(order) -> SettlementItem:
 
 def effective_commission(item: SettlementItem) -> int:
     """结算时佣金取订单行分账快照，配送费不参与佣金。"""
-    gross = item.product_amount + item.delivery_fee - item.refund_amount
+    gross = item.product_amount - item.merchant_discount_amount + item.delivery_fee - item.refund_amount
     if gross <= 0:
         return 0
     return max(0, min(item.commission_amount, gross))
@@ -212,7 +219,7 @@ def create_settlement_batch(period_end=None) -> Optional[SettlementBatch]:
         commission_amount = 0
         net_amount = 0
         for item in items:
-            gross = item.product_amount + item.delivery_fee - item.refund_amount
+            gross = item.product_amount - item.merchant_discount_amount + item.delivery_fee - item.refund_amount
             commission = effective_commission(item)
             total_amount += gross
             commission_amount += commission
@@ -255,7 +262,7 @@ def publish_settlement_batch(batch_id: int, admin_user, request=None) -> Settlem
         net_amount = 0
         settled_ids = []
         for item in items:
-            gross = item.product_amount + item.delivery_fee - item.refund_amount
+            gross = item.product_amount - item.merchant_discount_amount + item.delivery_fee - item.refund_amount
             if gross <= 0:
                 item.status = SettlementItem.Status.CANCELLED
                 item.batch = None

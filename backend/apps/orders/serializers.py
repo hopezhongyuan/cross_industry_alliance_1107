@@ -194,6 +194,7 @@ class OrderCreateInputSerializer(serializers.Serializer):
     contact = ContactInputSerializer()
     appointment = AppointmentInputSerializer(required=False, allow_null=True)
     remark = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    user_coupon_id = serializers.IntegerField(required=False, allow_null=True, default=None)
 
 
 class BatchOrderGroupInputSerializer(serializers.Serializer):
@@ -201,6 +202,7 @@ class BatchOrderGroupInputSerializer(serializers.Serializer):
     order_type = serializers.ChoiceField(choices=["EXPRESS", "PICKUP", "SERVICE"])
     items = OrderItemInputSerializer(many=True, allow_empty=False)
     appointment = AppointmentInputSerializer(required=False, allow_null=True)
+    user_coupon_id = serializers.IntegerField(required=False, allow_null=True, default=None)
 
 
 class BatchOrderCreateInputSerializer(serializers.Serializer):

@@ -85,6 +85,7 @@ export default function MerchantHome() {
           badge={dash?.pending_after_sales}
         />
         <QuickAction icon="💰" label="我的账户" to="/pages/merchant/account/index" bg="#f3e5f5" color="#6a1b9a" />
+        <QuickAction icon="🎟️" label="优惠券" to="/pages/merchant/coupons/index" bg="#fff8e1" color="#f9a825" />
         <QuickAction icon="⚙️" label="设置" to="/pages/merchant/settings/index" bg="#f1eadc" color="#5d4037" />
       </QuickActions>
 

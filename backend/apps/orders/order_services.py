@@ -101,6 +101,7 @@ def _create_single_order(
     idempotency_key,
     request_hash,
     payment_group=None,
+    user_coupon_id=None,
 ):
     """创建单个订单（不开启事务，由调用方控制事务边界）。"""
     existing = Order.objects.filter(idempotency_key=idempotency_key).first()
@@ -125,7 +126,37 @@ def _create_single_order(
     ]
     product_amount = sum(line_amounts)
     rate = resolve_commission_rate(merchant)
-    platform_amounts, commission_amount = build_line_split(line_amounts, rate)
+
+    # 优惠券处理
+    from apps.coupons.models import Coupon
+    from apps.coupons.services import lock_user_coupon
+
+    discount_amount = 0
+    platform_subsidy_amount = 0
+    merchant_discount_amount = 0
+    coupon_obj = None
+    user_coupon = None
+    if user_coupon_id:
+        product_ids = [ctx["product"].id for ctx in contexts]
+        user_coupon, discount_amount = lock_user_coupon(
+            user, user_coupon_id, merchant_id=merchant_id, product_ids=product_ids, amount=product_amount
+        )
+        coupon_obj = user_coupon.coupon
+        if coupon_obj.type == Coupon.Type.PLATFORM:
+            platform_subsidy_amount = discount_amount
+        else:
+            merchant_discount_amount = discount_amount
+
+    # 佣金基准：商户券按优惠后金额算，平台券按原价算
+    commission_base = product_amount - merchant_discount_amount
+    if merchant_discount_amount > 0:
+        # 按行金额比例分摊商户优惠，得到各行佣金基准
+        line_bases = _allocate_discount(line_amounts, merchant_discount_amount)
+        platform_amounts, commission_amount = build_line_split(line_bases, rate)
+    else:
+        platform_amounts, commission_amount = build_line_split(line_amounts, rate)
+
+    payable_amount = product_amount - discount_amount
     now = timezone.now()
     order = Order.objects.create(
         user=user,
@@ -134,11 +165,25 @@ def _create_single_order(
         status=Order.Status.PENDING_PAYMENT,
         product_amount=product_amount,
         delivery_fee=0,
-        payable_amount=product_amount,
+        payable_amount=payable_amount,
         commission_rate=rate,
         commission_amount=commission_amount,
         platform_income_amount=commission_amount,
-        merchant_income_amount=product_amount - commission_amount,
+        merchant_income_amount=commission_base - commission_amount,
+        platform_subsidy_amount=platform_subsidy_amount,
+        merchant_discount_amount=merchant_discount_amount,
+        discount_amount=discount_amount,
+        coupon=coupon_obj,
+        coupon_snapshot_json=(
+            {
+                "coupon_no": coupon_obj.coupon_no,
+                "name": coupon_obj.name,
+                "type": coupon_obj.type,
+                "face_value": coupon_obj.face_value,
+            }
+            if coupon_obj
+            else {}
+        ),
         contact_json=contact,
         remark=remark,
         expire_at=now + timedelta(minutes=settings.ORDER_PAYMENT_TIMEOUT_MINUTES),
@@ -154,6 +199,7 @@ def _create_single_order(
         quantity = ctx["item"]["quantity"]
         line_amount = price * quantity
         platform_amount = platform_amounts[index]
+        line_base = line_bases[index] if merchant_discount_amount > 0 else line_amount
         OrderItem.objects.create(
             order=order,
             product=product,
@@ -169,10 +215,10 @@ def _create_single_order(
             price=price,
             quantity=quantity,
             amount=line_amount,
-            paid_amount=line_amount,
+            paid_amount=line_base,
             commission_rate=rate,
             platform_amount=platform_amount,
-            merchant_amount=line_amount - platform_amount,
+            merchant_amount=line_base - platform_amount,
         )
 
     for sku_id, quantity in sku_need.items():
@@ -201,7 +247,23 @@ def _create_single_order(
             remark=appointment.get("remark", ""),
         )
 
+    # 绑定用户券到订单
+    if user_coupon is not None:
+        from apps.coupons.services import bind_user_coupon_order
+
+        bind_user_coupon_order(user_coupon.id, order.id, order.order_no)
+
     return order, True
+
+
+def _allocate_discount(line_amounts: list, discount: int) -> list:
+    """按行金额比例将商户优惠分摊到各行，返回各行优惠后的金额（不低于0）。"""
+    if discount <= 0 or not line_amounts:
+        return list(line_amounts)
+    from apps.orders.split_services import allocate_amount
+
+    discounts = allocate_amount(discount, line_amounts, caps=line_amounts)
+    return [max(amt - d, 0) for amt, d in zip(line_amounts, discounts)]
 
 
 def create_order(
@@ -215,6 +277,7 @@ def create_order(
     remark="",
     idempotency_key,
     request_hash,
+    user_coupon_id=None,
 ):
     with transaction.atomic():
         order, created = _create_single_order(
@@ -227,6 +290,7 @@ def create_order(
             remark=remark,
             idempotency_key=idempotency_key,
             request_hash=request_hash,
+            user_coupon_id=user_coupon_id,
         )
     return order, created
 
@@ -305,6 +369,7 @@ def create_batch_orders(
                 idempotency_key=f"{prefix}{merchant_id}",
                 request_hash=request_hash,
                 payment_group=group,
+                user_coupon_id=group_payload.get("user_coupon_id"),
             )
             created_orders.append(order)
 
@@ -406,6 +471,9 @@ def cancel_order(user, order_id, reason=""):
         PaymentOrder.objects.filter(
             order=order, status__in=[PaymentOrder.Status.CREATED, PaymentOrder.Status.PAYING]
         ).update(status=PaymentOrder.Status.CLOSED)
+        from apps.coupons.services import release_user_coupon_by_order
+
+        release_user_coupon_by_order(order.id)
     order.refresh_from_db()
     return order
 
@@ -432,6 +500,9 @@ def close_expired_orders(now=None, limit=200) -> int:
             PaymentOrder.objects.filter(
                 order=order, status__in=[PaymentOrder.Status.CREATED, PaymentOrder.Status.PAYING]
             ).update(status=PaymentOrder.Status.CLOSED)
+            from apps.coupons.services import release_user_coupon_by_order
+
+            release_user_coupon_by_order(order.id)
             count += 1
     return count
 
