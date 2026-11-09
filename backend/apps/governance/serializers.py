@@ -9,6 +9,7 @@ from .models import (
     MediaFolder,
     OperationLog,
     PlatformConfig,
+    PopupAd,
     RuleVersion,
     StoreNavItem,
 )
@@ -302,3 +303,48 @@ class PublicDecoPageSerializer(serializers.ModelSerializer):
     class Meta:
         model = DecoPage
         fields = ("slug", "title", "share_title", "share_image", "components", "published_at")
+
+
+class PopupAdSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PopupAd
+        fields = (
+            "id",
+            "title",
+            "image_url",
+            "link_url",
+            "frequency",
+            "priority",
+            "start_at",
+            "end_at",
+            "status",
+            "max_impressions",
+            "impression_count",
+            "created_by_name",
+            "created_at",
+        )
+
+
+class PopupAdInputSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=80)
+    image_url = serializers.URLField(max_length=500)
+    link_url = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
+    frequency = serializers.ChoiceField(choices=PopupAd.Frequency.choices, default=PopupAd.Frequency.ONCE_PER_DAY)
+    priority = serializers.IntegerField(required=False, default=0)
+    start_at = serializers.DateTimeField(required=False, allow_null=True, default=None)
+    end_at = serializers.DateTimeField(required=False, allow_null=True, default=None)
+    max_impressions = serializers.IntegerField(required=False, default=0, min_value=0)
+
+
+class PublicPopupAdSerializer(serializers.ModelSerializer):
+    """消费者端只返回展示所需字段。"""
+
+    class Meta:
+        model = PopupAd
+        fields = ("id", "image_url", "link_url", "frequency")
+
+
+class PopupAdImpressionInputSerializer(serializers.Serializer):
+    """展示上报无请求体，仅用于 OpenAPI 契约解析。"""
+
+    pass

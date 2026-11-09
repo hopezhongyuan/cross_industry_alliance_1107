@@ -762,4 +762,13 @@ export const api = {
   merchantCouponStatus(couponId: number, action: 'pause' | 'activate') {
     return request<Schemas['Coupon']>(`/merchant/coupons/${couponId}/${action}/`, { method: 'POST' })
   },
+
+  // ---------- 弹窗广告 ----------
+  currentPopupAd() {
+    return request<Schemas['PopupAdPublic']>('/popup-ads/current/')
+  },
+
+  reportPopupImpression(popupId: number) {
+    return request<void>(`/popup-ads/${popupId}/impression/`, { method: 'POST' })
+  },
 }

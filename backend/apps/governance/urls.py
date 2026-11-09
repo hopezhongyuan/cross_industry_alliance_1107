@@ -15,6 +15,8 @@ from .views import (
     AdminMediaFolderListView,
     AdminOperationLogListView,
     AdminPlatformConfigView,
+    AdminPopupAdListView,
+    AdminPopupAdStatusView,
     AdminRulePublishView,
     AdminStoreNavView,
 )
@@ -38,4 +40,6 @@ urlpatterns = [
     ),
     path("media-assets/", AdminMediaAssetListView.as_view(), name="admin-media-assets"),
     path("media-assets/<int:pk>/", AdminMediaAssetDetailView.as_view(), name="admin-media-asset-detail"),
+    path("popup-ads/", AdminPopupAdListView.as_view(), name="admin-popup-ads"),
+    path("popup-ads/<int:pk>/<str:action>/", AdminPopupAdStatusView.as_view(), name="admin-popup-ad-status"),
 ]

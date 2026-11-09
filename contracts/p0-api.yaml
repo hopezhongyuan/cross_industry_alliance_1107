@@ -2066,6 +2066,61 @@ components:
         valid_from: { type: string, format: date-time }
         valid_to: { type: string, format: date-time }
         description: { type: string, maxLength: 200 }
+    PopupAd:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string, description: 内部管理标题 }
+        image_url: { type: string, description: 弹窗图片 URL }
+        link_url: { type: string, description: 关联跳转链接 }
+        frequency: { type: string, enum: [EVERY_LAUNCH, ONCE_PER_DAY, ONCE_PER_WEEK, ONCE_PER_USER] }
+        priority: { type: integer }
+        start_at: { type: string, format: date-time, nullable: true }
+        end_at: { type: string, format: date-time, nullable: true }
+        status: { type: string, enum: [DRAFT, ENABLED, DISABLED, EXPIRED] }
+        max_impressions: { type: integer, description: 总展示上限，0=不限 }
+        impression_count: { type: integer, description: 已展示次数 }
+        created_by_name: { type: string }
+        created_at: { type: string, format: date-time }
+    PopupAdPublic:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        image_url: { type: string }
+        link_url: { type: string }
+        frequency: { type: string, enum: [EVERY_LAUNCH, ONCE_PER_DAY, ONCE_PER_WEEK, ONCE_PER_USER] }
+    PopupAdCreateInput:
+      type: object
+      required: [title, image_url]
+      properties:
+        title: { type: string, maxLength: 80 }
+        image_url: { type: string, maxLength: 500 }
+        link_url: { type: string, maxLength: 500 }
+        frequency: { type: string, enum: [EVERY_LAUNCH, ONCE_PER_DAY, ONCE_PER_WEEK, ONCE_PER_USER], default: ONCE_PER_DAY }
+        priority: { type: integer, default: 0 }
+        start_at: { type: string, format: date-time, nullable: true }
+        end_at: { type: string, format: date-time, nullable: true }
+        max_impressions: { type: integer, minimum: 0, default: 0 }
+    PopupAdEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/PopupAd' }
+    PopupAdListEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/PopupAd' }
+    PopupAdPublicEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/PopupAdPublic', nullable: true }
 paths:
   /api/v1/health/:
     get:
@@ -4242,6 +4297,97 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/popup-ads/current/:
+    get:
+      tags: [storefront]
+      operationId: getCurrentPopupAd
+      summary: 获取当前生效的弹窗广告
+      x-status: implemented
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PopupAdPublicEnvelope' }
+  /api/v1/popup-ads/{id}/impression/:
+    post:
+      tags: [storefront]
+      operationId: reportPopupAdImpression
+      summary: 上报弹窗展示（计数+1）
+      x-status: implemented
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Envelope' }
+  /api/v1/admin/popup-ads/:
+    get:
+      tags: [admin]
+      operationId: listAdminPopupAds
+      summary: 弹窗广告列表
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [DRAFT, ENABLED, DISABLED, EXPIRED] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PopupAdListEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [admin]
+      operationId: createAdminPopupAd
+      summary: 创建弹窗广告
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PopupAdCreateInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PopupAdEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/admin/popup-ads/{id}/{action}/:
+    post:
+      tags: [admin]
+      operationId: updateAdminPopupAdStatus
+      summary: '弹窗广告上下架（action: enable / disable）'
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: action
+          in: path
+          required: true
+          schema: { type: string, enum: [enable, disable] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PopupAdEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /api/v1/admin/merchants/:
     get:
       tags: [admin]

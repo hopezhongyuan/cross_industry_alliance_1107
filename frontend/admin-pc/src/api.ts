@@ -950,4 +950,24 @@ export const api = {
   adminCouponStatus(couponId: number, action: 'pause' | 'activate') {
     return request<Schemas['Coupon']>(`/admin/coupons/${couponId}/${action}/`, { method: 'POST' })
   },
+
+  // ---------- 弹窗广告 ----------
+  adminPopupAds(params: { status?: string } = {}) {
+    const qs = new URLSearchParams()
+    if (params.status) qs.set('status', params.status)
+    const suffix = qs.toString()
+    return request<Schemas['PopupAd'][]>(`/admin/popup-ads/${suffix ? `?${suffix}` : ''}`)
+  },
+
+  createAdminPopupAd(payload: Schemas['PopupAdCreateInput']) {
+    return request<Schemas['PopupAd']>('/admin/popup-ads/', {
+      method: 'POST',
+      body: payload,
+      headers: { 'Idempotency-Key': idempotencyKey() },
+    })
+  },
+
+  adminPopupAdStatus(popupId: number, action: 'enable' | 'disable') {
+    return request<Schemas['PopupAd']>(`/admin/popup-ads/${popupId}/${action}/`, { method: 'POST' })
+  },
 }

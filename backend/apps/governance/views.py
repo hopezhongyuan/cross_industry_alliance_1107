@@ -8,7 +8,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from apps.common.api import ApiError, EnvelopeAPIView, EnvelopeResponse, ok, paginated
 
 from .media_services import asset_reference_count, validate_upload
-from .models import AuditTask, DecoPage, MediaAsset, MediaFolder, OperationLog, StoreNavItem
+from .models import AuditTask, DecoPage, MediaAsset, MediaFolder, OperationLog, PopupAd, StoreNavItem
 from .serializers import (
     AdminPlatformConfigInputSerializer,
     AdminPlatformConfigSerializer,
@@ -23,8 +23,12 @@ from .serializers import (
     MediaFolderInputSerializer,
     MediaFolderSerializer,
     OperationLogSerializer,
+    PopupAdImpressionInputSerializer,
+    PopupAdInputSerializer,
+    PopupAdSerializer,
     PublicDecoPageSerializer,
     PublicPlatformConfigSerializer,
+    PublicPopupAdSerializer,
     RuleVersionInputSerializer,
     RuleVersionSerializer,
     StoreNavInputSerializer,
@@ -32,11 +36,15 @@ from .serializers import (
 )
 from .services import (
     batch_decide_audit,
+    create_popup_ad,
     decide_audit,
+    get_current_popup,
     get_platform_config,
+    increment_popup_impression,
     publish_rule_version,
     require_platform_admin,
     update_platform_config,
+    update_popup_status,
 )
 from .storefront_services import (
     create_page,
@@ -442,3 +450,65 @@ class PublicDecoPageView(EnvelopeAPIView):
         if page is None:
             raise ApiError("NOT_FOUND", "微页面不存在或未发布", 404)
         return ok(request, PublicDecoPageSerializer(page).data)
+
+
+@extend_schema(tags=["admin"], request=PopupAdInputSerializer, responses=EnvelopeResponse)
+class AdminPopupAdListView(EnvelopeAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = PopupAdSerializer
+
+    @extend_schema(operation_id="listAdminPopupAds")
+    def get(self, request):
+        require_platform_admin(request.user)
+        status = request.query_params.get("status")
+        qs = PopupAd.objects.all()
+        if status:
+            qs = qs.filter(status=status)
+        return ok(request, PopupAdSerializer(qs, many=True).data)
+
+    @extend_schema(operation_id="createAdminPopupAd")
+    def post(self, request):
+        serializer = PopupAdInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        popup = create_popup_ad(request.user, serializer.validated_data, request=request)
+        return ok(request, PopupAdSerializer(popup).data, status_code=201)
+
+
+@extend_schema(tags=["admin"], responses=EnvelopeResponse)
+class AdminPopupAdStatusView(EnvelopeAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = PopupAdSerializer
+
+    @extend_schema(operation_id="updateAdminPopupAdStatus")
+    def post(self, request, pk, action):
+        popup = update_popup_status(request.user, pk, action, request=request)
+        return ok(request, PopupAdSerializer(popup).data)
+
+
+@extend_schema(tags=["storefront"], responses=EnvelopeResponse)
+class PublicPopupAdView(EnvelopeAPIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    serializer_class = PublicPopupAdSerializer
+
+    @extend_schema(operation_id="getCurrentPopupAd")
+    def get(self, request):
+        popup = get_current_popup()
+        if popup is None:
+            return ok(request, None)
+        return ok(request, PublicPopupAdSerializer(popup).data)
+
+
+@extend_schema(tags=["storefront"], responses=EnvelopeResponse)
+class PublicPopupAdImpressionView(EnvelopeAPIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    serializer_class = PopupAdImpressionInputSerializer
+
+    @extend_schema(operation_id="reportPopupAdImpression")
+    def post(self, request, pk):
+        increment_popup_impression(pk)
+        return ok(
+            request,
+            {"impression_count": PopupAd.objects.filter(pk=pk).values_list("impression_count", flat=True).first()},
+        )

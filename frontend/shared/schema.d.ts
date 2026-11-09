@@ -373,6 +373,24 @@ export interface paths {
     /** 发布微页面（生成已发布快照） */
     post: operations["publishAdminDecoPage"];
   };
+  "/api/v1/popup-ads/current/": {
+    /** 获取当前生效的弹窗广告 */
+    get: operations["getCurrentPopupAd"];
+  };
+  "/api/v1/popup-ads/{id}/impression/": {
+    /** 上报弹窗展示（计数+1） */
+    post: operations["reportPopupAdImpression"];
+  };
+  "/api/v1/admin/popup-ads/": {
+    /** 弹窗广告列表 */
+    get: operations["listAdminPopupAds"];
+    /** 创建弹窗广告 */
+    post: operations["createAdminPopupAd"];
+  };
+  "/api/v1/admin/popup-ads/{id}/{action}/": {
+    /** 弹窗广告上下架（action: enable / disable） */
+    post: operations["updateAdminPopupAdStatus"];
+  };
   "/api/v1/admin/merchants/": {
     /** 商户列表（状态/关键词/类目/城市筛选，含状态计数与经营统计） */
     get: operations["listAdminMerchants"];
@@ -2336,6 +2354,67 @@ export interface components {
       /** Format: date-time */
       valid_to: string;
       description?: string;
+    };
+    PopupAd: {
+      /** Format: int64 */
+      id?: number;
+      /** @description 内部管理标题 */
+      title?: string;
+      /** @description 弹窗图片 URL */
+      image_url?: string;
+      /** @description 关联跳转链接 */
+      link_url?: string;
+      /** @enum {string} */
+      frequency?: "EVERY_LAUNCH" | "ONCE_PER_DAY" | "ONCE_PER_WEEK" | "ONCE_PER_USER";
+      priority?: number;
+      /** Format: date-time */
+      start_at?: string | null;
+      /** Format: date-time */
+      end_at?: string | null;
+      /** @enum {string} */
+      status?: "DRAFT" | "ENABLED" | "DISABLED" | "EXPIRED";
+      /** @description 总展示上限，0=不限 */
+      max_impressions?: number;
+      /** @description 已展示次数 */
+      impression_count?: number;
+      created_by_name?: string;
+      /** Format: date-time */
+      created_at?: string;
+    };
+    PopupAdPublic: {
+      /** Format: int64 */
+      id?: number;
+      image_url?: string;
+      link_url?: string;
+      /** @enum {string} */
+      frequency?: "EVERY_LAUNCH" | "ONCE_PER_DAY" | "ONCE_PER_WEEK" | "ONCE_PER_USER";
+    };
+    PopupAdCreateInput: {
+      title: string;
+      image_url: string;
+      link_url?: string;
+      /**
+       * @default ONCE_PER_DAY
+       * @enum {string}
+       */
+      frequency?: "EVERY_LAUNCH" | "ONCE_PER_DAY" | "ONCE_PER_WEEK" | "ONCE_PER_USER";
+      /** @default 0 */
+      priority?: number;
+      /** Format: date-time */
+      start_at?: string | null;
+      /** Format: date-time */
+      end_at?: string | null;
+      /** @default 0 */
+      max_impressions?: number;
+    };
+    PopupAdEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["PopupAd"];
+    };
+    PopupAdListEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["PopupAd"][];
+    };
+    PopupAdPublicEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["PopupAdPublic"];
     };
   };
   responses: {
@@ -4422,6 +4501,87 @@ export interface operations {
       403: components["responses"]["Forbidden"];
       404: components["responses"]["NotFound"];
       422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 获取当前生效的弹窗广告 */
+  getCurrentPopupAd: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PopupAdPublicEnvelope"];
+        };
+      };
+    };
+  };
+  /** 上报弹窗展示（计数+1） */
+  reportPopupAdImpression: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Envelope"];
+        };
+      };
+    };
+  };
+  /** 弹窗广告列表 */
+  listAdminPopupAds: {
+    parameters: {
+      query?: {
+        status?: "DRAFT" | "ENABLED" | "DISABLED" | "EXPIRED";
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PopupAdListEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 创建弹窗广告 */
+  createAdminPopupAd: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PopupAdCreateInput"];
+      };
+    };
+    responses: {
+      /** @description Created */
+      201: {
+        content: {
+          "application/json": components["schemas"]["PopupAdEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 弹窗广告上下架（action: enable / disable） */
+  updateAdminPopupAdStatus: {
+    parameters: {
+      path: {
+        id: number;
+        action: "enable" | "disable";
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PopupAdEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
     };
   };
   /** 商户列表（状态/关键词/类目/城市筛选，含状态计数与经营统计） */

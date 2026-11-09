@@ -124,6 +124,53 @@ class ContentItem(TimeStampedModel):
         return f"{self.slot_code}-{self.title}"
 
 
+class PopupAd(TimeStampedModel):
+    """弹窗广告：启动时居中展示图片，点击跳转关联链接。
+
+    频次由客户端按 frequency 控制；服务端只返回当前生效的一条（priority 最高）。
+    """
+
+    class Frequency(models.TextChoices):
+        EVERY_LAUNCH = "EVERY_LAUNCH", "每次启动"
+        ONCE_PER_DAY = "ONCE_PER_DAY", "每天一次"
+        ONCE_PER_WEEK = "ONCE_PER_WEEK", "每周一次"
+        ONCE_PER_USER = "ONCE_PER_USER", "仅一次"
+
+    class Status(models.TextChoices):
+        DRAFT = "DRAFT", "草稿"
+        ENABLED = "ENABLED", "展示中"
+        DISABLED = "DISABLED", "已下线"
+        EXPIRED = "EXPIRED", "已过期"
+
+    title = models.CharField("内部标题", max_length=80)
+    image_url = models.URLField("弹窗图片", max_length=500)
+    link_url = models.CharField("关联链接", max_length=500, blank=True, default="")
+    frequency = models.CharField(
+        "展示频次", max_length=16, choices=Frequency.choices, default=Frequency.ONCE_PER_DAY, db_index=True
+    )
+    priority = models.IntegerField("优先级", default=0, db_index=True)
+    start_at = models.DateTimeField("开始展示", null=True, blank=True)
+    end_at = models.DateTimeField("结束展示", null=True, blank=True)
+    status = models.CharField("状态", max_length=16, choices=Status.choices, default=Status.DRAFT, db_index=True)
+    max_impressions = models.IntegerField("总展示上限", default=0, help_text="0=不限")
+    impression_count = models.IntegerField("已展示次数", default=0)
+    created_by_id = models.BigIntegerField("创建人 ID", null=True, blank=True)
+    created_by_name = models.CharField("创建人", max_length=60, blank=True, default="")
+
+    class Meta:
+        verbose_name = "弹窗广告"
+        verbose_name_plural = "弹窗广告"
+        db_table = "popup_ad"
+        ordering = ("-priority", "-created_at")
+        indexes = [
+            models.Index(fields=["status", "start_at", "end_at"], name="ix_popup_status_time"),
+            models.Index(fields=["priority"], name="ix_popup_priority"),
+        ]
+
+    def __str__(self):
+        return f"{self.title}-{self.status}"
+
+
 class PlatformConfig(TimeStampedModel):
     """平台基础信息与渠道参数：单例配置，密钥类字段加密存储。"""
 

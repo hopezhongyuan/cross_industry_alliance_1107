@@ -42,6 +42,7 @@ const groups = computed<Group[]>(() => [
   ] },
   { name: '营销', items: [
     { path: '/coupons', label: '平台优惠券' },
+    { path: '/popup-ads', label: '弹窗广告' },
   ] },
   { name: '审核', items: [{ path: '/audits', label: '审核中心', badge: badges.value.audits }] },
   {
@@ -72,7 +73,7 @@ const currentGroup = computed(() => {
   if (path.startsWith('/orders') || path.startsWith('/arbitrations')) return '订单'
   if (path.startsWith('/merchants') || path.startsWith('/storefront')) return '店铺'
   if (path.startsWith('/users') || path.startsWith('/points')) return '用户'
-  if (path.startsWith('/coupons')) return '营销'
+  if (path.startsWith('/coupons') || path.startsWith('/popup-ads')) return '营销'
   if (path.startsWith('/audits')) return '审核'
   if (path.startsWith('/settlements') || path.startsWith('/withdrawals') || path.startsWith('/reconciliation')) return '财务'
   return '设置'

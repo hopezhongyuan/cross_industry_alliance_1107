@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from apps.common.admin import BaseAdmin
 
-from .models import AuditTask, ContentItem, OperationLog, RuleVersion
+from .models import AuditTask, ContentItem, OperationLog, PopupAd, RuleVersion
 
 
 @admin.register(RuleVersion)
@@ -37,3 +37,20 @@ class ContentItemAdmin(BaseAdmin):
     list_display = ("id", "slot_code", "title", "status", "sort", "start_at", "end_at")
     list_filter = ("slot_code", "status")
     list_editable = ("sort", "status")
+
+
+@admin.register(PopupAd)
+class PopupAdAdmin(BaseAdmin):
+    list_display = (
+        "id",
+        "title",
+        "frequency",
+        "priority",
+        "status",
+        "max_impressions",
+        "impression_count",
+        "start_at",
+        "end_at",
+    )
+    list_filter = ("status", "frequency")
+    search_fields = ("title",)

@@ -1,13 +1,13 @@
 """治理服务：平台权限校验、操作日志、规则版本发布与审核决定。"""
 
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
 from apps.common.api import ApiError
 from apps.common.utils import generate_no
 
 from .media_services import ensure_media_url
-from .models import AuditTask, MediaAsset, OperationLog, PlatformConfig, RuleVersion
+from .models import AuditTask, MediaAsset, OperationLog, PlatformConfig, PopupAd, RuleVersion
 
 
 def require_platform_admin(user):
@@ -272,3 +272,71 @@ def batch_decide_audit(admin_user, task_ids, decision: str, reason: str = "", re
                 }
             )
     return results
+
+
+def get_current_popup():
+    """返回当前生效的弹窗广告（优先级最高的一条），无则返回 None。
+
+    条件：status=ENABLED、在投放时段内、未超展示上限。
+    """
+    now = timezone.now()
+    qs = PopupAd.objects.filter(status=PopupAd.Status.ENABLED)
+    qs = qs.filter(start_at__isnull=True) | qs.filter(start_at__lte=now)
+    qs = qs.filter(end_at__isnull=True) | qs.filter(end_at__gte=now)
+    qs = qs.filter(models.Q(max_impressions=0) | models.Q(impression_count__lt=models.F("max_impressions")))
+    return qs.order_by("-priority", "-created_at").first()
+
+
+def increment_popup_impression(popup_id: int) -> None:
+    """展示计数 +1（客户端上报展示时调用）。"""
+    PopupAd.objects.filter(pk=popup_id).update(impression_count=models.F("impression_count") + 1)
+
+
+def create_popup_ad(admin_user, data: dict, request=None):
+    """创建弹窗广告。"""
+    require_platform_admin(admin_user)
+    popup = PopupAd.objects.create(
+        title=data["title"],
+        image_url=data["image_url"],
+        link_url=data.get("link_url", ""),
+        frequency=data.get("frequency", PopupAd.Frequency.ONCE_PER_DAY),
+        priority=data.get("priority", 0),
+        start_at=data.get("start_at"),
+        end_at=data.get("end_at"),
+        max_impressions=data.get("max_impressions", 0),
+        created_by_id=admin_user.id,
+        created_by_name=getattr(admin_user, "nickname", "") or getattr(admin_user, "phone", ""),
+    )
+    log_operation(
+        operator=admin_user,
+        action="POPUP_CREATE",
+        biz_type="POPUP_AD",
+        biz_id=popup.id,
+        after={"title": popup.title, "frequency": popup.frequency},
+        request=request,
+    )
+    return popup
+
+
+def update_popup_status(admin_user, popup_id: int, action: str, request=None):
+    """上下架弹窗广告。action: enable / disable。"""
+    require_platform_admin(admin_user)
+    popup = PopupAd.objects.filter(pk=popup_id).first()
+    if popup is None:
+        raise ApiError("NOT_FOUND", "弹窗广告不存在", 404)
+    if action == "enable":
+        popup.status = PopupAd.Status.ENABLED
+    elif action == "disable":
+        popup.status = PopupAd.Status.DISABLED
+    else:
+        raise ApiError("VALIDATION_ERROR", f"未知操作 {action}", 422)
+    popup.save(update_fields=["status", "updated_at"])
+    log_operation(
+        operator=admin_user,
+        action=f"POPUP_{action.upper()}",
+        biz_type="POPUP_AD",
+        biz_id=popup.id,
+        after={"status": popup.status},
+        request=request,
+    )
+    return popup

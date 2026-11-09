@@ -160,6 +160,8 @@ SPECTACULAR_SETTINGS = {
         "CouponScopeTypeEnum": "apps.coupons.models.Coupon.ScopeType",
         "CouponStatusEnum": "apps.coupons.models.Coupon.Status",
         "UserCouponStatusEnum": "apps.coupons.models.UserCoupon.Status",
+        "PopupAdFrequencyEnum": "apps.governance.models.PopupAd.Frequency",
+        "PopupAdStatusEnum": "apps.governance.models.PopupAd.Status",
     },
 }
 

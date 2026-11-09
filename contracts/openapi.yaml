@@ -1036,6 +1036,88 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/admin/popup-ads/:
+    get:
+      operationId: listAdminPopupAds
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    post:
+      operationId: createAdminPopupAd
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PopupAdInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PopupAdInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PopupAdInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/popup-ads/{id}/{action}/:
+    post:
+      operationId: updateAdminPopupAdStatus
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: action
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PopupAdRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PopupAdRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PopupAdRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/admin/product-templates/:
     get:
       operationId: listAdminTemplates
@@ -3178,6 +3260,42 @@ paths:
       security:
       - jwtAuth: []
       - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/popup-ads/{id}/impression/:
+    post:
+      operationId: reportPopupAdImpression
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - storefront
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/popup-ads/current/:
+    get:
+      operationId: getCurrentPopupAd
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - storefront
+      security:
+      - {}
       responses:
         '200':
           content:
@@ -5616,6 +5734,121 @@ components:
           type: string
           title: 最后修改人
           maxLength: 60
+    PopupAdFrequencyEnum:
+      enum:
+      - EVERY_LAUNCH
+      - ONCE_PER_DAY
+      - ONCE_PER_WEEK
+      - ONCE_PER_USER
+      type: string
+      description: |-
+        * `EVERY_LAUNCH` - 每次启动
+        * `ONCE_PER_DAY` - 每天一次
+        * `ONCE_PER_WEEK` - 每周一次
+        * `ONCE_PER_USER` - 仅一次
+    PopupAdInputRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 80
+        image_url:
+          type: string
+          format: uri
+          minLength: 1
+          maxLength: 500
+        link_url:
+          type: string
+          default: ''
+          maxLength: 500
+        frequency:
+          allOf:
+          - $ref: '#/components/schemas/PopupAdFrequencyEnum'
+          default: ONCE_PER_DAY
+        priority:
+          type: integer
+          default: 0
+        start_at:
+          type: string
+          format: date-time
+          nullable: true
+        end_at:
+          type: string
+          format: date-time
+          nullable: true
+        max_impressions:
+          type: integer
+          minimum: 0
+          default: 0
+      required:
+      - image_url
+      - title
+    PopupAdRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          title: 内部标题
+          maxLength: 80
+        image_url:
+          type: string
+          format: uri
+          minLength: 1
+          title: 弹窗图片
+          maxLength: 500
+        link_url:
+          type: string
+          title: 关联链接
+          maxLength: 500
+        frequency:
+          allOf:
+          - $ref: '#/components/schemas/PopupAdFrequencyEnum'
+          title: 展示频次
+        priority:
+          type: integer
+          title: 优先级
+        start_at:
+          type: string
+          format: date-time
+          nullable: true
+          title: 开始展示
+        end_at:
+          type: string
+          format: date-time
+          nullable: true
+          title: 结束展示
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PopupAdStatusEnum'
+          title: 状态
+        max_impressions:
+          type: integer
+          title: 总展示上限
+          description: 0=不限
+        impression_count:
+          type: integer
+          title: 已展示次数
+        created_by_name:
+          type: string
+          title: 创建人
+          maxLength: 60
+      required:
+      - image_url
+      - title
+    PopupAdStatusEnum:
+      enum:
+      - DRAFT
+      - ENABLED
+      - DISABLED
+      - EXPIRED
+      type: string
+      description: |-
+        * `DRAFT` - 草稿
+        * `ENABLED` - 展示中
+        * `DISABLED` - 已下线
+        * `EXPIRED` - 已过期
     Product:
       type: object
       properties:
