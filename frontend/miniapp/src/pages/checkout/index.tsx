@@ -36,6 +36,9 @@ export default function Checkout() {
   const [selectedCoupon, setSelectedCoupon] = useState<number | null>(null)
   const [selectedCouponByMerchant, setSelectedCouponByMerchant] = useState<Record<number, number | null>>({})
   const [pickingMerchantId, setPickingMerchantId] = useState<number | null>(null)
+  const [batchPlatformCoupons, setBatchPlatformCoupons] = useState<Schemas['UserCoupon'][]>([])
+  const [batchPlatformCouponId, setBatchPlatformCouponId] = useState<number | null>(null)
+  const [pickingBatch, setPickingBatch] = useState(false)
 
   useLoad(async () => {
     if (!getToken()) {
@@ -82,6 +85,17 @@ export default function Checkout() {
       }),
     )
     setAvailableCoupons(next)
+
+    // 加载跨商户平台券
+    if (selectedGroups.length > 1) {
+      const total = selectedGroups.reduce((s, g) => s + g.selected_amount, 0)
+      const allProductIds = selectedGroups.reduce<number[]>((acc, g) => acc.concat(g.items.map((i) => i.product_id)), [])
+      const merchantIds = selectedGroups.map((g) => g.merchant_id)
+      const batchCoupons = await api.availableBatchCoupons(merchantIds, allProductIds, total).catch(() => [])
+      setBatchPlatformCoupons(batchCoupons)
+    } else {
+      setBatchPlatformCoupons([])
+    }
   }
 
   useEffect(() => {
@@ -107,6 +121,7 @@ export default function Checkout() {
 
   // 优惠券折扣计算
   let discountAmount = 0
+  let platformBatchDiscount = 0
   if (mode === 'direct' && selectedCoupon != null && directMerchantId) {
     const uc = (availableCoupons[directMerchantId] ?? []).find((c) => c.id === selectedCoupon)
     if (uc) discountAmount = couponDiscount(uc, directTotal)
@@ -118,6 +133,14 @@ export default function Checkout() {
         if (uc) discountAmount += couponDiscount(uc, g.selected_amount)
       }
     })
+    // 跨商户平台券
+    if (batchPlatformCouponId != null) {
+      const uc = batchPlatformCoupons.find((c) => c.id === batchPlatformCouponId)
+      if (uc) {
+        platformBatchDiscount = couponDiscount(uc, totalAmount)
+        discountAmount += platformBatchDiscount
+      }
+    }
   }
   const payableAmount = Math.max(0, totalAmount - discountAmount)
 
@@ -169,6 +192,7 @@ export default function Checkout() {
           })),
           contact,
           remark: '',
+          platform_coupon_id: batchPlatformCouponId ?? undefined,
         })
         await api.mockPayGroup(batch.group_no, batch.total_amount)
         setBatchResult({ group_no: batch.group_no, total_amount: batch.total_amount })
@@ -348,22 +372,36 @@ export default function Checkout() {
           </View>
         </View>
       ) : (
-        selectedGroups.map((g) => {
-          const coupons = availableCoupons[g.merchant_id] ?? []
-          const cid = selectedCouponByMerchant[g.merchant_id]
-          const sel = coupons.find((c) => c.id === cid)
-          const gDiscount = sel ? couponDiscount(sel, g.selected_amount) : 0
-          return (
-            <View key={g.merchant_id} className="card">
-              <View className="row" onClick={() => setPickingMerchantId(g.merchant_id)}>
-                <Text>{g.merchant_name} 优惠券</Text>
+        <>
+          {selectedGroups.length > 1 && (batchPlatformCoupons.length > 0 || batchPlatformCouponId != null) && (
+            <View className="card">
+              <View className="row" onClick={() => setPickingBatch(true)}>
+                <Text>跨商户平台券</Text>
                 <Text className="muted">
-                  {sel ? `-${formatMoney(gDiscount)}` : coupons.length > 0 ? `${coupons.length} 张可用 ›` : '暂无可用券'}
+                  {batchPlatformCouponId != null
+                    ? `-${formatMoney(platformBatchDiscount)}`
+                    : `${batchPlatformCoupons.length} 张可用 ›`}
                 </Text>
               </View>
             </View>
-          )
-        })
+          )}
+          {selectedGroups.map((g) => {
+            const coupons = availableCoupons[g.merchant_id] ?? []
+            const cid = selectedCouponByMerchant[g.merchant_id]
+            const sel = coupons.find((c) => c.id === cid)
+            const gDiscount = sel ? couponDiscount(sel, g.selected_amount) : 0
+            return (
+              <View key={g.merchant_id} className="card">
+                <View className="row" onClick={() => setPickingMerchantId(g.merchant_id)}>
+                  <Text>{g.merchant_name} 优惠券</Text>
+                  <Text className="muted">
+                    {sel ? `-${formatMoney(gDiscount)}` : coupons.length > 0 ? `${coupons.length} 张可用 ›` : '暂无可用券'}
+                  </Text>
+                </View>
+              </View>
+            )
+          })}
+        </>
       )}
 
       <View className="fixed-bar buy-bar">
@@ -467,6 +505,79 @@ export default function Checkout() {
                   </>
                 )
               })()}
+            </ScrollView>
+          </View>
+        </View>
+      )}
+
+      {/* 跨商户平台券选择弹窗 */}
+      {pickingBatch && (
+        <View
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            zIndex: 999,
+            display: 'flex',
+            alignItems: 'flex-end',
+          }}
+          onClick={() => setPickingBatch(false)}
+        >
+          <View
+            style={{
+              width: '100%',
+              background: '#fdf9f0',
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              maxHeight: '70vh',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <View style={{ padding: '24px 24px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontSize: 30, fontWeight: 600 }}>选择跨商户平台券</Text>
+              <Text className="muted" onClick={() => setPickingBatch(false)}>关闭</Text>
+            </View>
+            <ScrollView scrollY style={{ maxHeight: '55vh', padding: '0 24px 24px' }}>
+              {batchPlatformCoupons.length === 0 ? (
+                <View style={{ textAlign: 'center', padding: '60px 0', color: '#9b917f' }}>暂无可用跨商户平台券</View>
+              ) : (
+                <>
+                  <View
+                    className="row"
+                    style={{ padding: '16px 0', borderBottom: '1px solid #efe7d8' }}
+                    onClick={() => { setBatchPlatformCouponId(null); setPickingBatch(false) }}
+                  >
+                    <Text>不使用跨商户券</Text>
+                    <Text className="muted">{batchPlatformCouponId == null ? '●' : '○'}</Text>
+                  </View>
+                  {batchPlatformCoupons.map((uc) => {
+                    const c = uc.coupon ?? ({} as Schemas['Coupon'])
+                    const disc = couponDiscount(uc, totalAmount)
+                    return (
+                      <View
+                        key={uc.id}
+                        className="row"
+                        style={{ padding: '16px 0', borderBottom: '1px solid #efe7d8', alignItems: 'center' }}
+                        onClick={() => { setBatchPlatformCouponId(uc.id ?? null); setPickingBatch(false) }}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <View style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Text style={{ fontSize: 28, fontWeight: 600 }}>{c.name}</Text>
+                            <Text style={{ fontSize: 20, color: '#2e7d32' }}>平台券</Text>
+                          </View>
+                          <Text className="muted" style={{ fontSize: 22 }}>
+                            {(c.min_amount ?? 0) > 0 ? `满${(c.min_amount! / 100).toFixed(0)}元可用` : '无门槛'} · 分摊到各商户
+                          </Text>
+                        </View>
+                        <Text style={{ fontSize: 30, fontWeight: 700, color: '#d9552f' }}>-{formatMoney(disc)}</Text>
+                        <Text className="muted" style={{ marginLeft: 12 }}>{batchPlatformCouponId === uc.id ? '●' : '○'}</Text>
+                      </View>
+                    )
+                  })}
+                </>
+              )}
             </ScrollView>
           </View>
         </View>

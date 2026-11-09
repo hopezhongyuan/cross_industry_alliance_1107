@@ -57,12 +57,33 @@ class MyCouponsView(APIView):
 
 @extend_schema(tags=["coupon"], responses=EnvelopeResponse)
 class AvailableCouponsView(APIView):
-    """下单页可用券：按商户+商品+金额匹配。"""
+    """下单页可用券：按商户+商品+金额匹配。
+
+    单商户：merchant_id + product_id + amount
+    跨商户（合单）：batch=1 + 多个 merchant_id/product_id/amount（重复参数）
+    """
 
     permission_classes = [IsAuthenticated]
     serializer_class = UserCouponSerializer
 
     def get(self, request):
+        is_batch = request.query_params.get("batch") == "1"
+        if is_batch:
+            merchant_ids = request.query_params.getlist("merchant_id")
+            product_ids = request.query_params.getlist("product_id")
+            total_amount = int(request.query_params.get("amount", 0))
+            if not merchant_ids or not product_ids:
+                return ok(request, [])
+            from apps.coupons.services import get_available_coupons_for_batch
+
+            # 可用券查询只需判断合计金额门槛与商户范围
+            groups = [
+                {"merchant_id": int(mid), "product_ids": [int(p) for p in product_ids], "amount": 0}
+                for mid in merchant_ids
+            ]
+            items = get_available_coupons_for_batch(request.user, groups=groups, total_amount=total_amount)
+            return ok(request, UserCouponSerializer(items, many=True).data)
+
         merchant_id = int(request.query_params.get("merchant_id", 0))
         product_ids = request.query_params.getlist("product_id")
         amount = int(request.query_params.get("amount", 0))

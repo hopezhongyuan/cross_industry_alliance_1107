@@ -3350,7 +3350,11 @@ paths:
   /api/v1/user/coupons/available/:
     get:
       operationId: v1_user_coupons_available_retrieve
-      description: 下单页可用券：按商户+商品+金额匹配。
+      description: |-
+        下单页可用券：按商户+商品+金额匹配。
+
+        单商户：merchant_id + product_id + amount
+        跨商户（合单）：batch=1 + 多个 merchant_id/product_id/amount（重复参数）
       tags:
       - coupon
       security:
@@ -3991,6 +3995,9 @@ components:
           type: string
           default: ''
           maxLength: 200
+        platform_coupon_id:
+          type: integer
+          nullable: true
       required:
       - contact
       - groups

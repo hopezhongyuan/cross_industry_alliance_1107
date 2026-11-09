@@ -115,3 +115,48 @@ class UserCoupon(TimeStampedModel):
 
     def __str__(self):
         return f"{self.user_coupon_no}-{self.status}"
+
+
+class CouponAllocation(TimeStampedModel):
+    """优惠券分摊记录：一张用户券跨多个商户订单时，记录每个订单分摊到的优惠金额。
+
+    - 单订单场景（P0 直购）也走此表，allocated_amount = 整张券优惠。
+    - order_id 在订单创建后回填；用于退券时按订单释放。
+    - 状态 ACTIVE=分摊生效，RELEASED=订单取消/退款已释放。
+    """
+
+    class Status(models.TextChoices):
+        ACTIVE = "ACTIVE", "生效中"
+        RELEASED = "RELEASED", "已释放"
+
+    user_coupon = models.ForeignKey(
+        UserCoupon, on_delete=models.CASCADE, related_name="allocations", verbose_name="用户券"
+    )
+    order = models.ForeignKey(
+        "orders.Order",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="coupon_allocations",
+        verbose_name="订单",
+    )
+    order_no = models.CharField("订单号", max_length=32, blank=True, default="")
+    merchant_id = models.BigIntegerField("商户 ID", db_index=True)
+    allocated_amount = models.BigIntegerField("分摊优惠金额（分）")
+    status = models.CharField("状态", max_length=16, choices=Status.choices, default=Status.ACTIVE, db_index=True)
+
+    class Meta:
+        verbose_name = "优惠券分摊"
+        verbose_name_plural = "优惠券分摊"
+        db_table = "coupon_allocation"
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=["order"], name="ix_coupon_alloc_order"),
+            models.Index(fields=["user_coupon", "status"], name="ix_coupon_alloc_uc_status"),
+        ]
+        constraints = [
+            models.CheckConstraint(check=models.Q(allocated_amount__gte=0), name="ck_coupon_alloc_amount_nonneg"),
+        ]
+
+    def __str__(self):
+        return f"alloc-{self.user_coupon_id}-m{self.merchant_id}-{self.allocated_amount}"

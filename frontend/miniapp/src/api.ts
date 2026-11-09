@@ -495,6 +495,7 @@ export const api = {
     }>
     contact: { name: string; phone: string; address_detail: string }
     remark?: string
+    platform_coupon_id?: number | null
   }) {
     return request<{
       group_no: string
@@ -734,6 +735,13 @@ export const api = {
 
   availableCoupons(merchantId: number, productIds: number[], amount: number) {
     const qs = new URLSearchParams({ merchant_id: String(merchantId), amount: String(amount) })
+    productIds.forEach((pid) => qs.append('product_id', String(pid)))
+    return request<Schemas['UserCoupon'][]>(`/user/coupons/available/?${qs.toString()}`)
+  },
+
+  availableBatchCoupons(merchantIds: number[], productIds: number[], totalAmount: number) {
+    const qs = new URLSearchParams({ batch: '1', amount: String(totalAmount) })
+    merchantIds.forEach((mid) => qs.append('merchant_id', String(mid)))
     productIds.forEach((pid) => qs.append('product_id', String(pid)))
     return request<Schemas['UserCoupon'][]>(`/user/coupons/available/?${qs.toString()}`)
   },

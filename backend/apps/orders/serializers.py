@@ -209,6 +209,7 @@ class BatchOrderCreateInputSerializer(serializers.Serializer):
     groups = BatchOrderGroupInputSerializer(many=True, allow_empty=False)
     contact = ContactInputSerializer()
     remark = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+    platform_coupon_id = serializers.IntegerField(required=False, allow_null=True, default=None)
 
 
 class PayInputSerializer(serializers.Serializer):

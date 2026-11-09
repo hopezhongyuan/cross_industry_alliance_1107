@@ -102,8 +102,14 @@ def _create_single_order(
     request_hash,
     payment_group=None,
     user_coupon_id=None,
+    allocated_coupon=None,
 ):
-    """创建单个订单（不开启事务，由调用方控制事务边界）。"""
+    """创建单个订单（不开启事务，由调用方控制事务边界）。
+
+    allocated_coupon: 跨商户平台券分摊结果，形如
+        {"user_coupon_id": int, "allocated_amount": int, "coupon": Coupon}
+    提供时跳过 lock_user_coupon，直接使用分摊金额作为本单优惠。
+    """
     existing = Order.objects.filter(idempotency_key=idempotency_key).first()
     if existing is not None:
         if existing.user_id != user.id or existing.idempotency_hash != request_hash:
@@ -127,25 +133,38 @@ def _create_single_order(
     product_amount = sum(line_amounts)
     rate = resolve_commission_rate(merchant)
 
-    # 优惠券处理
+    # 优惠券处理：平台券分摊（allocated_coupon）+ 商户券（user_coupon_id）可叠加
     from apps.coupons.models import Coupon
-    from apps.coupons.services import lock_user_coupon
+    from apps.coupons.services import bind_allocation_order, lock_user_coupon
 
     discount_amount = 0
     platform_subsidy_amount = 0
     merchant_discount_amount = 0
     coupon_obj = None
     user_coupon = None
+    platform_user_coupon_id = None
+
+    if allocated_coupon is not None:
+        # 跨商户平台券分摊
+        coupon_obj = allocated_coupon["coupon"]
+        discount_amount += allocated_coupon["allocated_amount"]
+        platform_subsidy_amount += allocated_coupon["allocated_amount"]
+        platform_user_coupon_id = allocated_coupon["user_coupon_id"]
+
     if user_coupon_id:
         product_ids = [ctx["product"].id for ctx in contexts]
-        user_coupon, discount_amount = lock_user_coupon(
+        user_coupon, merchant_discount = lock_user_coupon(
             user, user_coupon_id, merchant_id=merchant_id, product_ids=product_ids, amount=product_amount
         )
-        coupon_obj = user_coupon.coupon
-        if coupon_obj.type == Coupon.Type.PLATFORM:
-            platform_subsidy_amount = discount_amount
+        merchant_coupon = user_coupon.coupon
+        if merchant_coupon.type == Coupon.Type.PLATFORM:
+            # 单订单平台券（直购场景），走平台补贴
+            platform_subsidy_amount += merchant_discount
         else:
-            merchant_discount_amount = discount_amount
+            merchant_discount_amount += merchant_discount
+        discount_amount += merchant_discount
+        if coupon_obj is None:
+            coupon_obj = merchant_coupon
 
     # 佣金基准：商户券按优惠后金额算，平台券按原价算
     commission_base = product_amount - merchant_discount_amount
@@ -248,6 +267,8 @@ def _create_single_order(
         )
 
     # 绑定用户券到订单
+    if platform_user_coupon_id is not None:
+        bind_allocation_order(platform_user_coupon_id, order.id, order.order_no, merchant_id)
     if user_coupon is not None:
         from apps.coupons.services import bind_user_coupon_order
 
@@ -319,11 +340,13 @@ def create_batch_orders(
     remark="",
     idempotency_key,
     request_hash,
+    platform_coupon_id=None,
 ):
     """批量下单：按商户拆分为多个订单，共享同一合单支付组。
 
-    幂等键按 batch 维度：每个子单 idempotency_key = f"{idem_key}:{merchant_id}"。
-    重复请求命中时返回已有订单组。任一子单校验失败整体回滚。
+    - platform_coupon_id：跨商户平台券，优惠按各商户商品金额比例分摊到各子单。
+    - 幂等键按 batch 维度：每个子单 idempotency_key = f"{idem_key}:{merchant_id}"。
+    - 重复请求命中时返回已有订单组。任一子单校验失败整体回滚。
     """
     from apps.payments.models import PaymentGroup
 
@@ -345,7 +368,26 @@ def create_batch_orders(
         if not groups:
             raise ApiError("VALIDATION_ERROR", "下单商品不能为空", 422)
 
-        total_amount = _sum_group_amounts(groups)
+        # 跨商户平台券分摊：先锁定券并按商户金额比例分配
+        platform_allocation = {}  # {merchant_id: allocated_amount}
+        platform_coupon_obj = None
+        if platform_coupon_id:
+            from apps.coupons.models import UserCoupon
+            from apps.coupons.services import lock_user_coupon_for_batch
+
+            lock_groups = []
+            for g in groups:
+                lock_groups.append(
+                    {
+                        "merchant_id": g["merchant_id"],
+                        "product_ids": [item["product_id"] for item in g["items"]],
+                        "amount": _sum_group_amount(g),
+                    }
+                )
+            platform_allocation = lock_user_coupon_for_batch(user, platform_coupon_id, groups=lock_groups)
+            platform_coupon_obj = UserCoupon.objects.select_related("coupon").get(pk=platform_coupon_id).coupon
+
+        total_amount = _sum_group_amounts(groups) - sum(platform_allocation.values())
         group = PaymentGroup.objects.create(
             user=user,
             amount=total_amount,
@@ -358,6 +400,13 @@ def create_batch_orders(
         created_orders = []
         for group_payload in groups:
             merchant_id = group_payload["merchant_id"]
+            allocated = None
+            if merchant_id in platform_allocation and platform_allocation[merchant_id] > 0:
+                allocated = {
+                    "user_coupon_id": platform_coupon_id,
+                    "allocated_amount": platform_allocation[merchant_id],
+                    "coupon": platform_coupon_obj,
+                }
             order, _ = _create_single_order(
                 user,
                 merchant_id=merchant_id,
@@ -370,6 +419,7 @@ def create_batch_orders(
                 request_hash=request_hash,
                 payment_group=group,
                 user_coupon_id=group_payload.get("user_coupon_id"),
+                allocated_coupon=allocated,
             )
             created_orders.append(order)
 
@@ -379,6 +429,23 @@ def create_batch_orders(
         "total_amount": total_amount,
         "created": True,
     }
+
+
+def _sum_group_amount(group_payload) -> int:
+    """预计算单个商户组的商品总金额（分）。"""
+    from apps.catalog.models import Product, ProductSku
+
+    product_ids = [item["product_id"] for item in group_payload["items"]]
+    sku_ids = [item["sku_id"] for item in group_payload["items"] if item.get("sku_id")]
+    products = {p.id: p for p in Product.objects.filter(pk__in=product_ids)}
+    skus = {s.id: s for s in ProductSku.objects.filter(pk__in=sku_ids)}
+    total = 0
+    for item in group_payload["items"]:
+        product = products.get(item["product_id"])
+        sku = skus.get(item["sku_id"]) if item.get("sku_id") else None
+        price = sku.price if sku else (product.price if product else 0)
+        total += price * item["quantity"]
+    return total
 
 
 def _release_stock(order):
