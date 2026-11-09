@@ -2,7 +2,11 @@
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, ApiError, type AdminMerchantDetail, type AdminProductDetail, type AuditTaskRow } from '../api'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import ModalShell from '../components/ModalShell.vue'
+import PageHeader from '../components/PageHeader.vue'
+import PaginationBar from '../components/PaginationBar.vue'
+import StatusTag from '../components/StatusTag.vue'
 import { formatDateTime, formatMoney } from '../format'
 
 const route = useRoute()
@@ -54,6 +58,26 @@ const decision = ref<'APPROVE' | 'REJECT'>('APPROVE')
 const reason = ref('')
 const submitting = ref(false)
 
+const selected = ref<number[]>([])
+const batch = ref<'APPROVE' | 'REJECT' | ''>('')
+const batchSubmitting = ref(false)
+const message = ref('')
+
+const pendingRows = () =>
+  rows.value.filter((row) => row.status === 'PENDING' || row.status === 'PROCESSING')
+
+function toggleAll() {
+  const pending = pendingRows()
+  const allChecked = pending.length > 0 && pending.every((row) => selected.value.includes(row.id))
+  selected.value = allChecked ? [] : pending.map((row) => row.id)
+}
+
+function toggleRow(id: number) {
+  selected.value = selected.value.includes(id)
+    ? selected.value.filter((item) => item !== id)
+    : [...selected.value, id]
+}
+
 function tabCount(value: string): number {
   return summary.value[value] ?? 0
 }
@@ -64,9 +88,10 @@ function statusClass(value: string): string {
   return 'tag'
 }
 
-async function load(target = 1) {
+async function load(target = 1, size = page.value.page_size) {
   loading.value = true
   error.value = ''
+  selected.value = []
   router.replace({
     query: {
       ...(bizType.value ? { biz_type: bizType.value } : {}),
@@ -75,7 +100,7 @@ async function load(target = 1) {
     },
   })
   try {
-    const result = await api.audits({ biz_type: bizType.value, status: status.value, page: target, page_size: 20 })
+    const result = await api.audits({ biz_type: bizType.value, status: status.value, page: target, page_size: size })
     rows.value = result.items
     summary.value = result.summary
     page.value = result.page
@@ -153,11 +178,40 @@ async function submitDecision() {
   }
 }
 
+function openBatch(kind: 'APPROVE' | 'REJECT') {
+  if (!selected.value.length) return
+  batch.value = kind
+}
+
+async function submitBatch(batchReason: string) {
+  if (!batch.value) return
+  batchSubmitting.value = true
+  error.value = ''
+  message.value = ''
+  try {
+    const result = await api.batchDecideAudit(selected.value, batch.value, batchReason)
+    batch.value = ''
+    if (result.failed) {
+      error.value = `通过 ${result.succeeded} 条，失败 ${result.failed} 条：${result.items
+        .filter((item) => !item.ok)
+        .map((item) => `#${item.id} ${item.error_message}`)
+        .join('；')}`
+    } else {
+      message.value = `已处理 ${result.succeeded} 条审核任务`
+    }
+    await load(page.value.page)
+  } catch (exc) {
+    error.value = exc instanceof ApiError ? `${exc.code}：${exc.message}` : '批量审核失败'
+  } finally {
+    batchSubmitting.value = false
+  }
+}
+
 onMounted(() => load(Number(route.query.page ?? 1)))
 </script>
 
 <template>
-  <h1>审核中心</h1>
+  <PageHeader title="审核中心" description="按业务类型处理待审核任务；批量操作逐条校验，失败项单独返回原因。" />
 
   <div class="toolbar">
     <div class="chips">
@@ -171,28 +225,38 @@ onMounted(() => load(Number(route.query.page ?? 1)))
         {{ item.label }}<em>{{ tabCount(item.value) }}</em>
       </button>
     </div>
-  </div>
-
-  <div class="toolbar">
-    <div class="chips">
-      <button
-        v-for="item in statusFilters"
-        :key="item.value || 'all'"
-        class="chip"
-        :class="{ on: status === item.value }"
-        @click="selectStatus(item.value)"
-      >
-        {{ item.label }}
-      </button>
-    </div>
+    <label class="field">
+      <span>状态</span>
+      <select v-model="status" @change="load(1)">
+        <option v-for="item in statusFilters" :key="item.value || 'all'" :value="item.value">{{ item.label }}</option>
+      </select>
+    </label>
   </div>
 
   <div v-if="error" class="error" role="alert">{{ error }}</div>
+  <div v-if="message" class="notice" aria-live="polite">{{ message }}</div>
 
-  <div class="card" style="padding: 0">
+  <div v-if="selected.length" class="batch-bar">
+    <span>已选 <b>{{ selected.length }}</b> 项</span>
+    <button class="text" @click="openBatch('APPROVE')">批量通过</button>
+    <button class="text" @click="openBatch('REJECT')">批量驳回</button>
+    <span class="spacer" />
+    <button class="text" @click="selected = []">取消选择</button>
+  </div>
+
+  <div class="table-wrap">
     <table>
       <thead>
         <tr>
+          <th class="select">
+            <input
+              type="checkbox"
+              aria-label="全选当前页待处理任务"
+              :checked="pendingRows().length > 0 && pendingRows().every((row) => selected.includes(row.id))"
+              :disabled="!pendingRows().length"
+              @change="toggleAll"
+            />
+          </th>
           <th>类型</th>
           <th>审核对象</th>
           <th>状态</th>
@@ -203,22 +267,32 @@ onMounted(() => load(Number(route.query.page ?? 1)))
       </thead>
       <tbody>
         <tr v-for="row in rows" :key="row.id">
+          <td class="select">
+            <input
+              v-if="row.status === 'PENDING' || row.status === 'PROCESSING'"
+              type="checkbox"
+              :checked="selected.includes(row.id)"
+              :aria-label="`选择 ${row.biz_name}`"
+              @change="toggleRow(row.id)"
+            />
+          </td>
           <td>{{ BIZ_LABEL[row.biz_type] ?? row.biz_type }}</td>
           <td>{{ row.biz_name || `#${row.biz_id}` }}</td>
-          <td><span :class="statusClass(row.status)">{{ STATUS_LABEL[row.status] ?? row.status }}</span></td>
+          <td><StatusTag :status="row.status" /></td>
           <td>{{ formatDateTime(row.created_at) }}</td>
           <td>
             <span v-if="row.handled_at">{{ row.assigned_to_name || '平台' }} · {{ formatDateTime(row.handled_at) }}</span>
             <span v-else class="muted">-</span>
-            <br v-if="row.reason" />
-            <span v-if="row.reason" class="muted">{{ row.reason }}</span>
+            <div v-if="row.reason" class="muted">{{ row.reason }}</div>
           </td>
           <td>
-            <button class="text" @click="openView(row)">查看</button>
-            <template v-if="row.status === 'PENDING' || row.status === 'PROCESSING'">
-              <button class="text" style="margin-left: 8px" @click="openDecision(row, 'APPROVE')">通过</button>
-              <button class="danger" style="margin-left: 8px" @click="openDecision(row, 'REJECT')">驳回</button>
-            </template>
+            <div class="actions">
+              <button class="text" @click="openView(row)">查看</button>
+              <template v-if="row.status === 'PENDING' || row.status === 'PROCESSING'">
+                <button class="text" @click="openDecision(row, 'APPROVE')">通过</button>
+                <button class="danger" @click="openDecision(row, 'REJECT')">驳回</button>
+              </template>
+            </div>
           </td>
         </tr>
       </tbody>
@@ -226,11 +300,12 @@ onMounted(() => load(Number(route.query.page ?? 1)))
     <div v-if="!rows.length" class="empty">{{ loading ? '加载中…' : '当前类型暂无可处理事项' }}</div>
   </div>
 
-  <div class="pager">
-    <button class="text" :disabled="page.page <= 1" @click="load(page.page - 1)">上一页</button>
-    <span>第 {{ page.page }} 页 · 共 {{ page.total }} 项</span>
-    <button class="text" :disabled="!page.has_more" @click="load(page.page + 1)">下一页</button>
-  </div>
+  <PaginationBar
+    :page="page.page"
+    :page-size="page.page_size"
+    :total="page.total"
+    @change="(payload) => load(payload.page, payload.pageSize)"
+  />
 
   <ModalShell v-if="viewRow" :title="`审核详情 · ${viewRow.biz_name || viewRow.biz_id}`" wide @close="closeView">
     <h2>审核详情 · {{ viewRow.biz_name || `#${viewRow.biz_id}` }}</h2>
@@ -344,4 +419,16 @@ onMounted(() => load(Number(route.query.page ?? 1)))
       <button class="text" @click="current = null">取消</button>
     </div>
   </ModalShell>
+
+  <ConfirmDialog
+    v-if="batch"
+    :title="batch === 'APPROVE' ? '批量审核通过' : '批量审核驳回'"
+    :message="`将对已选 ${selected.length} 条任务执行${batch === 'APPROVE' ? '通过' : '驳回'}；逐条校验状态，失败项会返回原因。`"
+    :reason-required="batch === 'REJECT'"
+    :reason-label="batch === 'REJECT' ? '驳回原因' : '审核说明'"
+    :danger="batch === 'REJECT'"
+    :busy="batchSubmitting"
+    @confirm="submitBatch"
+    @close="batch = ''"
+  />
 </template>

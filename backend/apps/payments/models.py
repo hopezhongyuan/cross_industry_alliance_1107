@@ -16,6 +16,10 @@ def default_payment_no() -> str:
     return generate_no("P")
 
 
+def default_group_no() -> str:
+    return generate_no("G")
+
+
 def default_refund_no() -> str:
     return generate_no("R")
 
@@ -64,6 +68,48 @@ class PaymentOrder(TimeStampedModel):
 
     def __str__(self):
         return self.payment_no
+
+
+class PaymentGroup(TimeStampedModel):
+    """合单支付：跨商户多订单合并为一笔支付。
+
+    订单层仍按商户拆分（一单一结算），PaymentGroup 仅作为支付聚合层，
+    一笔微信下单对应一个 group，回调成功后组内订单各自走状态机。
+    """
+
+    class Status(models.TextChoices):
+        CREATED = "CREATED", "已创建"
+        PAYING = "PAYING", "支付中"
+        PAID = "PAID", "已支付"
+        CLOSED = "CLOSED", "已关闭"
+
+    group_no = models.CharField("合单号", max_length=32, unique=True, default=default_group_no)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="payment_groups", verbose_name="用户"
+    )
+    amount = models.BigIntegerField("支付金额（分）")
+    status = models.CharField("状态", max_length=20, choices=Status.choices, default=Status.CREATED, db_index=True)
+    channel = models.CharField("支付渠道", max_length=16, choices=PaymentOrder.Channel.choices)
+    prepay_id = models.CharField("预支付 ID", max_length=64, blank=True, default="")
+    transaction_id = models.CharField("微信交易号", max_length=64, unique=True, null=True, blank=True)
+    idempotency_key = models.CharField("幂等键", max_length=64, unique=True)
+    paid_at = models.DateTimeField("支付成功时间", null=True, blank=True)
+    expire_at = models.DateTimeField("支付超时时间", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "合单支付"
+        verbose_name_plural = "合单支付"
+        db_table = "payment_group"
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(fields=["status", "created_at"], name="ix_pg_status_created"),
+        ]
+        constraints = [
+            models.CheckConstraint(check=models.Q(amount__gt=0), name="ck_pg_amount_positive"),
+        ]
+
+    def __str__(self):
+        return self.group_no
 
 
 class RefundOrder(TimeStampedModel):

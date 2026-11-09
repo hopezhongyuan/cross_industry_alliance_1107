@@ -1,5 +1,6 @@
-"""购物车服务：P0 单店购物车，跨店直接拒绝。"""
+"""购物车服务：支持跨商户，按商户分组展示。"""
 
+from collections import defaultdict
 from typing import Optional
 
 from django.db import transaction
@@ -38,15 +39,9 @@ def _check_stock(sku: Optional[ProductSku], quantity: int) -> None:
         )
 
 
-def _ensure_single_merchant(user, merchant_id: int) -> None:
-    if CartItem.objects.filter(user=user).exclude(merchant_id=merchant_id).exists():
-        raise ApiError("CROSS_STORE_CART", "P0 仅支持单店购物车，请先清空其他店铺商品", 409)
-
-
 def add_cart_item(user, product_id: int, sku_id: Optional[int] = None, quantity: int = 1):
     product = _get_product(product_id)
     sku = _get_sku(product, sku_id)
-    _ensure_single_merchant(user, product.merchant_id)
     _check_stock(sku, quantity)
 
     with transaction.atomic():
@@ -86,28 +81,55 @@ def delete_cart_item(user, item_id: int) -> None:
 
 
 def serialize_cart(user) -> dict:
-    items = CartItem.objects.filter(user=user).select_related("product", "sku").order_by("-created_at")
-    rows = []
-    total_amount = 0
-    merchant_id = None
+    items = CartItem.objects.filter(user=user).select_related("product", "sku", "merchant").order_by("-created_at")
+    groups_map = defaultdict(list)
+    merchant_names = {}
     for item in items:
-        price = item.sku.price if item.sku else item.product.price
-        if item.selected:
-            total_amount += price * item.quantity
-        merchant_id = merchant_id or item.merchant_id
-        rows.append(
+        groups_map[item.merchant_id].append(item)
+        merchant_names[item.merchant_id] = item.merchant.name
+
+    groups = []
+    total_selected_count = 0
+    total_selected_amount = 0
+    for merchant_id, merchant_items in groups_map.items():
+        selected_count = 0
+        selected_amount = 0
+        rows = []
+        for item in merchant_items:
+            price = item.sku.price if item.sku else item.product.price
+            amount = price * item.quantity
+            if item.selected:
+                selected_count += item.quantity
+                selected_amount += amount
+            rows.append(
+                {
+                    "id": item.id,
+                    "merchant_id": item.merchant_id,
+                    "product_id": item.product_id,
+                    "sku_id": item.sku_id,
+                    "title": item.product.title,
+                    "cover_url": item.product.cover_url,
+                    "spec": item.sku.spec_json if item.sku else {},
+                    "price_amount": price,
+                    "quantity": item.quantity,
+                    "selected": item.selected,
+                    "available_stock": item.sku.available_stock if item.sku else None,
+                }
+            )
+        groups.append(
             {
-                "id": item.id,
-                "merchant_id": item.merchant_id,
-                "product_id": item.product_id,
-                "sku_id": item.sku_id,
-                "title": item.product.title,
-                "cover_url": item.product.cover_url,
-                "spec": item.sku.spec_json if item.sku else {},
-                "price_amount": price,
-                "quantity": item.quantity,
-                "selected": item.selected,
-                "available_stock": item.sku.available_stock if item.sku else None,
+                "merchant_id": merchant_id,
+                "merchant_name": merchant_names[merchant_id],
+                "items": rows,
+                "selected_count": selected_count,
+                "selected_amount": selected_amount,
             }
         )
-    return {"merchant_id": merchant_id, "items": rows, "total_amount": total_amount}
+        total_selected_count += selected_count
+        total_selected_amount += selected_amount
+
+    return {
+        "groups": groups,
+        "total_selected_count": total_selected_count,
+        "total_selected_amount": total_selected_amount,
+    }

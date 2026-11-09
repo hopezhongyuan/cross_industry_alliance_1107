@@ -19,8 +19,9 @@ from apps.payments.services import create_payment
 from .cart_services import add_cart_item, delete_cart_item, serialize_cart, update_cart_item
 from .merchant_services import accept_order, reject_order, ship_order, verify_code
 from .models import Order
-from .order_services import cancel_order, confirm_order, create_order, review_order
+from .order_services import cancel_order, confirm_order, create_batch_orders, create_order, review_order
 from .serializers import (
+    BatchOrderCreateInputSerializer,
     CancelInputSerializer,
     CartItemInputSerializer,
     CartItemPatchSerializer,
@@ -79,6 +80,45 @@ class MyOrderViewSet(EnvelopeExceptionMixin, mixins.ListModelMixin, mixins.Retri
             request,
             OrderContractSerializer(order).data,
             status_code=201 if created else 200,
+        )
+
+
+@extend_schema(tags=["order"], request=BatchOrderCreateInputSerializer, responses=EnvelopeResponse)
+class BatchOrderCreateView(EnvelopeAPIView):
+    """批量下单：按商户拆分为多个订单，共享同一合单支付组。"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = BatchOrderCreateInputSerializer
+
+    def post(self, request):
+        idempotency_key = request.headers.get("Idempotency-Key", "").strip()
+        if not idempotency_key:
+            raise ApiError("VALIDATION_ERROR", "缺少 Idempotency-Key", 422)
+        serializer = BatchOrderCreateInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = dict(serializer.validated_data)
+        result = create_batch_orders(
+            request.user,
+            idempotency_key=idempotency_key,
+            request_hash=payload_hash(payload),
+            **payload,
+        )
+        return ok(
+            request,
+            {
+                "group_no": result["group_no"],
+                "orders": [
+                    {
+                        "id": order.id,
+                        "order_no": order.order_no,
+                        "merchant_id": order.merchant_id,
+                        "payable_amount": order.payable_amount,
+                    }
+                    for order in result["orders"]
+                ],
+                "total_amount": result["total_amount"],
+            },
+            status_code=201 if result["created"] else 200,
         )
 
 

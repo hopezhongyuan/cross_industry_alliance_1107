@@ -72,6 +72,12 @@ class AuditDecisionInputSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
 
 
+class AuditBatchDecisionInputSerializer(serializers.Serializer):
+    ids = serializers.ListField(child=serializers.IntegerField(), min_length=1, max_length=100)
+    decision = serializers.ChoiceField(choices=("APPROVE", "REJECT"))
+    reason = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+
+
 class MediaFolderSerializer(serializers.ModelSerializer):
     asset_count = serializers.SerializerMethodField()
 
@@ -125,8 +131,11 @@ class AdminPlatformConfigSerializer(serializers.ModelSerializer):
     """后台读取：不回显密钥明文，只返回是否已配置。"""
 
     miniapp_app_secret_configured = serializers.SerializerMethodField()
+    miniapp_app_secret_masked = serializers.SerializerMethodField()
     amap_web_key_configured = serializers.SerializerMethodField()
+    amap_web_key_masked = serializers.SerializerMethodField()
     amap_js_security_code_configured = serializers.SerializerMethodField()
+    amap_js_security_code_masked = serializers.SerializerMethodField()
 
     class Meta:
         model = PlatformConfig
@@ -141,10 +150,13 @@ class AdminPlatformConfigSerializer(serializers.ModelSerializer):
             "agreement_version",
             "miniapp_app_id",
             "miniapp_app_secret_configured",
+            "miniapp_app_secret_masked",
             "miniapp_original_id",
             "amap_web_key_configured",
+            "amap_web_key_masked",
             "amap_js_key",
             "amap_js_security_code_configured",
+            "amap_js_security_code_masked",
             "amap_enabled",
             "updated_by_name",
             "updated_at",
@@ -153,14 +165,31 @@ class AdminPlatformConfigSerializer(serializers.ModelSerializer):
     def _configured(self, value):
         return bool(value)
 
+    @staticmethod
+    def _mask(value):
+        """只保留尾 4 位，前端据此展示“已配置 + 掩码”。"""
+        if not value:
+            return ""
+        tail = value[-4:] if len(value) > 4 else ""
+        return f"{'•' * 8}{tail}"
+
     def get_miniapp_app_secret_configured(self, obj):
         return self._configured(obj.miniapp_app_secret)
+
+    def get_miniapp_app_secret_masked(self, obj):
+        return self._mask(obj.miniapp_app_secret)
 
     def get_amap_web_key_configured(self, obj):
         return self._configured(obj.amap_web_key)
 
+    def get_amap_web_key_masked(self, obj):
+        return self._mask(obj.amap_web_key)
+
     def get_amap_js_security_code_configured(self, obj):
         return self._configured(obj.amap_js_security_code)
+
+    def get_amap_js_security_code_masked(self, obj):
+        return self._mask(obj.amap_js_security_code)
 
 
 class AdminPlatformConfigInputSerializer(serializers.Serializer):

@@ -7,11 +7,12 @@ from rest_framework.permissions import IsAuthenticated
 from apps.common.api import ApiError, EnvelopeAPIView, EnvelopeResponse, ok, paginated
 from apps.governance.services import log_operation, require_platform_admin
 
-from .merchant_services import admin_set_product_status, admin_update_product
+from .merchant_services import admin_batch_set_product_status, admin_set_product_status, admin_update_product
 from .models import Category, Product, ProductTemplate
 from .serializers import (
     AdminCategoryInputSerializer,
     AdminCategorySerializer,
+    AdminProductBatchStatusInputSerializer,
     AdminProductDetailSerializer,
     AdminProductListSerializer,
     AdminProductStatusInputSerializer,
@@ -185,6 +186,28 @@ class AdminProductStatusView(EnvelopeAPIView):
             request=request,
         )
         return ok(request, {"id": product.id, "status": product.status, "off_sale_by": product.off_sale_by})
+
+
+@extend_schema(tags=["admin"], request=AdminProductBatchStatusInputSerializer, responses=EnvelopeResponse)
+class AdminProductBatchStatusView(EnvelopeAPIView):
+    """批量违规下架 / 恢复：逐条返回结果，失败项不阻断其他项。"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = AdminProductBatchStatusInputSerializer
+
+    @extend_schema(operation_id="batchSetAdminProductStatus")
+    def post(self, request):
+        serializer = AdminProductBatchStatusInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        results = admin_batch_set_product_status(
+            request.user,
+            serializer.validated_data["ids"],
+            serializer.validated_data["action"],
+            serializer.validated_data.get("reason", ""),
+            request=request,
+        )
+        succeeded = sum(1 for item in results if item["ok"])
+        return ok(request, {"items": results, "succeeded": succeeded, "failed": len(results) - succeeded})
 
 
 @extend_schema(tags=["admin"], responses=EnvelopeResponse)

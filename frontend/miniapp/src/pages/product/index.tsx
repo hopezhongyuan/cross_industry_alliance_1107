@@ -1,4 +1,4 @@
-import { useLoad, useRouter, showToast } from '@tarojs/taro'
+import { useLoad, useRouter, useShareAppMessage, showToast } from '@tarojs/taro'
 import Taro from '@tarojs/taro'
 import { View, Text, Button, Image } from '@tarojs/components'
 import { useState } from 'react'
@@ -21,6 +21,15 @@ export default function ProductDetailPage() {
         setSelectedSkuId(data.skus?.[0]?.id ?? null)
       })
       .catch((exc) => setError(exc instanceof ApiError ? exc.message : '加载失败'))
+  })
+
+  useShareAppMessage(() => {
+    // 分享赚积分：WeChat 无可靠成功回调，触发分享即上报
+    api.pointShare('PRODUCT', productId).catch(() => { /* ignore */ })
+    return {
+      title: detail?.title || '精选好物',
+      path: `/pages/product/index?id=${productId}`,
+    }
   })
 
   const selectedSku = detail?.skus?.find((sku) => sku.id === selectedSkuId) ?? detail?.skus?.[0]

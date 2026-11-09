@@ -47,6 +47,10 @@ def login_with_wechat(code: str, channel: str) -> AppUser:
                 user = AppUser(union_id=union_id, nickname="微信用户")
                 user.set_unusable_password()
                 user.save()
+                # 新用户注册赠送积分
+                from apps.points.services import award_for_register
+
+                award_for_register(user.id)
             UserIdentity.objects.get_or_create(
                 channel=channel,
                 open_id=open_id,
@@ -79,6 +83,10 @@ def login_with_sms(phone: str, sms_code: str, union_id: str = "") -> AppUser:
     user = AppUser.objects.filter(phone=phone).first()
     if user is None:
         user = AppUser.objects.create_user(phone=phone, nickname="手机用户")
+        # 新用户注册赠送积分
+        from apps.points.services import award_for_register
+
+        award_for_register(user.id)
 
     if union_id:
         if user.union_id and user.union_id != union_id:

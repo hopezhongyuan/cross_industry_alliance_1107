@@ -12,6 +12,7 @@ from .models import AuditTask, DecoPage, MediaAsset, MediaFolder, OperationLog, 
 from .serializers import (
     AdminPlatformConfigInputSerializer,
     AdminPlatformConfigSerializer,
+    AuditBatchDecisionInputSerializer,
     AuditDecisionInputSerializer,
     AuditTaskSerializer,
     DecoPageInputSerializer,
@@ -30,6 +31,7 @@ from .serializers import (
     StoreNavItemSerializer,
 )
 from .services import (
+    batch_decide_audit,
     decide_audit,
     get_platform_config,
     publish_rule_version,
@@ -134,6 +136,28 @@ class AdminAuditDecisionView(EnvelopeAPIView):
             request=request,
         )
         return ok(request, AuditTaskSerializer(task).data)
+
+
+@extend_schema(tags=["admin"], request=AuditBatchDecisionInputSerializer, responses=EnvelopeResponse)
+class AdminAuditBatchDecisionView(EnvelopeAPIView):
+    """批量审核：逐条返回结果，失败项不阻断其他任务。"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = AuditBatchDecisionInputSerializer
+
+    @extend_schema(operation_id="batchDecideAudit")
+    def post(self, request):
+        serializer = AuditBatchDecisionInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        results = batch_decide_audit(
+            request.user,
+            serializer.validated_data["ids"],
+            serializer.validated_data["decision"],
+            serializer.validated_data.get("reason", ""),
+            request=request,
+        )
+        succeeded = sum(1 for item in results if item["ok"])
+        return ok(request, {"items": results, "succeeded": succeeded, "failed": len(results) - succeeded})
 
 
 @extend_schema(tags=["admin"], responses=EnvelopeResponse)

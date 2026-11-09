@@ -1,4 +1,4 @@
-import Taro, { useLoad, useRouter } from '@tarojs/taro'
+import Taro, { useLoad, useRouter, useShareAppMessage } from '@tarojs/taro'
 import { View, Text, Image, Button } from '@tarojs/components'
 import { useState } from 'react'
 import { api, ApiError, type ProductRow, type StoreRow } from '../../api'
@@ -18,6 +18,14 @@ export default function StoreDetail() {
       setProducts(await api.products({ merchant: storeId }))
     } catch (exc) {
       setError(exc instanceof ApiError ? exc.message : '加载失败')
+    }
+  })
+
+  useShareAppMessage(() => {
+    api.pointShare('MERCHANT', storeId).catch(() => { /* ignore */ })
+    return {
+      title: store?.name || '精选好店',
+      path: `/pages/store/index?id=${storeId}`,
     }
   })
 

@@ -66,11 +66,11 @@ export interface paths {
     get: operations["getProduct"];
   };
   "/api/v1/cart/": {
-    /** 当前用户的购物车（单店） */
+    /** 当前用户的购物车（按商户分组） */
     get: operations["getCart"];
   };
   "/api/v1/cart/items/": {
-    /** 加入购物车（同商品同规格累加） */
+    /** 加入购物车（同商品同规格累加，支持跨商户） */
     post: operations["addCartItem"];
   };
   "/api/v1/cart/items/{id}/": {
@@ -85,6 +85,10 @@ export interface paths {
     /** 创建订单（服务端定价，预占库存/时段） */
     post: operations["createOrder"];
   };
+  "/api/v1/orders/batch/": {
+    /** 批量下单（按商户拆分为多个订单，共享合单支付组） */
+    post: operations["createBatchOrder"];
+  };
   "/api/v1/orders/{id}/": {
     /** 订单详情（含时间轴、核销码、物流/预约） */
     get: operations["getMyOrder"];
@@ -96,6 +100,10 @@ export interface paths {
   "/api/v1/orders/{id}/pay/": {
     /** 发起微信支付（返回 prepay_id，15 分钟有效） */
     post: operations["payOrder"];
+  };
+  "/api/v1/payment-groups/{group_no}/pay/": {
+    /** 合单支付（一笔支付覆盖组内所有跨商户订单） */
+    post: operations["payGroup"];
   };
   "/api/v1/orders/{id}/cancel/": {
     /** 取消待支付/待接单订单（触发退款或关闭） */
@@ -113,13 +121,37 @@ export interface paths {
     /** 售后进度（商户处理、仲裁、退款） */
     get: operations["getAfterSale"];
   };
+  "/api/v1/points/account/": {
+    /** 当前用户积分账户（余额、累计获得、累计消耗） */
+    get: operations["getPointAccount"];
+  };
+  "/api/v1/points/transactions/": {
+    /** 当前用户积分流水 */
+    get: operations["listPointTransactions"];
+  };
+  "/api/v1/points/signin/": {
+    /** 签到领积分（每日一次，幂等） */
+    post: operations["signinPoints"];
+  };
+  "/api/v1/points/share/": {
+    /** 分享赚积分（每日次数上限内） */
+    post: operations["sharePoints"];
+  };
+  "/api/v1/points/rules/": {
+    /** 公开积分规则（前端展示用） */
+    get: operations["getPointRules"];
+  };
   "/api/v1/merchant/apply/": {
     /** 提交入驻资料（驳回可重提，保留历史版本） */
     post: operations["applyMerchant"];
   };
   "/api/v1/merchant/profile/": {
-    /** 门店与账户信息（店员不可见金额） */
+    /** 当前商户自身资料（名称、Logo、地址、营业时间） */
     get: operations["getMerchantProfile"];
+  };
+  "/api/v1/merchant/dashboard/": {
+    /** 商户首页经营看板（今日口径为 Asia/Shanghai 自然日） */
+    get: operations["getMerchantDashboard"];
   };
   "/api/v1/merchant/products/": {
     /** 本店商品列表（状态/关键词筛选） */
@@ -181,6 +213,10 @@ export interface paths {
     /** 核销（校验门店、状态、有效期、预约窗口） */
     post: operations["verifyCode"];
   };
+  "/api/v1/merchant/after-sales/": {
+    /** 本店售后列表（支持按状态/商户处理结果筛选） */
+    get: operations["listMerchantAfterSales"];
+  };
   "/api/v1/merchant/after-sales/{id}/decision/": {
     /** 售后处理（同意/拒绝，超时转仲裁） */
     post: operations["decideAfterSale"];
@@ -200,6 +236,10 @@ export interface paths {
   "/api/v1/admin/audits/": {
     /** 审核任务列表（含各类型待审核计数） */
     get: operations["listAudits"];
+  };
+  "/api/v1/admin/audits/batch-decision/": {
+    /** 批量审核（逐条处理，返回每条结果；单条失败不影响其他任务） */
+    post: operations["batchDecideAudit"];
   };
   "/api/v1/admin/audits/{id}/decision/": {
     /** 审核通过/驳回（写操作日志；商户审核联动资质状态） */
@@ -241,6 +281,10 @@ export interface paths {
     /** 全平台商品列表（商户/状态/类目/关键词筛选） */
     get: operations["listAdminProducts"];
   };
+  "/api/v1/admin/products/batch-status/": {
+    /** 批量强制下架 / 恢复（逐条处理，返回每条结果；单条失败不影响其他商品） */
+    post: operations["batchSetAdminProductStatus"];
+  };
   "/api/v1/admin/products/{id}/": {
     /** 商品详情（含 SKU、商户与提交时间） */
     get: operations["getAdminProduct"];
@@ -278,6 +322,24 @@ export interface paths {
     get: operations["getAdminPlatformConfig"];
     /** 平台配置保存（密钥留空保持原值，Logo 必须来自素材库） */
     put: operations["updateAdminPlatformConfig"];
+  };
+  "/api/v1/admin/points/config/": {
+    /** 读取积分规则配置 */
+    get: operations["getAdminPointsConfig"];
+    /** 修改积分规则配置 */
+    put: operations["updateAdminPointsConfig"];
+  };
+  "/api/v1/admin/points/users/": {
+    /** 用户积分账户列表（可按手机号/昵称搜索） */
+    get: operations["listAdminPointsUsers"];
+  };
+  "/api/v1/admin/points/users/{user_id}/transactions/": {
+    /** 指定用户的积分流水 */
+    get: operations["getAdminPointsUserTransactions"];
+  };
+  "/api/v1/admin/points/adjust/": {
+    /** 后台人工调整积分（可正可负，必填原因） */
+    post: operations["adminPointsAdjust"];
   };
   "/api/v1/storefront/nav/": {
     /** 消费者端底部导航（仅启用项） */
@@ -860,6 +922,34 @@ export interface components {
       /** @description 强制下架必填 */
       reason?: string;
     };
+    AdminProductBatchStatusInput: {
+      ids: number[];
+      /** @enum {string} */
+      action: "FORCE_OFF" | "RESTORE";
+      /** @description 批量强制下架必填 */
+      reason?: string;
+    };
+    BatchActionResultItem: {
+      /** Format: int64 */
+      id?: number;
+      ok?: boolean;
+      /** @description 成功时为处理后的状态 */
+      status?: string;
+      /** @description 仅商品批量操作返回 */
+      off_sale_by?: string;
+      /** @description 失败时的错误码 */
+      error_code?: string;
+      /** @description 失败原因 */
+      error_message?: string;
+    };
+    BatchActionResult: {
+      items?: components["schemas"]["BatchActionResultItem"][];
+      succeeded?: number;
+      failed?: number;
+    };
+    BatchActionResultEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["BatchActionResult"];
+    };
     ProductStatusInput: {
       /** @enum {string} */
       status: "ON_SALE" | "OFF_SALE";
@@ -961,13 +1051,23 @@ export interface components {
       selected?: boolean;
       available_stock?: number;
     };
+    CartGroup: {
+      /** Format: int64 */
+      merchant_id?: number;
+      merchant_name?: string;
+      items?: components["schemas"]["CartItem"][];
+      /** @description 该商户已选中商品件数 */
+      selected_count?: number;
+      /** @description 该商户已选中商品合计（分） */
+      selected_amount?: number;
+    };
     CartEnvelope: components["schemas"]["Envelope"] & {
       data?: {
-        /** Format: int64 */
-        merchant_id?: number;
-        items?: components["schemas"]["CartItem"][];
-        /** @description 已选中项合计（分） */
-        total_amount?: number;
+        groups?: components["schemas"]["CartGroup"][];
+        /** @description 已选中商品总件数 */
+        total_selected_count?: number;
+        /** @description 已选中商品合计（分） */
+        total_selected_amount?: number;
       };
     };
     OrderItemInput: {
@@ -998,6 +1098,33 @@ export interface components {
       contact: components["schemas"]["Contact"];
       appointment?: components["schemas"]["AppointmentInput"];
       remark?: string;
+    };
+    BatchOrderGroupInput: {
+      /** Format: int64 */
+      merchant_id: number;
+      /** @enum {string} */
+      order_type: "EXPRESS" | "PICKUP" | "SERVICE";
+      items: components["schemas"]["OrderItemInput"][];
+      appointment?: components["schemas"]["AppointmentInput"];
+    };
+    BatchOrderCreateInput: {
+      groups: components["schemas"]["BatchOrderGroupInput"][];
+      contact: components["schemas"]["Contact"];
+      remark?: string;
+    };
+    BatchOrderResult: {
+      /** @description 合单支付组号 */
+      group_no?: string;
+      orders?: {
+          /** Format: int64 */
+          id?: number;
+          order_no?: string;
+          /** Format: int64 */
+          merchant_id?: number;
+          payable_amount?: number;
+        }[];
+      /** @description 合单支付总金额（分） */
+      total_amount?: number;
     };
     OrderItem: {
       /** Format: int64 */
@@ -1249,19 +1376,182 @@ export interface components {
       id?: number;
       merchant_no?: string;
       name?: string;
+      short_name?: string;
+      /** Format: uri */
+      logo_url?: string;
+      description?: string;
+      contact_phone?: string;
+      province?: string;
+      city?: string;
+      district?: string;
+      address?: string;
+      /** Format: double */
+      lng?: number;
+      /** Format: double */
+      lat?: number;
+      business_hours?: Record<string, never>;
       status?: string;
-      /** @description 生效佣金率（商户覆盖或类目默认） */
-      commission_rate?: number;
-      settlement_cycle_days?: number;
-      balances?: {
-        pending_amount?: number;
-        frozen_amount?: number;
-        available_amount?: number;
-        withdrawing_amount?: number;
-      };
+      status_label?: string;
+      /** Format: date-time */
+      opened_at?: string;
     };
     MerchantProfileEnvelope: components["schemas"]["Envelope"] & {
       data?: components["schemas"]["MerchantProfile"];
+    };
+    /** @description 商户经营看板；金额单位为分，"今日"按 Asia/Shanghai 自然日 */
+    MerchantDashboard: {
+      /** @description 今日订单数 */
+      today_orders?: number;
+      /** @description 今日已支付金额合计（分） */
+      today_sales_amount?: number;
+      /** @description 待处理订单数（待接单+待履约） */
+      pending_orders?: number;
+      /** @description 待商户处理的售后数 */
+      pending_after_sales?: number;
+      /** @description 待审核商品数 */
+      pending_products?: number;
+      /** @description 可提现余额（分） */
+      available_balance?: number;
+      /** @description 今日售后申请数 */
+      today_refund_count?: number;
+      /** @description 今日核销数 */
+      today_verified_count?: number;
+    };
+    MerchantDashboardEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["MerchantDashboard"];
+    };
+    MerchantAfterSaleRow: {
+      /** Format: int64 */
+      id?: number;
+      after_sale_no?: string;
+      /** Format: int64 */
+      order_id?: number;
+      order_no?: string;
+      /** @enum {string} */
+      type?: "REFUND_ONLY" | "RETURN_REFUND" | "SERVICE_ISSUE";
+      type_label?: string;
+      status?: string;
+      status_label?: string;
+      /** @description 申请金额（分） */
+      request_amount?: number;
+      /** @description 批准金额（分） */
+      approved_amount?: number;
+      /** @enum {string} */
+      merchant_decision?: "PENDING" | "AGREED" | "REJECTED";
+      merchant_decision_label?: string;
+      merchant_reason?: string;
+      /** Format: date-time */
+      deadline_at?: string;
+      /** Format: date-time */
+      created_at?: string;
+    };
+    MerchantAfterSalePageEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["MerchantAfterSaleRowPage"];
+    };
+    MerchantAfterSaleRowPage: components["schemas"]["Page"] & {
+      items?: components["schemas"]["MerchantAfterSaleRow"][];
+    };
+    PointsConfig: {
+      enabled?: boolean;
+      /** @description 消费积分比例（分/积分） */
+      consumption_rate?: number;
+      /** @description 单笔订单积分上限（0=不限） */
+      consumption_max_per_order?: number;
+      signin_points?: number;
+      share_points?: number;
+      share_daily_limit?: number;
+      register_points?: number;
+      review_points?: number;
+      updated_by_name?: string;
+    };
+    PointsConfigInput: {
+      enabled?: boolean;
+      consumption_rate?: number;
+      consumption_max_per_order?: number;
+      signin_points?: number;
+      share_points?: number;
+      share_daily_limit?: number;
+      register_points?: number;
+      review_points?: number;
+    };
+    PointsConfigEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["PointsConfig"];
+    };
+    PointAccount: {
+      /** Format: int64 */
+      id?: number;
+      /** Format: int64 */
+      user_id?: number;
+      user_phone?: string;
+      user_nickname?: string;
+      /** @description 可用积分 */
+      balance?: number;
+      total_earned?: number;
+      total_spent?: number;
+    };
+    PointAccountEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["PointAccount"];
+    };
+    PointTransaction: {
+      /** Format: int64 */
+      id?: number;
+      /** Format: int64 */
+      user_id?: number;
+      /** @enum {string} */
+      biz_type?: "CONSUMPTION" | "SIGNIN" | "SHARE" | "REGISTER" | "REVIEW" | "ADMIN_ADJUST";
+      biz_type_label?: string;
+      /** @description 变动积分（正增负减） */
+      delta?: number;
+      balance_after?: number;
+      /** Format: int64 */
+      biz_id?: number;
+      remark?: string;
+      operator_name?: string;
+      /** Format: date-time */
+      created_at?: string;
+    };
+    PointTransactionEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["PointTransaction"];
+    };
+    PointTransactionPage: components["schemas"]["Page"] & {
+      items?: components["schemas"]["PointTransaction"][];
+    };
+    PointTransactionPageEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["PointTransactionPage"];
+    };
+    PointAwardResult: {
+      delta?: number;
+      balance_after?: number;
+    };
+    PointAwardResultEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["PointAwardResult"];
+    };
+    ShareInput: {
+      /** @enum {string} */
+      target_type: "PRODUCT" | "MERCHANT" | "PAGE";
+      /** Format: int64 */
+      target_id: number;
+    };
+    ShareResult: {
+      awarded?: boolean;
+      delta?: number;
+      balance_after?: number;
+    };
+    ShareResultEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["ShareResult"];
+    };
+    PointUserPage: components["schemas"]["Page"] & {
+      items?: components["schemas"]["PointAccount"][];
+    };
+    PointUserPageEnvelope: components["schemas"]["Envelope"] & {
+      data?: components["schemas"]["PointUserPage"];
+    };
+    AdminPointsAdjustInput: {
+      /** Format: int64 */
+      user_id: number;
+      /** @description 调整积分（正增负减） */
+      delta: number;
+      reason: string;
     };
     ProductInput: {
       /** Format: int64 */
@@ -1396,6 +1686,13 @@ export interface components {
       /** @enum {string} */
       decision: "APPROVE" | "REJECT";
       /** @description 驳回必填 */
+      reason?: string;
+    };
+    AuditBatchDecisionInput: {
+      ids: number[];
+      /** @enum {string} */
+      decision: "APPROVE" | "REJECT";
+      /** @description 批量驳回必填 */
       reason?: string;
     };
     MerchantStatusInput: {
@@ -1540,12 +1837,18 @@ export interface components {
       miniapp_app_id?: string;
       /** @description 是否已配置，不返回明文 */
       miniapp_app_secret_configured?: boolean;
+      /** @description 掩码展示，仅保留尾 4 位 */
+      miniapp_app_secret_masked?: string;
       miniapp_original_id?: string;
       /** @description 是否已配置，不返回明文 */
       amap_web_key_configured?: boolean;
+      /** @description 掩码展示，仅保留尾 4 位 */
+      amap_web_key_masked?: string;
       amap_js_key?: string;
       /** @description 是否已配置，不返回明文 */
       amap_js_security_code_configured?: boolean;
+      /** @description 掩码展示，仅保留尾 4 位 */
+      amap_js_security_code_masked?: string;
       amap_enabled?: boolean;
       updated_by_name?: string;
       /** Format: date-time */
@@ -2273,7 +2576,7 @@ export interface operations {
       };
     };
   };
-  /** 当前用户的购物车（单店） */
+  /** 当前用户的购物车（按商户分组） */
   getCart: {
     responses: {
       /** @description OK */
@@ -2285,7 +2588,7 @@ export interface operations {
       401: components["responses"]["Unauthorized"];
     };
   };
-  /** 加入购物车（同商品同规格累加） */
+  /** 加入购物车（同商品同规格累加，支持跨商户） */
   addCartItem: {
     requestBody: {
       content: {
@@ -2299,7 +2602,7 @@ export interface operations {
           "application/json": components["schemas"]["CartEnvelope"];
         };
       };
-      /** @description 跨店购物车或库存不足 */
+      /** @description 商品下架或库存不足 */
       409: {
         content: {
           "application/json": components["schemas"]["ErrorEnvelope"];
@@ -2399,6 +2702,36 @@ export interface operations {
       422: components["responses"]["ValidationError"];
     };
   };
+  /** 批量下单（按商户拆分为多个订单，共享合单支付组） */
+  createBatchOrder: {
+    parameters: {
+      header: {
+        "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BatchOrderCreateInput"];
+      };
+    };
+    responses: {
+      /** @description 批量订单已创建 */
+      201: {
+        content: {
+          "application/json": components["schemas"]["Envelope"] & {
+            data?: components["schemas"]["BatchOrderResult"];
+          };
+        };
+      };
+      /** @description STOCK_NOT_ENOUGH / SLOT_FULL / IDEMPOTENCY_CONFLICT / MERCHANT_NOT_AVAILABLE */
+      409: {
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      422: components["responses"]["ValidationError"];
+    };
+  };
   /** 订单详情（含时间轴、核销码、物流/预约） */
   getMyOrder: {
     parameters: {
@@ -2463,6 +2796,36 @@ export interface operations {
         };
       };
       /** @description ORDER_EXPIRED / 订单状态不允许支付 */
+      409: {
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
+  /** 合单支付（一笔支付覆盖组内所有跨商户订单） */
+  payGroup: {
+    parameters: {
+      header: {
+        "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+      };
+      path: {
+        group_no: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PayInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PayEnvelope"];
+        };
+      };
+      /** @description ORDER_EXPIRED / 合单支付组状态不允许支付 */
       409: {
         content: {
           "application/json": components["schemas"]["ErrorEnvelope"];
@@ -2572,6 +2935,79 @@ export interface operations {
       403: components["responses"]["Forbidden"];
     };
   };
+  /** 当前用户积分账户（余额、累计获得、累计消耗） */
+  getPointAccount: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PointAccountEnvelope"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+    };
+  };
+  /** 当前用户积分流水 */
+  listPointTransactions: {
+    parameters: {
+      query?: {
+        biz_type?: "CONSUMPTION" | "SIGNIN" | "SHARE" | "REGISTER" | "REVIEW" | "ADMIN_ADJUST";
+        page?: components["parameters"]["PageParam"];
+        page_size?: components["parameters"]["PageSizeParam"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PointTransactionPageEnvelope"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 签到领积分（每日一次，幂等） */
+  signinPoints: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PointAwardResultEnvelope"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+    };
+  };
+  /** 分享赚积分（每日次数上限内） */
+  sharePoints: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ShareInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["ShareResultEnvelope"];
+        };
+      };
+      401: components["responses"]["Unauthorized"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 公开积分规则（前端展示用） */
+  getPointRules: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PointsConfigEnvelope"];
+        };
+      };
+    };
+  };
   /** 提交入驻资料（驳回可重提，保留历史版本） */
   applyMerchant: {
     parameters: {
@@ -2599,13 +3035,25 @@ export interface operations {
       };
     };
   };
-  /** 门店与账户信息（店员不可见金额） */
+  /** 当前商户自身资料（名称、Logo、地址、营业时间） */
   getMerchantProfile: {
     responses: {
       /** @description OK */
       200: {
         content: {
           "application/json": components["schemas"]["MerchantProfileEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 商户首页经营看板（今日口径为 Asia/Shanghai 自然日） */
+  getMerchantDashboard: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MerchantDashboardEnvelope"];
         };
       };
       403: components["responses"]["Forbidden"];
@@ -2998,6 +3446,27 @@ export interface operations {
       };
     };
   };
+  /** 本店售后列表（支持按状态/商户处理结果筛选） */
+  listMerchantAfterSales: {
+    parameters: {
+      query?: {
+        status?: "APPLIED" | "MERCHANT_PROCESSING" | "MERCHANT_AGREED" | "MERCHANT_REJECTED" | "ARBITRATING" | "RESOLVED" | "REFUNDING" | "COMPLETED" | "CANCELLED";
+        merchant_decision?: "PENDING" | "AGREED" | "REJECTED";
+        page?: components["parameters"]["PageParam"];
+        page_size?: components["parameters"]["PageSizeParam"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["MerchantAfterSalePageEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
   /** 售后处理（同意/拒绝，超时转仲裁） */
   decideAfterSale: {
     parameters: {
@@ -3107,6 +3576,24 @@ export interface operations {
         };
       };
       403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 批量审核（逐条处理，返回每条结果；单条失败不影响其他任务） */
+  batchDecideAudit: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AuditBatchDecisionInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["BatchActionResultEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      422: components["responses"]["ValidationError"];
     };
   };
   /** 审核通过/驳回（写操作日志；商户审核联动资质状态） */
@@ -3343,6 +3830,24 @@ export interface operations {
       403: components["responses"]["Forbidden"];
     };
   };
+  /** 批量强制下架 / 恢复（逐条处理，返回每条结果；单条失败不影响其他商品） */
+  batchSetAdminProductStatus: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminProductBatchStatusInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["BatchActionResultEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
   /** 商品详情（含 SKU、商户与提交时间） */
   getAdminProduct: {
     parameters: {
@@ -3541,6 +4046,94 @@ export interface operations {
       200: {
         content: {
           "application/json": components["schemas"]["AdminPlatformConfigEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 读取积分规则配置 */
+  getAdminPointsConfig: {
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PointsConfigEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 修改积分规则配置 */
+  updateAdminPointsConfig: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PointsConfigInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PointsConfigEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 用户积分账户列表（可按手机号/昵称搜索） */
+  listAdminPointsUsers: {
+    parameters: {
+      query?: {
+        keyword?: string;
+        page?: components["parameters"]["PageParam"];
+        page_size?: components["parameters"]["PageSizeParam"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PointUserPageEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 指定用户的积分流水 */
+  getAdminPointsUserTransactions: {
+    parameters: {
+      query?: {
+        page?: components["parameters"]["PageParam"];
+        page_size?: components["parameters"]["PageSizeParam"];
+      };
+      path: {
+        user_id: number;
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["PointTransactionPageEnvelope"];
+        };
+      };
+      403: components["responses"]["Forbidden"];
+    };
+  };
+  /** 后台人工调整积分（可正可负，必填原因） */
+  adminPointsAdjust: {
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminPointsAdjustInput"];
+      };
+    };
+    responses: {
+      /** @description 已调整 */
+      201: {
+        content: {
+          "application/json": components["schemas"]["PointTransactionEnvelope"];
         };
       };
       403: components["responses"]["Forbidden"];

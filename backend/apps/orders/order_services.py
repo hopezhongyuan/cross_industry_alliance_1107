@@ -89,6 +89,121 @@ def _reserve_slot(contexts, appointment):
     return slot
 
 
+def _create_single_order(
+    user,
+    *,
+    merchant_id,
+    order_type,
+    items,
+    contact,
+    appointment=None,
+    remark="",
+    idempotency_key,
+    request_hash,
+    payment_group=None,
+):
+    """创建单个订单（不开启事务，由调用方控制事务边界）。"""
+    existing = Order.objects.filter(idempotency_key=idempotency_key).first()
+    if existing is not None:
+        if existing.user_id != user.id or existing.idempotency_hash != request_hash:
+            raise ApiError("IDEMPOTENCY_CONFLICT", "幂等键已用于不同请求", 409)
+        return existing, False
+
+    merchant = Merchant.objects.filter(pk=merchant_id, status=Merchant.Status.ACTIVE).first()
+    if merchant is None:
+        raise ApiError("MERCHANT_NOT_AVAILABLE", "商户不存在或未营业", 409)
+
+    contexts = _validate_products(merchant_id, order_type, items)
+    _attach_skus(contexts)
+    if appointment is None and any(ctx["product"].appointment_required for ctx in contexts):
+        raise ApiError("APPOINTMENT_REQUIRED", "该服务需要选择预约时段", 409)
+    slot = _reserve_slot(contexts, appointment)
+    sku_need = _check_stock(contexts)
+
+    line_amounts = [
+        (ctx["sku"].price if ctx["sku"] else ctx["product"].price) * ctx["item"]["quantity"] for ctx in contexts
+    ]
+    product_amount = sum(line_amounts)
+    rate = resolve_commission_rate(merchant)
+    platform_amounts, commission_amount = build_line_split(line_amounts, rate)
+    now = timezone.now()
+    order = Order.objects.create(
+        user=user,
+        merchant=merchant,
+        order_type=order_type,
+        status=Order.Status.PENDING_PAYMENT,
+        product_amount=product_amount,
+        delivery_fee=0,
+        payable_amount=product_amount,
+        commission_rate=rate,
+        commission_amount=commission_amount,
+        platform_income_amount=commission_amount,
+        merchant_income_amount=product_amount - commission_amount,
+        contact_json=contact,
+        remark=remark,
+        expire_at=now + timedelta(minutes=settings.ORDER_PAYMENT_TIMEOUT_MINUTES),
+        idempotency_key=idempotency_key,
+        idempotency_hash=request_hash,
+        payment_group=payment_group,
+    )
+
+    for index, ctx in enumerate(contexts):
+        product = ctx["product"]
+        sku = ctx["sku"]
+        price = sku.price if sku else product.price
+        quantity = ctx["item"]["quantity"]
+        line_amount = price * quantity
+        platform_amount = platform_amounts[index]
+        OrderItem.objects.create(
+            order=order,
+            product=product,
+            sku=sku,
+            snapshot_json={
+                "title": product.title,
+                "cover_url": product.cover_url,
+                "spec": sku.spec_json if sku else {},
+                "type": product.type,
+                "verify_days": product.verify_days,
+            },
+            title=product.title,
+            price=price,
+            quantity=quantity,
+            amount=line_amount,
+            paid_amount=line_amount,
+            commission_rate=rate,
+            platform_amount=platform_amount,
+            merchant_amount=line_amount - platform_amount,
+        )
+
+    for sku_id, quantity in sku_need.items():
+        sku = next(ctx["sku"] for ctx in contexts if ctx["sku"] and ctx["sku"].id == sku_id)
+        sku.locked_stock += quantity
+        sku.version += 1
+        sku.save(update_fields=["locked_stock", "version", "updated_at"])
+
+    if order_type in (Order.Type.EXPRESS, Order.Type.PICKUP):
+        OrderDelivery.objects.create(
+            order=order,
+            type=order_type,
+            address_snapshot=contact,
+            receiver_name=contact.get("name", ""),
+            receiver_phone=contact.get("phone", ""),
+        )
+
+    if slot is not None:
+        Appointment.objects.create(
+            order=order,
+            slot=slot,
+            slot_date=slot.slot_date,
+            start_time=slot.start_time,
+            end_time=slot.end_time,
+            status=Appointment.Status.PENDING_CONFIRM,
+            remark=appointment.get("remark", ""),
+        )
+
+    return order, True
+
+
 def create_order(
     user,
     *,
@@ -102,104 +217,103 @@ def create_order(
     request_hash,
 ):
     with transaction.atomic():
-        existing = Order.objects.filter(idempotency_key=idempotency_key).first()
-        if existing is not None:
-            if existing.user_id != user.id or existing.idempotency_hash != request_hash:
-                raise ApiError("IDEMPOTENCY_CONFLICT", "幂等键已用于不同请求", 409)
-            return existing, False
-
-        merchant = Merchant.objects.filter(pk=merchant_id, status=Merchant.Status.ACTIVE).first()
-        if merchant is None:
-            raise ApiError("MERCHANT_NOT_AVAILABLE", "商户不存在或未营业", 409)
-
-        contexts = _validate_products(merchant_id, order_type, items)
-        _attach_skus(contexts)
-        if appointment is None and any(ctx["product"].appointment_required for ctx in contexts):
-            raise ApiError("APPOINTMENT_REQUIRED", "该服务需要选择预约时段", 409)
-        slot = _reserve_slot(contexts, appointment)
-        sku_need = _check_stock(contexts)
-
-        line_amounts = [
-            (ctx["sku"].price if ctx["sku"] else ctx["product"].price) * ctx["item"]["quantity"] for ctx in contexts
-        ]
-        product_amount = sum(line_amounts)
-        rate = resolve_commission_rate(merchant)
-        platform_amounts, commission_amount = build_line_split(line_amounts, rate)
-        now = timezone.now()
-        order = Order.objects.create(
-            user=user,
-            merchant=merchant,
+        order, created = _create_single_order(
+            user,
+            merchant_id=merchant_id,
             order_type=order_type,
-            status=Order.Status.PENDING_PAYMENT,
-            product_amount=product_amount,
-            delivery_fee=0,
-            payable_amount=product_amount,
-            commission_rate=rate,
-            commission_amount=commission_amount,
-            platform_income_amount=commission_amount,
-            merchant_income_amount=product_amount - commission_amount,
-            contact_json=contact,
+            items=items,
+            contact=contact,
+            appointment=appointment,
             remark=remark,
-            expire_at=now + timedelta(minutes=settings.ORDER_PAYMENT_TIMEOUT_MINUTES),
             idempotency_key=idempotency_key,
-            idempotency_hash=request_hash,
+            request_hash=request_hash,
+        )
+    return order, created
+
+
+def _sum_group_amounts(groups) -> int:
+    """预计算批量下单总金额（分），用于创建 PaymentGroup。"""
+    product_ids = {item["product_id"] for group in groups for item in group["items"]}
+    sku_ids = {item["sku_id"] for group in groups for item in group["items"] if item.get("sku_id")}
+    products = {p.id: p for p in Product.objects.filter(pk__in=product_ids)}
+    skus = {s.id: s for s in ProductSku.objects.filter(pk__in=sku_ids)}
+    total = 0
+    for group in groups:
+        for item in group["items"]:
+            product = products.get(item["product_id"])
+            sku = skus.get(item["sku_id"]) if item.get("sku_id") else None
+            price = sku.price if sku else (product.price if product else 0)
+            total += price * item["quantity"]
+    return total
+
+
+def create_batch_orders(
+    user,
+    *,
+    groups,
+    contact,
+    remark="",
+    idempotency_key,
+    request_hash,
+):
+    """批量下单：按商户拆分为多个订单，共享同一合单支付组。
+
+    幂等键按 batch 维度：每个子单 idempotency_key = f"{idem_key}:{merchant_id}"。
+    重复请求命中时返回已有订单组。任一子单校验失败整体回滚。
+    """
+    from apps.payments.models import PaymentGroup
+
+    with transaction.atomic():
+        prefix = f"{idempotency_key}:"
+        existing_orders = list(Order.objects.filter(idempotency_key__startswith=prefix).order_by("id"))
+        if existing_orders:
+            sample = existing_orders[0]
+            if sample.user_id != user.id or sample.idempotency_hash != request_hash:
+                raise ApiError("IDEMPOTENCY_CONFLICT", "幂等键已用于不同请求", 409)
+            group = sample.payment_group
+            return {
+                "group_no": group.group_no if group else None,
+                "orders": existing_orders,
+                "total_amount": sum(o.payable_amount for o in existing_orders),
+                "created": False,
+            }
+
+        if not groups:
+            raise ApiError("VALIDATION_ERROR", "下单商品不能为空", 422)
+
+        total_amount = _sum_group_amounts(groups)
+        group = PaymentGroup.objects.create(
+            user=user,
+            amount=total_amount,
+            status=PaymentGroup.Status.CREATED,
+            channel="",  # 支付时确定
+            idempotency_key=f"batch:{idempotency_key}",
+            expire_at=timezone.now() + timedelta(minutes=settings.ORDER_PAYMENT_TIMEOUT_MINUTES),
         )
 
-        for index, ctx in enumerate(contexts):
-            product = ctx["product"]
-            sku = ctx["sku"]
-            price = sku.price if sku else product.price
-            quantity = ctx["item"]["quantity"]
-            line_amount = price * quantity
-            platform_amount = platform_amounts[index]
-            OrderItem.objects.create(
-                order=order,
-                product=product,
-                sku=sku,
-                snapshot_json={
-                    "title": product.title,
-                    "cover_url": product.cover_url,
-                    "spec": sku.spec_json if sku else {},
-                    "type": product.type,
-                    "verify_days": product.verify_days,
-                },
-                title=product.title,
-                price=price,
-                quantity=quantity,
-                amount=line_amount,
-                paid_amount=line_amount,
-                commission_rate=rate,
-                platform_amount=platform_amount,
-                merchant_amount=line_amount - platform_amount,
+        created_orders = []
+        for group_payload in groups:
+            merchant_id = group_payload["merchant_id"]
+            order, _ = _create_single_order(
+                user,
+                merchant_id=merchant_id,
+                order_type=group_payload["order_type"],
+                items=group_payload["items"],
+                contact=contact,
+                appointment=group_payload.get("appointment"),
+                remark=remark,
+                idempotency_key=f"{prefix}{merchant_id}",
+                request_hash=request_hash,
+                payment_group=group,
             )
+            created_orders.append(order)
 
-        for sku_id, quantity in sku_need.items():
-            sku = next(ctx["sku"] for ctx in contexts if ctx["sku"] and ctx["sku"].id == sku_id)
-            sku.locked_stock += quantity
-            sku.version += 1
-            sku.save(update_fields=["locked_stock", "version", "updated_at"])
-
-        if order_type in (Order.Type.EXPRESS, Order.Type.PICKUP):
-            OrderDelivery.objects.create(
-                order=order,
-                type=order_type,
-                address_snapshot=contact,
-                receiver_name=contact.get("name", ""),
-                receiver_phone=contact.get("phone", ""),
-            )
-
-        if slot is not None:
-            Appointment.objects.create(
-                order=order,
-                slot=slot,
-                slot_date=slot.slot_date,
-                start_time=slot.start_time,
-                end_time=slot.end_time,
-                status=Appointment.Status.PENDING_CONFIRM,
-                remark=appointment.get("remark", ""),
-            )
-
-    return order, True
+    return {
+        "group_no": group.group_no,
+        "orders": created_orders,
+        "total_amount": total_amount,
+        "created": True,
+    }
 
 
 def _release_stock(order):
@@ -352,7 +466,7 @@ def review_order(user, order_id, score, content="", images=None):
             raise ApiError("ORDER_STATE_CONFLICT", "已超出评价窗口", 409)
         if OrderReview.objects.filter(order=order, user=user).exists():
             raise ApiError("ORDER_STATE_CONFLICT", "该订单已评价", 409)
-        return OrderReview.objects.create(
+        review = OrderReview.objects.create(
             order=order,
             user=user,
             merchant=order.merchant,
@@ -360,6 +474,11 @@ def review_order(user, order_id, score, content="", images=None):
             content=content,
             images=images or [],
         )
+        # 评价赠送积分：每单一次（评价本身有 unique 约束）
+        from apps.points.services import award_for_review
+
+        award_for_review(user_id=user.id, order_id=order.id)
+        return review
 
 
 def mark_order_paid(order):

@@ -8,8 +8,10 @@ const props = withDefaults(
     modelValue: string | string[]
     kind?: 'IMAGE' | 'VIDEO' | ''
     multiple?: boolean
+    hint?: string
+    maxSizeMb?: number
   }>(),
-  { kind: '', multiple: false },
+  { kind: '', multiple: false, hint: '', maxSizeMb: 0 },
 )
 
 const emit = defineEmits<{
@@ -25,6 +27,13 @@ const activeFolder = ref('all')
 const keyword = ref('')
 const selected = ref<string[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
+
+const uploadState = ref<'idle' | 'uploading' | 'done' | 'failed'>('idle')
+const uploadPercent = ref(0)
+const uploadName = ref('')
+const uploadMessage = ref('')
+
+const sizeLimit = () => props.maxSizeMb || (props.kind === 'VIDEO' ? 20 : 5)
 
 function currentUrls(): string[] {
   return Array.isArray(props.modelValue) ? props.modelValue : props.modelValue ? [props.modelValue] : []
@@ -57,6 +66,8 @@ async function show() {
   selected.value = currentUrls()
   activeFolder.value = 'all'
   keyword.value = ''
+  uploadState.value = 'idle'
+  uploadMessage.value = ''
   try {
     await Promise.all([loadFolders(), loadAssets()])
   } catch (exc) {
@@ -90,25 +101,92 @@ async function upload(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
+  error.value = ''
+  const maxBytes = sizeLimit() * 1024 * 1024
+  if (file.size > maxBytes) {
+    uploadState.value = 'failed'
+    uploadName.value = file.name
+    uploadMessage.value = `文件 ${(file.size / 1024 / 1024).toFixed(1)}MB，超出建议上限 ${sizeLimit()}MB`
+    input.value = ''
+    return
+  }
+  uploadState.value = 'uploading'
+  uploadPercent.value = 0
+  uploadName.value = file.name
+  uploadMessage.value = ''
   try {
-    await api.uploadMediaAsset(file, activeFolder.value !== 'all' && activeFolder.value !== 'none' ? Number(activeFolder.value) : null)
+    const folderId =
+      activeFolder.value !== 'all' && activeFolder.value !== 'none' ? Number(activeFolder.value) : null
+    const asset = await api.uploadMediaAssetWithProgress(file, folderId, (percent) => {
+      uploadPercent.value = percent
+    })
+    uploadState.value = 'done'
+    uploadPercent.value = 100
+    uploadMessage.value = `${asset.kind === 'VIDEO' ? '视频' : '图片'}已上传 · ${(asset.size / 1024).toFixed(0)}KB${
+       asset.width && asset.height ? ` · ${asset.width}×${asset.height}` : ''
+    }`
     input.value = ''
     await loadAssets()
+    if (!props.multiple) {
+      selected.value = [asset.url]
+    }
   } catch (exc) {
-    error.value = exc instanceof ApiError ? `${exc.code}：${exc.message}` : '上传失败'
+    uploadState.value = 'failed'
+    uploadMessage.value = exc instanceof ApiError ? `${exc.code}：${exc.message}` : '上传失败'
+    input.value = ''
   }
+}
+
+function removeSelected(url: string) {
+  if (props.multiple) {
+    emit(
+      'update:modelValue',
+      currentUrls().filter((item) => item !== url),
+    )
+    return
+  }
+  emit('update:modelValue', '')
 }
 </script>
 
 <template>
   <div class="media-picker">
-    <button class="text" type="button" @click="show">从素材库选择</button>
+    <div class="secret-row">
+      <button class="outline" type="button" @click="show">从素材库选择</button>
+      <button class="text" type="button" :disabled="uploadState === 'uploading'" @click="fileInput?.click()">
+        上传新素材
+      </button>
+      <input
+        ref="fileInput"
+        type="file"
+        hidden
+        :accept="kind === 'VIDEO' ? 'video/*' : kind === 'IMAGE' ? 'image/*' : 'image/*,video/*'"
+        @change="upload"
+      />
+    </div>
+    <span v-if="hint" class="field-help">{{ hint }}</span>
     <div v-if="currentUrls().length" class="media-selected">
-      <img v-for="url in currentUrls()" :key="url" :src="url" alt="已选素材" class="media-thumb" />
+      <div v-for="url in currentUrls()" :key="url" class="media-selected-item">
+        <img :src="url" alt="已选素材" class="media-thumb" />
+        <button class="text" type="button" @click="removeSelected(url)">移除</button>
+      </div>
+    </div>
+    <div v-if="uploadState !== 'idle'" class="upload-status" :class="uploadState">
+      <template v-if="uploadState === 'uploading'">
+        <span>上传中 {{ uploadPercent }}%</span>
+        <span class="upload-progress"><i :style="{ width: `${uploadPercent}%` }" /></span>
+      </template>
+      <template v-else>
+        <span>{{ uploadState === 'done' ? '✓' : '✕' }} {{ uploadName }}</span>
+        <span class="muted">{{ uploadMessage }}</span>
+      </template>
     </div>
 
     <ModalShell v-if="open" title="选择素材" wide @close="open = false">
-      <h2>选择素材</h2>
+      <div class="modal-head">
+        <h2>选择素材</h2>
+        <button class="modal-close" type="button" aria-label="关闭" @click="open = false">✕</button>
+      </div>
       <div class="toolbar" style="margin: 0">
         <button class="chip" :class="{ on: activeFolder === 'all' }" @click="selectFolder('all')">全部</button>
         <button class="chip" :class="{ on: activeFolder === 'none' }" @click="selectFolder('none')">未分类</button>
@@ -121,8 +199,6 @@ async function upload(event: Event) {
         >
           {{ folder.name }}<em>{{ folder.asset_count }}</em>
         </button>
-        <button class="primary" style="margin-left: auto" @click="fileInput?.click()">上传素材</button>
-        <input ref="fileInput" type="file" hidden accept="image/*,video/*" @change="upload" />
       </div>
 
       <div class="toolbar" style="margin: 0">
@@ -160,3 +236,12 @@ async function upload(event: Event) {
     </ModalShell>
   </div>
 </template>
+
+<style scoped>
+.media-selected-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+</style>

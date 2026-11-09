@@ -2,12 +2,24 @@ import { useLoad, showToast } from '@tarojs/taro'
 import Taro from '@tarojs/taro'
 import { View, Text, Input, Button } from '@tarojs/components'
 import { useState } from 'react'
-import { api, ApiError, type OrderRow } from '../../../api'
+import { api, ApiError, type OrderRow, type Schemas } from '../../../api'
 import { formatDateTime, formatMoney } from '../../../format'
+import MerchantHeader from '../../../components/merchant/MerchantHeader'
+import StatusBadge from '../../../components/merchant/StatusBadge'
+import EmptyState from '../../../components/merchant/EmptyState'
+
+const TABS = [
+  { value: 'PENDING_ACCEPT', label: '待接单' },
+  { value: 'PENDING_FULFILL', label: '待发货' },
+  { value: 'FULFILLING', label: '履约中' },
+  { value: 'COMPLETED', label: '已完成' },
+  { value: '', label: '全部' },
+]
 
 export default function MerchantOrders() {
   const [items, setItems] = useState<OrderRow[]>([])
   const [status, setStatus] = useState('PENDING_ACCEPT')
+  const [profile, setProfile] = useState<Schemas['MerchantProfile'] | null>(null)
   const [error, setError] = useState('')
   const [logistics, setLogistics] = useState('')
 
@@ -21,7 +33,13 @@ export default function MerchantOrders() {
     }
   }
 
-  useLoad(() => load('PENDING_ACCEPT'))
+  useLoad(async () => {
+    try {
+      const p = await api.profile()
+      setProfile(p)
+    } catch { /* ignore */ }
+    load('PENDING_ACCEPT')
+  })
 
   async function accept(id: number) {
     try {
@@ -59,40 +77,54 @@ export default function MerchantOrders() {
     }
   }
 
-  const tabs = ['PENDING_ACCEPT', 'PENDING_FULFILL', 'FULFILLING', 'COMPLETED']
-
   return (
     <View className="page">
-      <View className="title">订单处理</View>
-      <View style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
-        {tabs.map((tab) => (
-          <Button key={tab} className={`chip ${status === tab ? 'active' : ''}`} onClick={() => load(tab)}>
-            {tab}
+      {profile && <MerchantHeader name={profile.name || ''} shortName={profile.short_name} logoUrl={profile.logo_url} showSettings={false} />}
+      <View className="title">订单列表</View>
+
+      <View className="mch-tabs">
+        {TABS.map((tab) => (
+          <Button
+            key={tab.value || 'ALL'}
+            className={`mch-tab ${status === tab.value ? 'active' : ''}`}
+            onClick={() => load(tab.value)}
+          >
+            {tab.label}
           </Button>
         ))}
       </View>
-      {error && <View className="muted" aria-live="polite">{error}</View>}
-      {items.map((order) => (
+
+      {error && <View className="muted" style={{ marginBottom: 12 }}>{error}</View>}
+
+      {items.length > 0 ? items.map((order) => (
         <View key={order.id} className="card">
-          <View className="row"><Text>{order.order_no}</Text><Text className="tag">{order.status}</Text></View>
-          <View className="row"><Text className="muted">{formatDateTime(order.created_at)}</Text><Text className="price">{formatMoney(order.payable_amount)}</Text></View>
+          <View className="row">
+            <Text style={{ fontSize: '26px' }}>{order.order_no}</Text>
+            <StatusBadge kind="order" status={order.status} />
+          </View>
+          {order.items && order.items.length > 0 && (
+            <Text className="muted">{order.items.map((i) => i.title).join('、')}</Text>
+          )}
+          <View className="row">
+            <Text className="muted">{formatDateTime(order.created_at)}</Text>
+            <Text className="price">{formatMoney(order.payable_amount)}</Text>
+          </View>
           {order.status === 'PENDING_ACCEPT' && (
-            <View className="row">
-              <Button className="btn" style={{ flex: 1, marginRight: '12px', marginTop: 0 }} onClick={() => accept(order.id)}>接单</Button>
-              <Button className="btn secondary" style={{ flex: 1, marginTop: 0 }} onClick={() => reject(order.id)}>拒单</Button>
+            <View className="mch-actions">
+              <Button className="btn" onClick={() => accept(order.id)}>接单</Button>
+              <Button className="btn secondary" onClick={() => reject(order.id)}>拒单</Button>
             </View>
           )}
           {order.status === 'PENDING_FULFILL' && (
             <View>
-              <Text className="field-label">物流公司（可选）</Text>
+              <Text className="mch-field-label">物流公司（可选）</Text>
               <Input
-                className="input"
-                name="logistics_company"
+                className="mch-input"
                 placeholder="请输入物流公司…"
                 value={logistics}
-                onInput={(event) => setLogistics(event.detail.value)}
+                onInput={(e) => setLogistics(e.detail.value)}
               />
-              <Button className="btn" style={{ marginTop: 0 }} onClick={() => ship(order.id)}>发货</Button>
+              <Button className="btn" style={{ marginTop: 12 }} onClick={() => ship(order.id)}>发货</Button>
             </View>
           )}
           {order.status === 'FULFILLING' && (
@@ -102,14 +134,15 @@ export default function MerchantOrders() {
           )}
           <Button
             className="chip"
-            style={{ marginTop: '10px' }}
+            style={{ marginTop: 12 }}
             onClick={() => Taro.navigateTo({ url: `/pages/merchant/order-detail/index?id=${order.id}` })}
           >
             分账明细
           </Button>
         </View>
-      ))}
-      {!items.length && <View className="muted">当前状态下暂无订单</View>}
+      )) : (
+        <EmptyState text="当前状态下暂无订单" icon="📋" />
+      )}
     </View>
   )
 }

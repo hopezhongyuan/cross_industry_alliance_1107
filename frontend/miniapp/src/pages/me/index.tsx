@@ -6,8 +6,9 @@ import { api, ApiError, clearToken, getToken } from '../../api'
 import BottomNav from '../../components/BottomNav'
 
 const menus = [
+  { label: '我的积分', action: () => Taro.navigateTo({ url: '/pages/points/index' }) },
   { label: '收货地址', action: () => Taro.navigateTo({ url: '/pages/addresses/index' }) },
-  { label: '优惠券 / 积分', hint: 'P1 未开放', action: () => Taro.showToast({ title: 'P1 开放优惠券与积分', icon: 'none' }) },
+  { label: '优惠券', hint: 'P1 未开放', action: () => Taro.showToast({ title: 'P1 开放优惠券', icon: 'none' }) },
   { label: '客服与帮助', action: () => Taro.showToast({ title: '客服入口将在正式版开放', icon: 'none' }) },
   { label: '关于平台与协议', action: () => Taro.navigateTo({ url: '/pages/about/index' }) },
   { label: '设置', action: () => Taro.showToast({ title: '设置项将在正式版开放', icon: 'none' }) },
@@ -21,6 +22,7 @@ const shortcuts = [
 
 export default function Me() {
   const [profile, setProfile] = useState<{ nickname: string; phone: string } | null>(null)
+  const [points, setPoints] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [loggedIn, setLoggedIn] = useState(Boolean(getToken()))
 
@@ -29,6 +31,7 @@ export default function Me() {
     setLoggedIn(hasToken)
     if (!hasToken) {
       setProfile(null)
+      setPoints(null)
       return
     }
     api
@@ -41,6 +44,7 @@ export default function Me() {
         }
         setError(exc instanceof ApiError ? exc.message : '加载失败')
       })
+    api.pointAccount().then((a) => setPoints(a.balance ?? 0)).catch(() => setPoints(null))
   })
 
   async function logout() {
@@ -65,6 +69,15 @@ export default function Me() {
               {profile?.nickname || '邻里会员'}
             </Text>
             <Text className="muted">{profile?.phone || '已登录'}</Text>
+            {points !== null && (
+              <Text
+                className="muted"
+                style={{ display: 'block', marginTop: 4, cursor: 'pointer' }}
+                onClick={() => Taro.navigateTo({ url: '/pages/points/index' })}
+              >
+                积分 {points} ›
+              </Text>
+            )}
           </View>
         ) : (
           <Text style={{ fontSize: '30px' }}>未登录，登录后发现更多好店</Text>

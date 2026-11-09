@@ -61,6 +61,7 @@ class PlatformConfigTests(TestCase):
         self.assertEqual(data["platform_name"], "异业联盟测试平台")
         self.assertTrue(data["miniapp_app_secret_configured"])
         self.assertTrue(data["amap_web_key_configured"])
+        self.assertEqual(data["miniapp_app_secret_masked"], "••••••••alue")
         self.assertNotIn("miniapp_app_secret", data)
         self.assertNotIn("amap_web_key", data)
         self.assertNotIn("amap_js_security_code", data)

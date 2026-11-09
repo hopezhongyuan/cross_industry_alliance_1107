@@ -791,6 +791,26 @@ page,
   flex: 0 0 auto;
 }
 
+.check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid #c9bfa9;
+  color: transparent;
+  font-size: 22px;
+  flex: 0 0 auto;
+  background: #fff;
+}
+
+.check.on {
+  background: #2f6b4f;
+  border-color: #2f6b4f;
+  color: #fff;
+}
+
 .profile-hero {
   background: linear-gradient(150deg, #232f2a, #6b7a55);
   color: #fdf9f0;
@@ -933,3 +953,380 @@ page,
   border-color: #201d19;
   background: #f8f2e5;
 }
+
+/* ============ 商户中心 ============ */
+.mch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(150deg, #232f2a, #6b7a55);
+  color: #fdf9f0;
+  border-radius: 18px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.mch-header-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mch-logo {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: #f1eadc;
+  flex: 0 0 auto;
+}
+
+.mch-logo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #201d19;
+  font-family: 'Songti SC', serif;
+  font-size: 40px;
+  font-weight: 600;
+}
+
+.mch-header-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.mch-header-name {
+  display: block;
+  font-size: 34px;
+  font-weight: 600;
+  color: #fdf9f0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mch-header-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.mch-status-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #52c41a;
+  display: inline-block;
+}
+
+.mch-status-text {
+  font-size: 24px;
+  color: rgba(253, 249, 240, 0.78);
+}
+
+.mch-header-action {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(253, 249, 240, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.mch-header-icon {
+  font-size: 36px;
+  color: #fdf9f0;
+}
+
+/* 指标宫格 */
+.mch-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.mch-metric {
+  background: #fffdf8;
+  border: 1px solid #e3dacb;
+  border-radius: 16px;
+  padding: 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mch-metric-value {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-family: 'Songti SC', serif;
+}
+
+.mch-metric-label {
+  font-size: 24px;
+  color: #7b7468;
+}
+
+.mch-metric-sub {
+  font-size: 20px;
+  color: #9b917f;
+}
+
+/* 快捷入口宫格 */
+.mch-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  background: #fffdf8;
+  border: 1px solid #e3dacb;
+  border-radius: 16px;
+  padding: 24px 12px;
+  margin-bottom: 20px;
+}
+
+.mch-quick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.mch-quick-icon {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+}
+
+.mch-quick-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 16px;
+  background: #d9552f;
+  color: #fff;
+  font-size: 20px;
+  line-height: 32px;
+  text-align: center;
+}
+
+.mch-quick-label {
+  font-size: 24px;
+  color: #201d19;
+}
+
+/* 区块标题 */
+.mch-section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 8px 4px 14px;
+}
+
+.mch-section-title-text {
+  font-size: 30px;
+  font-weight: 600;
+  color: #201d19;
+}
+
+.mch-section-more {
+  font-size: 24px;
+  color: #7b7468;
+}
+
+/* 状态标签 */
+.mch-badge {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 22px;
+  line-height: 1.4;
+}
+
+.mch-badge-success { background: #e8f5e9; color: #2e7d32; }
+.mch-badge-warn { background: #fff3e0; color: #ef6c00; }
+.mch-badge-danger { background: #fdecea; color: #c62828; }
+.mch-badge-info { background: #e3f2fd; color: #1565c0; }
+.mch-badge-muted { background: #f1eadc; color: #7b6a4b; }
+
+/* 空状态 */
+.mch-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 0;
+  gap: 12px;
+}
+
+.mch-empty-icon {
+  font-size: 56px;
+  opacity: 0.6;
+}
+
+.mch-empty-text {
+  font-size: 26px;
+  color: #9b917f;
+}
+
+/* 搜索栏 */
+.mch-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fffdf8;
+  border: 1px solid #e3dacb;
+  border-radius: 999px;
+  padding: 12px 20px;
+  margin-bottom: 16px;
+}
+
+.mch-search-icon {
+  font-size: 26px;
+  opacity: 0.6;
+}
+
+.mch-search-input {
+  flex: 1;
+  font-size: 26px;
+  color: #201d19;
+}
+
+/* 商户页通用：卡片内操作行 */
+.mch-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.mch-actions .btn,
+.mch-actions .chip {
+  margin-top: 0;
+  flex: 1;
+}
+
+/* 商户页：筛选 tab 行 */
+.mch-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.mch-tab {
+  background: #fffdf8;
+  color: #7b7468;
+  border: 1px solid #e3dacb;
+  border-radius: 999px;
+  padding: 10px 22px;
+  font-size: 24px;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.mch-tab::after { border: none; }
+
+.mch-tab.active {
+  background: #201d19;
+  color: #fdf9f0;
+  border-color: #201d19;
+}
+
+/* 表单字段增强 */
+.mch-field-label {
+  display: block;
+  font-size: 24px;
+  color: #7b7468;
+  margin: 16px 0 8px;
+}
+
+.mch-input {
+  border: 1px solid #e3dacb;
+  border-radius: 12px;
+  padding: 18px 16px;
+  font-size: 28px;
+  background: #fffdf8;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.mch-textarea {
+  border: 1px solid #e3dacb;
+  border-radius: 12px;
+  padding: 16px;
+  font-size: 26px;
+  background: #fffdf8;
+  width: 100%;
+  min-height: 160px;
+  box-sizing: border-box;
+}
+
+/* 商户设置列表 */
+.mch-setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 0;
+  border-bottom: 1px solid #efe7d8;
+}
+
+.mch-setting-row:last-child { border-bottom: none; }
+
+.mch-setting-label {
+  font-size: 28px;
+  color: #201d19;
+}
+
+.mch-setting-value {
+  font-size: 26px;
+  color: #7b7468;
+  max-width: 60%;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 余额四象限 */
+.mch-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.mch-balance-item {
+  background: #f8f2e5;
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.mch-balance-label {
+  font-size: 22px;
+  color: #7b7468;
+}
+
+.mch-balance-value {
+  font-size: 34px;
+  font-weight: 600;
+  color: #201d19;
+  margin-top: 6px;
+  font-family: 'Songti SC', serif;
+}
+
+.mch-balance-item.highlight .mch-balance-value {
+  color: #d9552f;
+}
+

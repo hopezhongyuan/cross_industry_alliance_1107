@@ -120,17 +120,21 @@ class CartAPITests(TestCase):
     def test_add_item_and_increment_same_sku(self):
         first = self._add()
         self.assertEqual(first.status_code, 200, first.data)
-        self.assertEqual(first.data["data"]["total_amount"], 1000)
+        self.assertEqual(first.data["data"]["total_selected_amount"], 1000)
         second = self._add()
         self.assertEqual(second.status_code, 200)
-        self.assertEqual(second.data["data"]["items"][0]["quantity"], 2)
-        self.assertEqual(second.data["data"]["total_amount"], 2000)
+        self.assertEqual(second.data["data"]["groups"][0]["items"][0]["quantity"], 2)
+        self.assertEqual(second.data["data"]["total_selected_amount"], 2000)
 
-    def test_cross_store_cart_is_rejected(self):
+    def test_cross_store_cart_groups_by_merchant(self):
         self._add()
         response = self._add(product_id=self.other_product.id, sku_id=self.other_sku.id)
-        self.assertEqual(response.status_code, 409)
-        self.assertEqual(response.data["code"], "CROSS_STORE_CART")
+        self.assertEqual(response.status_code, 200, response.data)
+        groups = response.data["data"]["groups"]
+        self.assertEqual(len(groups), 2)
+        merchant_ids = {group["merchant_id"] for group in groups}
+        self.assertEqual(merchant_ids, {self.merchant.id, self.other_merchant.id})
+        self.assertEqual(response.data["data"]["total_selected_amount"], 3000)
 
     def test_stock_not_enough(self):
         response = self._add(quantity=11)
@@ -139,22 +143,22 @@ class CartAPITests(TestCase):
 
     def test_update_quantity_and_selected(self):
         created = self._add()
-        item_id = created.data["data"]["items"][0]["id"]
+        item_id = created.data["data"]["groups"][0]["items"][0]["id"]
         patched = self.client.patch(f"/api/v1/cart/items/{item_id}/", {"quantity": 3}, format="json")
         self.assertEqual(patched.status_code, 200)
-        self.assertEqual(patched.data["data"]["total_amount"], 3000)
+        self.assertEqual(patched.data["data"]["total_selected_amount"], 3000)
         unselected = self.client.patch(f"/api/v1/cart/items/{item_id}/", {"selected": False}, format="json")
         self.assertEqual(unselected.status_code, 200)
-        self.assertEqual(unselected.data["data"]["total_amount"], 0)
+        self.assertEqual(unselected.data["data"]["total_selected_amount"], 0)
 
     def test_delete_item(self):
         created = self._add()
-        item_id = created.data["data"]["items"][0]["id"]
+        item_id = created.data["data"]["groups"][0]["items"][0]["id"]
         deleted = self.client.delete(f"/api/v1/cart/items/{item_id}/")
         self.assertEqual(deleted.status_code, 204)
         listing = self.client.get("/api/v1/cart/")
         self.assertEqual(listing.status_code, 200)
-        self.assertEqual(listing.data["data"]["items"], [])
+        self.assertEqual(listing.data["data"]["groups"], [])
 
     def test_cart_requires_authentication(self):
         response = APIClient().get("/api/v1/cart/")

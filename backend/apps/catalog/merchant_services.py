@@ -378,3 +378,34 @@ def admin_set_product_status(admin_user, product_id: int, action: str, reason: s
         request=request,
     )
     return product
+
+
+def admin_batch_set_product_status(admin_user, product_ids, action: str, reason: str, request=None):
+    """批量强制下架 / 恢复：逐条处理，返回每条结果，不做全量回滚。"""
+    require_platform_admin(admin_user)
+    results = []
+    for product_id in product_ids:
+        try:
+            product = admin_set_product_status(admin_user, product_id, action, reason, request=request)
+            results.append(
+                {
+                    "id": product_id,
+                    "ok": True,
+                    "status": product.status,
+                    "off_sale_by": product.off_sale_by,
+                    "error_code": "",
+                    "error_message": "",
+                }
+            )
+        except ApiError as exc:
+            results.append(
+                {
+                    "id": product_id,
+                    "ok": False,
+                    "status": "",
+                    "off_sale_by": "",
+                    "error_code": exc.code,
+                    "error_message": exc.message,
+                }
+            )
+    return results

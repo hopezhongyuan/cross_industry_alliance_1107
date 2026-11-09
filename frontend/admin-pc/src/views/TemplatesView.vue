@@ -9,6 +9,8 @@ import {
 } from '../api'
 import MediaPicker from '../components/MediaPicker.vue'
 import ModalShell from '../components/ModalShell.vue'
+import PageHeader from '../components/PageHeader.vue'
+import StatusTag from '../components/StatusTag.vue'
 import { formatMoney } from '../format'
 
 const STATUS_LABEL: Record<string, string> = { DRAFT: '草稿', PUBLISHED: '已发布', OFFLINE: '已下线' }
@@ -175,10 +177,9 @@ onMounted(load)
 </script>
 
 <template>
-  <h1>商品模板</h1>
+  <PageHeader title="商品模板" description="平台维护商品资料，按范围分发给商户认领；商户可自行上下架。" />
   <div class="toolbar">
-    <span class="muted">平台维护商品资料，按范围分发给商户认领；商户可自行上下架。</span>
-    <label class="field" style="margin-left: auto">
+    <label class="field">
       <span>状态</span>
       <select v-model="status" @change="load">
         <option value="">全部</option>
@@ -192,22 +193,27 @@ onMounted(load)
 
   <div v-if="error" class="error" role="alert">{{ error }}</div>
 
-  <div class="card" style="padding: 0">
+  <div class="table-wrap">
     <table>
       <thead>
         <tr><th>模板</th><th>类目</th><th class="money">建议价</th><th>分发</th><th>状态</th><th class="money">认领</th><th>操作</th></tr>
       </thead>
       <tbody>
         <tr v-for="row in rows" :key="row.id">
-          <td>{{ row.title }}<br /><span class="muted">{{ row.template_no }}</span></td>
+          <td class="cell-main">
+            {{ row.title }}
+            <div class="muted">{{ row.template_no }}</div>
+          </td>
           <td>{{ row.category_name || '-' }}</td>
           <td class="money">{{ formatMoney(row.price) }}</td>
           <td>{{ SCOPE_LABEL[row.scope] ?? row.scope }}</td>
-          <td><span class="tag">{{ STATUS_LABEL[row.status] ?? row.status }}</span></td>
+          <td><StatusTag :status="row.status" :label="STATUS_LABEL[row.status] ?? row.status" /></td>
           <td class="money">{{ row.adoption_count }}</td>
           <td>
-            <button class="text" @click="openEdit(row)">编辑</button>
-            <button class="text" style="margin-left: 8px" @click="sync(row)">同步</button>
+            <div class="actions">
+              <button class="text" @click="openEdit(row)">编辑</button>
+              <button class="text" @click="sync(row)">同步到商户</button>
+            </div>
           </td>
         </tr>
       </tbody>

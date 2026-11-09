@@ -251,10 +251,13 @@ export type AdminPlatformConfig = {
   agreement_version: string
   miniapp_app_id: string
   miniapp_app_secret_configured: boolean
+  miniapp_app_secret_masked: string
   miniapp_original_id: string
   amap_web_key_configured: boolean
+  amap_web_key_masked: string
   amap_js_key: string
   amap_js_security_code_configured: boolean
+  amap_js_security_code_masked: string
   amap_enabled: boolean
   updated_by_name: string
   updated_at: string
@@ -360,6 +363,8 @@ export type AdminProductDetail = {
   original_price: number
   status: string
   reject_reason: string
+  off_sale_by: string
+  off_sale_reason: string
   verify_days: number
   appointment_required: boolean
   delivery_types: string[]
@@ -487,6 +492,21 @@ export type MerchantCreatePayload = {
 }
 
 
+
+export type BatchActionResultItem = {
+  id: number
+  ok: boolean
+  status: string
+  off_sale_by?: string
+  error_code: string
+  error_message: string
+}
+
+export type BatchActionResult = {
+  items: BatchActionResultItem[]
+  succeeded: number
+  failed: number
+}
 
 const BASE_URL = import.meta.env.VITE_API_BASE ?? '/api/v1'
 const TOKEN_KEY = 'alliance_admin_token'
@@ -720,6 +740,13 @@ export const api = {
     })
   },
 
+  batchAdminProductStatus(ids: number[], action: 'FORCE_OFF' | 'RESTORE', reason = '') {
+    return request<BatchActionResult>('/admin/products/batch-status/', {
+      method: 'POST',
+      body: { ids, action, reason },
+    })
+  },
+
   adminTemplates(params: { status?: string; page?: number; page_size?: number } = {}) {
     return request<Paged<ProductTemplate>>(`/admin/product-templates/${query(params)}`)
   },
@@ -767,6 +794,39 @@ export const api = {
     return request<MediaAsset>('/admin/media-assets/', { method: 'POST', body: form })
   },
 
+  uploadMediaAssetWithProgress(
+    file: File,
+    folderId: number | null = null,
+    onProgress?: (percent: number) => void,
+  ) {
+    const form = new FormData()
+    form.append('file', file)
+    if (folderId !== null) form.append('folder_id', String(folderId))
+    return new Promise<MediaAsset>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', `${BASE_URL}/admin/media-assets/`)
+      const token = getToken()
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+      xhr.setRequestHeader('Accept', 'application/json')
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && onProgress) {
+          onProgress(Math.round((event.loaded / event.total) * 100))
+        }
+      }
+      xhr.onload = () => {
+        const payload = xhr.responseText ? JSON.parse(xhr.responseText) : null
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(unwrap<MediaAsset>(payload))
+          return
+        }
+        const body = (payload ?? {}) as { code?: string; message?: string }
+        reject(new ApiError(body.code ?? `HTTP_${xhr.status}`, body.message ?? '上传失败', xhr.status))
+      }
+      xhr.onerror = () => reject(new ApiError('NETWORK_ERROR', '网络异常，上传失败', 0))
+      xhr.send(form)
+    })
+  },
+
   deleteMediaAsset(assetId: number) {
     return request<void>(`/admin/media-assets/${assetId}/`, { method: 'DELETE' })
   },
@@ -776,6 +836,13 @@ export const api = {
       method: 'POST',
       body: { decision, reason },
       headers: { 'Idempotency-Key': idempotencyKey() },
+    })
+  },
+
+  batchDecideAudit(ids: number[], decision: 'APPROVE' | 'REJECT', reason = '') {
+    return request<BatchActionResult>('/admin/audits/batch-decision/', {
+      method: 'POST',
+      body: { ids, decision, reason },
     })
   },
 
@@ -844,5 +911,26 @@ export const api = {
 
   publishRule(snapshot: Record<string, unknown>, remark = '') {
     return request<unknown>('/admin/rules/', { method: 'PUT', body: { snapshot, remark } })
+  },
+
+  // ---------- 积分 ----------
+  pointsConfig() {
+    return request<Schemas['PointsConfig']>('/admin/points/config/')
+  },
+
+  savePointsConfig(payload: Partial<Schemas['PointsConfig']>) {
+    return request<Schemas['PointsConfig']>('/admin/points/config/', { method: 'PUT', body: payload })
+  },
+
+  pointsUsers(params: { keyword?: string; page?: number; page_size?: number } = {}) {
+    return request<Paged<Schemas['PointAccount']>>(`/admin/points/users/${query(params)}`)
+  },
+
+  pointsUserTransactions(userId: number, params: { page?: number; page_size?: number } = {}) {
+    return request<Paged<Schemas['PointTransaction']>>(`/admin/points/users/${userId}/transactions/${query(params)}`)
+  },
+
+  adjustPoints(payload: { user_id: number; delta: number; reason: string }) {
+    return request<Schemas['PointTransaction']>('/admin/points/adjust/', { method: 'POST', body: payload })
   },
 }

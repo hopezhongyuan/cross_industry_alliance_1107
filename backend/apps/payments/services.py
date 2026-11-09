@@ -11,7 +11,7 @@ from apps.orders.models import Order
 from apps.orders.order_services import mark_order_paid
 from apps.orders.services import transit_order
 
-from .models import PaymentOrder, PlatformPaymentConfig
+from .models import PaymentGroup, PaymentOrder, PlatformPaymentConfig
 from .providers import create_prepay
 
 
@@ -107,7 +107,120 @@ def process_payment_success(payment_no: str, transaction_id: str, amount: int) -
             ],
         )
         mark_order_paid(order)
+
+        # 消费返积分：与支付状态在同一事务，幂等键 points:order:{order_no}
+        from apps.points.services import award_for_order_payment
+
+        award_for_order_payment(
+            user_id=order.user_id,
+            order_no=order.order_no,
+            paid_amount=payment.amount,
+            order_id=order.id,
+        )
     return payment
+
+
+def create_group_payment(user, group_no, channel, idempotency_key):
+    """为合单支付组发起支付（一笔支付覆盖组内所有订单）。"""
+    with transaction.atomic():
+        existing = PaymentGroup.objects.filter(idempotency_key=idempotency_key).first()
+        if existing is not None:
+            if existing.group_no != group_no or existing.user_id != user.id:
+                raise ApiError("IDEMPOTENCY_CONFLICT", "幂等键已用于其他支付请求", 409)
+            return existing, {"mock": True} if existing.prepay_id else {}
+
+        group = PaymentGroup.objects.select_for_update().filter(group_no=group_no, user=user).first()
+        if group is None:
+            raise ApiError("NOT_FOUND", "合单支付组不存在", 404)
+        if group.status not in (PaymentGroup.Status.CREATED, PaymentGroup.Status.PAYING):
+            raise ApiError("ORDER_STATE_CONFLICT", "合单支付组状态不允许支付", 409)
+
+        orders = list(Order.objects.select_for_update().filter(payment_group=group).order_by("id"))
+        if not orders:
+            raise ApiError("ORDER_STATE_CONFLICT", "合单支付组没有关联订单", 409)
+        for order in orders:
+            if order.status != Order.Status.PENDING_PAYMENT:
+                raise ApiError("ORDER_STATE_CONFLICT", f"订单 {order.order_no} 状态不允许支付", 409)
+            if order.expire_at and timezone.now() > order.expire_at:
+                raise ApiError("ORDER_EXPIRED", f"订单 {order.order_no} 已超时关闭", 409)
+
+        total_amount = sum(order.payable_amount for order in orders)
+        if group.amount != total_amount:
+            group.amount = total_amount
+
+        group.channel = channel
+        group.idempotency_key = idempotency_key
+        prepay = {"prepay_id": f"mock_{group.group_no}", "pay_params": {"mock": True}}
+        group.prepay_id = prepay["prepay_id"]
+        group.status = PaymentGroup.Status.PAYING
+        group.save(update_fields=["channel", "idempotency_key", "prepay_id", "status", "amount", "updated_at"])
+        return group, prepay["pay_params"]
+
+
+def process_group_payment_success(group_no: str, transaction_id: str, amount: int) -> PaymentGroup:
+    """合单支付回调成功：组内所有订单各自走状态机、记账、核销码、积分。"""
+    from apps.points.services import award_for_order_payment
+
+    with transaction.atomic():
+        group = PaymentGroup.objects.select_for_update().filter(group_no=group_no).first()
+        if group is None:
+            raise ApiError("PAYMENT_NOT_FOUND", "合单支付组不存在", 404)
+        if amount != group.amount:
+            raise ApiError(
+                "PAY_AMOUNT_MISMATCH",
+                "回调金额与合单支付金额不一致",
+                409,
+                {"expected_amount": group.amount, "actual_amount": amount},
+            )
+        if group.status == PaymentGroup.Status.PAID:
+            if group.transaction_id != transaction_id:
+                raise ApiError("PAYMENT_TRANSACTION_CONFLICT", "交易号与已支付记录不一致", 409)
+            return group
+        if group.status in (PaymentGroup.Status.CLOSED,):
+            raise ApiError("ORDER_STATE_CONFLICT", "合单支付组已关闭", 409)
+
+        orders = list(Order.objects.select_for_update().filter(payment_group=group).order_by("id"))
+        for order in orders:
+            if order.status != Order.Status.PENDING_PAYMENT:
+                raise ApiError("ORDER_STATE_CONFLICT", f"订单 {order.order_no} 状态不允许支付成功", 409)
+
+        group.status = PaymentGroup.Status.PAID
+        group.transaction_id = transaction_id
+        group.paid_at = timezone.now()
+        group.save(update_fields=["status", "transaction_id", "paid_at", "updated_at"])
+
+        for order in orders:
+            order.paid_amount = order.payable_amount
+            order.save(update_fields=["paid_amount", "updated_at"])
+            transit_order(order.id, "PAY_SUCCESS", operator_type="SYSTEM")
+            post_transaction(
+                biz_type="PAYMENT",
+                biz_id=group.id,
+                event_type="PAY_SUCCESS",
+                idempotency_key=f"payment:{order.order_no}",
+                entries=[
+                    {
+                        "account_type": AccountType.PLATFORM_CASH,
+                        "account_id": 0,
+                        "direction": Direction.DEBIT,
+                        "amount": order.payable_amount,
+                    },
+                    {
+                        "account_type": AccountType.MERCHANT_PENDING,
+                        "account_id": order.merchant_id,
+                        "direction": Direction.CREDIT,
+                        "amount": order.payable_amount,
+                    },
+                ],
+            )
+            mark_order_paid(order)
+            award_for_order_payment(
+                user_id=order.user_id,
+                order_no=order.order_no,
+                paid_amount=order.payable_amount,
+                order_id=order.id,
+            )
+    return group
 
 
 def upsert_payment_config(admin_user, channel, request=None, **fields) -> PlatformPaymentConfig:

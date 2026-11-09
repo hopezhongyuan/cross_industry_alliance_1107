@@ -263,19 +263,30 @@ export type MerchantTemplateRow = {
   adopted_status: string
 }
 
+export type CartItem = {
+  id: number
+  merchant_id: number
+  product_id: number
+  sku_id: number | null
+  title: string
+  cover_url: string
+  price_amount: number
+  quantity: number
+  selected: boolean
+}
+
+export type CartGroup = {
+  merchant_id: number
+  merchant_name: string
+  items: CartItem[]
+  selected_count: number
+  selected_amount: number
+}
+
 export type CartData = {
-  merchant_id: number | null
-  items: Array<{
-    id: number
-    product_id: number
-    sku_id: number | null
-    title: string
-    cover_url: string
-    price_amount: number
-    quantity: number
-    selected: boolean
-  }>
-  total_amount: number
+  groups: CartGroup[]
+  total_selected_count: number
+  total_selected_amount: number
 }
 
 export type OrderRow = {
@@ -473,6 +484,48 @@ export const api = {
     return order
   },
 
+  createBatchOrder(payload: {
+    groups: Array<{
+      merchant_id: number
+      order_type: string
+      items: Array<{ product_id: number; sku_id: number | null; quantity: number }>
+      appointment?: { slot_id: number; remark?: string }
+    }>
+    contact: { name: string; phone: string; address_detail: string }
+    remark?: string
+  }) {
+    return request<{
+      group_no: string
+      orders: Array<{ id: number; order_no: string; merchant_id: number; payable_amount: number }>
+      total_amount: number
+    }>('/orders/batch/', {
+      method: 'POST',
+      data: payload,
+      headers: { 'Idempotency-Key': idempotencyKey() },
+    })
+  },
+
+  async payGroup(groupNo: string, channel = 'WECHAT_MINI') {
+    return request<{ group_no: string; prepay_id: string; pay_params: Record<string, unknown> }>(
+      `/payment-groups/${groupNo}/pay/`,
+      { method: 'POST', data: { channel }, headers: { 'Idempotency-Key': idempotencyKey() } },
+    )
+  },
+
+  async mockPayGroup(groupNo: string, totalAmount: number) {
+    await api.payGroup(groupNo)
+    await Taro.request({
+      url: `${BASE_URL}/callback/wechat/pay/`,
+      method: 'POST',
+      data: {
+        payment_no: groupNo,
+        transaction_id: `mp-${Date.now()}`,
+        amount: totalAmount,
+        trade_state: 'SUCCESS',
+      },
+    })
+  },
+
   async orders(status = '') {
     const payload = await request<unknown>(`/orders/${status ? `?status=${status}` : ''}`)
     return normalizeList<OrderRow>(payload)
@@ -603,5 +656,58 @@ export const api = {
       data: { amount },
       headers: { 'Idempotency-Key': idempotencyKey() },
     })
+  },
+
+  profile() {
+    return request<Schemas['MerchantProfile']>('/merchant/profile/')
+  },
+
+  dashboard() {
+    return request<Schemas['MerchantDashboard']>('/merchant/dashboard/')
+  },
+
+  async merchantAfterSales(params: { status?: string; merchant_decision?: string } = {}) {
+    const qs = new URLSearchParams()
+    if (params.status) qs.set('status', params.status)
+    if (params.merchant_decision) qs.set('merchant_decision', params.merchant_decision)
+    const suffix = qs.toString()
+    return request<Paged<Schemas['MerchantAfterSaleRow']>>(`/merchant/after-sales/${suffix ? `?${suffix}` : ''}`)
+  },
+
+  decideAfterSale(id: number, decision: 'AGREE' | 'REJECT', reason = '', approvedAmount?: number) {
+    const data: Record<string, unknown> = { decision, reason }
+    if (approvedAmount) data.approved_amount = approvedAmount
+    return request<Schemas['AfterSale']>(`/merchant/after-sales/${id}/decision/`, {
+      method: 'POST',
+      data,
+      headers: { 'Idempotency-Key': idempotencyKey() },
+    })
+  },
+
+  // ---------- 积分 ----------
+  pointAccount() {
+    return request<Schemas['PointAccount']>('/points/account/')
+  },
+
+  pointTransactions(bizType?: string) {
+    const qs = new URLSearchParams()
+    if (bizType) qs.set('biz_type', bizType)
+    const suffix = qs.toString()
+    return request<Paged<Schemas['PointTransaction']>>(`/points/transactions/${suffix ? `?${suffix}` : ''}`)
+  },
+
+  pointSignin() {
+    return request<Schemas['PointAwardResult']>('/points/signin/', { method: 'POST' })
+  },
+
+  pointShare(targetType: 'PRODUCT' | 'MERCHANT' | 'PAGE', targetId: number) {
+    return request<Schemas['ShareResult']>('/points/share/', {
+      method: 'POST',
+      data: { target_type: targetType, target_id: targetId },
+    })
+  },
+
+  pointRules() {
+    return request<Schemas['PointsConfig']>('/points/rules/')
   },
 }

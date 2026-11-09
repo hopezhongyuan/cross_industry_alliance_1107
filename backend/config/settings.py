@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "apps.ledger",
     "apps.governance",
     "apps.notifications",
+    "apps.points",
 ]
 
 MIDDLEWARE = [

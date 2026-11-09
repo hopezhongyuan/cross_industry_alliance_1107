@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.common.api import ApiError, EnvelopeAPIView, EnvelopeResponse, ok, paginated
 from apps.governance.services import require_platform_admin
+from apps.merchants.services import get_active_staff_merchant
 
 from .models import AfterSale, ArbitrationCase
 from .serializers import (
@@ -15,6 +16,7 @@ from .serializers import (
     AfterSaleSerializer,
     ArbitrationCaseSerializer,
     ArbitrationRuleInputSerializer,
+    MerchantAfterSaleListSerializer,
 )
 from .services import apply_after_sale, decide_after_sale, rule_arbitration
 
@@ -51,6 +53,29 @@ class AfterSaleDecisionView(EnvelopeAPIView):
         serializer.is_valid(raise_exception=True)
         after_sale = decide_after_sale(request.user, pk, **serializer.validated_data)
         return ok(request, AfterSaleSerializer(after_sale).data)
+
+
+@extend_schema(tags=["merchant"], responses=EnvelopeResponse)
+class MerchantAfterSaleListView(EnvelopeAPIView):
+    """商户售后列表（仅本门店），支持按 status / merchant_decision 过滤。"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = MerchantAfterSaleListSerializer
+
+    def get(self, request):
+        merchant = get_active_staff_merchant(request.user)
+        queryset = AfterSale.objects.filter(merchant=merchant).select_related("order").order_by("-created_at")
+        status = request.query_params.get("status")
+        if status:
+            if status not in set(AfterSale.Status.values):
+                raise ApiError("VALIDATION_ERROR", "status 取值非法", 422)
+            queryset = queryset.filter(status=status)
+        decision = request.query_params.get("merchant_decision")
+        if decision:
+            if decision not in set(AfterSale.MerchantDecision.values):
+                raise ApiError("VALIDATION_ERROR", "merchant_decision 取值非法", 422)
+            queryset = queryset.filter(merchant_decision=decision)
+        return ok(request, paginated(request, queryset, MerchantAfterSaleListSerializer))
 
 
 @extend_schema(tags=["admin"], responses=EnvelopeResponse)

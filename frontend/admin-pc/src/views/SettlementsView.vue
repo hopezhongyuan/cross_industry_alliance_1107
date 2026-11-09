@@ -2,6 +2,9 @@
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, ApiError, type Page, type SettlementRow } from '../api'
+import PageHeader from '../components/PageHeader.vue'
+import PaginationBar from '../components/PaginationBar.vue'
+import StatusTag from '../components/StatusTag.vue'
 import { formatDateTime, formatMoney } from '../format'
 
 const route = useRoute()
@@ -13,7 +16,7 @@ const loading = ref(false)
 const error = ref('')
 const publishing = ref<number | null>(null)
 
-async function load(target = 1) {
+async function load(target = 1, size = page.value.page_size) {
   loading.value = true
   error.value = ''
   router.replace({
@@ -23,7 +26,7 @@ async function load(target = 1) {
     },
   })
   try {
-    const result = await api.settlements({ status: status.value, page: target, page_size: 20 })
+    const result = await api.settlements({ status: status.value, page: target, page_size: size })
     rows.value = result.items
     page.value = result.page
   } catch (exc) {
@@ -51,29 +54,31 @@ onMounted(() => load(Number(route.query.page ?? 1)))
 </script>
 
 <template>
-  <h1>结算批次</h1>
+  <PageHeader title="结算批次" description="按周期发布结算批次；发布后结算项转为可提现。" />
   <div class="toolbar">
     <label class="field">
       <span>状态</span>
-      <select v-model="status">
+      <select v-model="status" @change="load(1)">
         <option value="">全部</option>
-        <option v-for="value in ['PENDING', 'PUBLISHED', 'CLOSED']" :key="value" :value="value">{{ value }}</option>
+        <option value="PENDING">待发布</option>
+        <option value="PUBLISHED">已发布</option>
+        <option value="CLOSED">已关闭</option>
       </select>
     </label>
-    <button class="primary" :disabled="loading" @click="load()">查询</button>
+    <button class="primary" :disabled="loading" @click="load(1)">查询</button>
   </div>
   <div v-if="error" class="error" role="alert">{{ error }}</div>
-  <div class="card" style="padding: 0">
+  <div class="table-wrap">
     <table>
       <thead>
         <tr>
           <th>批次号</th>
           <th>周期</th>
           <th>状态</th>
-          <th>结算总额</th>
-          <th>佣金</th>
-          <th>应打款</th>
-          <th>结算项</th>
+          <th class="money">结算总额</th>
+          <th class="money">佣金</th>
+          <th class="money">应打款</th>
+          <th class="money">结算项</th>
           <th>发布时间</th>
           <th>操作</th>
         </tr>
@@ -82,11 +87,11 @@ onMounted(() => load(Number(route.query.page ?? 1)))
         <tr v-for="row in rows" :key="row.id">
           <td>{{ row.batch_no }}</td>
           <td>{{ row.period_start }} ~ {{ row.period_end }}</td>
-          <td><span class="tag" :class="{ ok: row.status === 'PUBLISHED' }">{{ row.status }}</span></td>
+          <td><StatusTag :status="row.status" /></td>
           <td class="money">{{ formatMoney(row.total_amount) }}</td>
           <td class="money">{{ formatMoney(row.commission_amount) }}</td>
           <td class="money">{{ formatMoney(row.net_amount) }}</td>
-          <td>{{ row.items_count }}</td>
+          <td class="money">{{ row.items_count }}</td>
           <td>{{ formatDateTime(row.published_at) }}</td>
           <td>
             <button class="text" :disabled="row.status !== 'PENDING' || publishing === row.id" @click="publish(row)">
@@ -98,9 +103,10 @@ onMounted(() => load(Number(route.query.page ?? 1)))
     </table>
     <div v-if="!rows.length" class="empty">{{ loading ? '加载中…' : '暂无结算批次' }}</div>
   </div>
-  <div class="pager">
-    <button class="text" :disabled="page.page <= 1" @click="load(page.page - 1)">上一页</button>
-    <span>第 {{ page.page }} 页 · 共 {{ page.total }} 条</span>
-    <button class="text" :disabled="!page.has_more" @click="load(page.page + 1)">下一页</button>
-  </div>
+  <PaginationBar
+    :page="page.page"
+    :page-size="page.page_size"
+    :total="page.total"
+    @change="(payload) => load(payload.page, payload.pageSize)"
+  />
 </template>

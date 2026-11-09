@@ -1,16 +1,12 @@
 import { useLoad, showToast, navigateTo } from '@tarojs/taro'
-import { View, Text, Button, Input } from '@tarojs/components'
+import { View, Text, Button, Image } from '@tarojs/components'
 import { useState } from 'react'
-import { api, ApiError, type MerchantProductRow } from '../../../api'
+import { api, ApiError, type MerchantProductRow, type Schemas } from '../../../api'
 import { formatMoney } from '../../../format'
-
-const STATUS_LABEL: Record<string, string> = {
-  DRAFT: '草稿',
-  PENDING_AUDIT: '待审核',
-  ON_SALE: '在售',
-  OFF_SALE: '已下架',
-  REJECTED: '已驳回',
-}
+import MerchantHeader from '../../../components/merchant/MerchantHeader'
+import SearchBar from '../../../components/merchant/SearchBar'
+import StatusBadge from '../../../components/merchant/StatusBadge'
+import EmptyState from '../../../components/merchant/EmptyState'
 
 const TABS = [
   { value: '', label: '全部' },
@@ -24,6 +20,7 @@ export default function MerchantProducts() {
   const [items, setItems] = useState<MerchantProductRow[]>([])
   const [status, setStatus] = useState('')
   const [keyword, setKeyword] = useState('')
+  const [profile, setProfile] = useState<Schemas['MerchantProfile'] | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -38,7 +35,13 @@ export default function MerchantProducts() {
     }
   }
 
-  useLoad(() => load(''))
+  useLoad(async () => {
+    try {
+      const p = await api.profile()
+      setProfile(p)
+    } catch { /* ignore */ }
+    load('')
+  })
 
   function openEdit(id?: number) {
     navigateTo({ url: `/pages/merchant/product-edit/index${id ? `?id=${id}` : ''}` })
@@ -60,25 +63,16 @@ export default function MerchantProducts() {
 
   return (
     <View className="page">
+      {profile && <MerchantHeader name={profile.name || ''} shortName={profile.short_name} logoUrl={profile.logo_url} showSettings={false} />}
       <View className="title">商品管理</View>
-      <View style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
-        <Input
-          className="input"
-          name="q"
-          placeholder="搜索商品标题…"
-          value={keyword}
-          onInput={(event) => setKeyword(event.detail.value)}
-        />
-        <Button className="btn" style={{ width: '120px', marginTop: 0 }} onClick={() => load(status, keyword)}>
-          搜索
-        </Button>
-      </View>
 
-      <View style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
+      <SearchBar value={keyword} placeholder="搜索商品标题…" onChange={setKeyword} onSearch={() => load(status, keyword)} />
+
+      <View className="mch-tabs">
         {TABS.map((tab) => (
           <Button
             key={tab.value || 'ALL'}
-            className={`chip ${status === tab.value ? 'active' : ''}`}
+            className={`mch-tab ${status === tab.value ? 'active' : ''}`}
             onClick={() => load(tab.value, keyword)}
           >
             {tab.label}
@@ -86,44 +80,36 @@ export default function MerchantProducts() {
         ))}
       </View>
 
-      <Button className="btn" style={{ marginTop: 0, marginBottom: '16px' }} onClick={() => openEdit()}>
-        发布商品
-      </Button>
+      <Button className="btn" style={{ marginBottom: 16 }} onClick={() => openEdit()}>发布商品</Button>
 
-      {error && (
-        <View className="muted" aria-live="polite">
-          {error}
-        </View>
-      )}
+      {error && <View className="muted" style={{ marginBottom: 12 }}>{error}</View>}
 
-      {items.map((item) => (
+      {items.length > 0 ? items.map((item) => (
         <View key={item.id} className="card">
-          <View className="row">
-            <Text style={{ fontSize: '30px' }}>{item.title}</Text>
-            <Text className="tag">{STATUS_LABEL[item.status] ?? item.status}</Text>
+          <View className="row" style={{ alignItems: 'flex-start' }}>
+            {item.cover_url ? (
+              <Image src={item.cover_url} style={{ width: 100, height: 100, borderRadius: 10, flex: '0 0 auto' }} mode="aspectFill" />
+            ) : (
+              <View style={{ width: 100, height: 100, borderRadius: 10, background: '#f1eadc', flex: '0 0 auto' }} />
+            )}
+            <View style={{ flex: 1, marginLeft: 14, minWidth: 0 }}>
+              <View className="row" style={{ padding: 0 }}>
+                <Text style={{ fontSize: '28px', fontWeight: 500, flex: 1 }}>{item.title}</Text>
+                <StatusBadge kind="product" status={item.status} />
+              </View>
+              <View className="row" style={{ padding: '8px 0 0' }}>
+                <Text className="price">{formatMoney(item.price)}</Text>
+                <Text className="muted">库存 {item.total_stock} · 已售 {item.sold_count}</Text>
+              </View>
+              {item.reject_reason ? <Text className="muted">驳回：{item.reject_reason}</Text> : null}
+              {item.off_sale_by === 'PLATFORM' ? (
+                <Text className="muted">平台下架：{item.off_sale_reason || '违规下架'}</Text>
+              ) : null}
+            </View>
           </View>
-          <View className="row">
-            <Text className="price">{formatMoney(item.price)}</Text>
-            <Text className="muted">
-              库存 {item.total_stock} · 已售 {item.sold_count}
-            </Text>
-          </View>
-          {item.reject_reason ? <Text className="muted">驳回原因：{item.reject_reason}</Text> : null}
-          {item.off_sale_by === 'PLATFORM' ? (
-            <Text className="muted">平台下架：{item.off_sale_reason || '违规下架'}</Text>
-          ) : null}
-          {(item.product_code || item.merchant_category_name) && (
-            <Text className="muted">
-              {item.product_code ? `货号 ${item.product_code}` : ''}
-              {item.product_code && item.merchant_category_name ? ' · ' : ''}
-              {item.merchant_category_name}
-            </Text>
-          )}
-          <View style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+          <View className="mch-actions">
             {item.status !== 'PENDING_AUDIT' && (
-              <Button className="chip" onClick={() => openEdit(item.id)}>
-                编辑
-              </Button>
+              <Button className="chip" onClick={() => openEdit(item.id)}>编辑</Button>
             )}
             {(item.status === 'ON_SALE' || (item.status === 'OFF_SALE' && item.off_sale_by !== 'PLATFORM')) && (
               <Button className="chip" disabled={busy} onClick={() => toggleSale(item)}>
@@ -132,8 +118,9 @@ export default function MerchantProducts() {
             )}
           </View>
         </View>
-      ))}
-      {!items.length && <View className="muted">暂无商品</View>}
+      )) : (
+        <EmptyState text="暂无商品" icon="📦" />
+      )}
     </View>
   )
 }

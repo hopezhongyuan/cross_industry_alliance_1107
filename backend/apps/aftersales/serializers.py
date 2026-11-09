@@ -117,3 +117,32 @@ class AfterSaleSerializer(serializers.ModelSerializer):
             "created_at",
             "closed_at",
         )
+
+
+class MerchantAfterSaleListSerializer(serializers.ModelSerializer):
+    """商户端售后列表行：含订单号与商品摘要，便于列表展示。"""
+
+    order_no = serializers.CharField(source="order.order_no", read_only=True)
+    type_label = serializers.CharField(source="get_type_display", read_only=True)
+    status_label = serializers.CharField(source="get_status_display", read_only=True)
+    merchant_decision_label = serializers.CharField(source="get_merchant_decision_display", read_only=True)
+
+    class Meta:
+        model = AfterSale
+        fields = (
+            "id",
+            "after_sale_no",
+            "order_id",
+            "order_no",
+            "type",
+            "type_label",
+            "status",
+            "status_label",
+            "request_amount",
+            "approved_amount",
+            "merchant_decision",
+            "merchant_decision_label",
+            "merchant_reason",
+            "deadline_at",
+            "created_at",
+        )

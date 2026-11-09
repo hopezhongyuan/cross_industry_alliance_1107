@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { api, ApiError, type MediaAsset, type MediaFolder } from '../api'
 import ModalShell from '../components/ModalShell.vue'
+import PageHeader from '../components/PageHeader.vue'
 
 const folders = ref<MediaFolder[]>([])
 const assets = ref<MediaAsset[]>([])
@@ -118,12 +119,15 @@ onMounted(refresh)
 </script>
 
 <template>
-  <h1>素材库</h1>
-  <div class="toolbar">
-    <span class="muted">素材文件夹仅一级；业务字段只能引用素材库中的图片/视频，不支持外部 URL。</span>
-    <button class="primary" style="margin-left: auto" @click="openFolder(null)">新增文件夹</button>
-    <button class="primary" @click="fileInput?.click()">上传素材</button>
-    <input ref="fileInput" type="file" hidden accept="image/*,video/*" @change="upload" />
+  <PageHeader title="素材库" description="素材文件夹仅一级；业务字段只能引用素材库中的图片/视频，不支持外部 URL。">
+    <template #actions>
+      <button class="outline" @click="openFolder(null)">新增文件夹</button>
+      <button class="primary" @click="fileInput?.click()">上传素材</button>
+      <input ref="fileInput" type="file" hidden accept="image/*,video/*" @change="upload" />
+    </template>
+  </PageHeader>
+  <div class="muted" style="margin-bottom: 12px">
+    建议尺寸：商品图 1200×1200、轮播 1080×540、导航图标 81×81（PNG 透明底）；图片 ≤5MB、视频 ≤20MB。
   </div>
 
   <div v-if="error" class="error" role="alert">{{ error }}</div>

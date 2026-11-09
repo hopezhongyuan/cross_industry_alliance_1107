@@ -74,6 +74,14 @@ class Order(TimeStampedModel):
     cancel_reason = models.CharField("取消原因", max_length=200, blank=True, default="")
     idempotency_key = models.CharField("创建幂等键", max_length=64, unique=True, null=True, blank=True)
     idempotency_hash = models.CharField("请求体哈希", max_length=64, blank=True, default="")
+    payment_group = models.ForeignKey(
+        "payments.PaymentGroup",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="orders",
+        verbose_name="合单支付组",
+    )
     expire_at = models.DateTimeField("支付超时时间", null=True, blank=True)
     paid_at = models.DateTimeField("支付时间", null=True, blank=True)
     accepted_at = models.DateTimeField("接单时间", null=True, blank=True)

@@ -106,6 +106,48 @@ class AdminProductManageTests(TestCase):
         self.product.refresh_from_db()
         self.assertEqual(self.product.off_sale_by, "")
 
+    def test_batch_force_off_returns_per_item_result(self):
+        draft = Product.objects.create(
+            merchant=self.merchant,
+            category=self.child,
+            type=Product.Type.PHYSICAL,
+            title="草稿商品",
+            price=500,
+            status=Product.Status.DRAFT,
+        )
+        response = self.admin_client.post(
+            "/api/v1/admin/products/batch-status/",
+            {"ids": [self.product.id, draft.id], "action": "FORCE_OFF", "reason": "批量违规"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        data = response.data["data"]
+        self.assertEqual(data["succeeded"], 1)
+        self.assertEqual(data["failed"], 1)
+        results = {item["id"]: item for item in data["items"]}
+        self.assertTrue(results[self.product.id]["ok"])
+        self.assertEqual(results[self.product.id]["status"], Product.Status.OFF_SALE)
+        self.assertFalse(results[draft.id]["ok"])
+        self.assertEqual(results[draft.id]["error_code"], "PRODUCT_STATE_CONFLICT")
+
+    def test_batch_force_off_requires_reason(self):
+        response = self.admin_client.post(
+            "/api/v1/admin/products/batch-status/",
+            {"ids": [self.product.id], "action": "FORCE_OFF", "reason": ""},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["data"]["failed"], 1)
+        self.assertEqual(response.data["data"]["items"][0]["error_code"], "VALIDATION_ERROR")
+
+    def test_batch_status_requires_platform_admin(self):
+        response = self.merchant_client.post(
+            "/api/v1/admin/products/batch-status/",
+            {"ids": [self.product.id], "action": "FORCE_OFF", "reason": "越权"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
 
 class ProductTemplateTests(TestCase):
     def setUp(self):

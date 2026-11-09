@@ -3,6 +3,9 @@ import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, ApiError, type ArbitrationDetail, type ArbitrationRow, type Page } from '../api'
 import ModalShell from '../components/ModalShell.vue'
+import PageHeader from '../components/PageHeader.vue'
+import PaginationBar from '../components/PaginationBar.vue'
+import StatusTag from '../components/StatusTag.vue'
 import { formatDateTime, formatMoney } from '../format'
 
 const route = useRoute()
@@ -30,7 +33,7 @@ async function openDetail(row: ArbitrationRow) {
   }
 }
 
-async function load(target = 1) {
+async function load(target = 1, size = page.value.page_size) {
   loading.value = true
   error.value = ''
   router.replace({
@@ -40,7 +43,7 @@ async function load(target = 1) {
     },
   })
   try {
-    const result = await api.arbitrations({ status: status.value, page: target, page_size: 20 })
+    const result = await api.arbitrations({ status: status.value, page: target, page_size: size })
     rows.value = result.items
     page.value = result.page
   } catch (exc) {
@@ -80,29 +83,31 @@ onMounted(() => load(Number(route.query.page ?? 1)))
 </script>
 
 <template>
-  <h1>仲裁处理</h1>
+  <PageHeader title="售后仲裁" description="售后超时转仲裁；平台裁定责任方与退款金额，商家/平台分账按裁定冲回。" />
   <div class="toolbar">
     <label class="field">
       <span>状态</span>
-      <select v-model="status">
+      <select v-model="status" @change="load(1)">
         <option value="">全部</option>
-        <option v-for="value in ['PENDING', 'EVIDENCE', 'PROCESSING', 'DECIDED', 'CLOSED']" :key="value" :value="value">
-          {{ value }}
-        </option>
+        <option value="PENDING">待处理</option>
+        <option value="EVIDENCE">举证中</option>
+        <option value="PROCESSING">处理中</option>
+        <option value="DECIDED">已裁定</option>
+        <option value="CLOSED">已关闭</option>
       </select>
     </label>
-    <button class="primary" :disabled="loading" @click="load()">查询</button>
+    <button class="primary" :disabled="loading" @click="load(1)">查询</button>
   </div>
 
   <div v-if="error" class="error" role="alert">{{ error }}</div>
-  <div class="card" style="padding: 0">
+  <div class="table-wrap">
     <table>
       <thead>
         <tr>
           <th>案号</th>
           <th>售后单</th>
           <th>订单</th>
-          <th>争议金额</th>
+          <th class="money">争议金额</th>
           <th>状态</th>
           <th>责任方</th>
           <th>截止时间</th>
@@ -115,30 +120,32 @@ onMounted(() => load(Number(route.query.page ?? 1)))
           <td>{{ row.after_sale_no }}</td>
           <td>#{{ row.order_id }}</td>
           <td class="money">{{ formatMoney(row.amount) }}</td>
-          <td><span class="tag">{{ row.status }}</span></td>
-          <td>{{ row.liability }}</td>
+          <td><StatusTag :status="row.status" /></td>
+          <td>{{ row.liability === 'UNDECIDED' ? '未裁定' : row.liability }}</td>
           <td>{{ formatDateTime(row.deadline_at) }}</td>
           <td>
-            <button class="text" @click="openDetail(row)">详情</button>
-            <button
-              class="text"
-              style="margin-left: 8px"
-              :disabled="row.status === 'DECIDED' || row.status === 'CLOSED'"
-              @click="openRule(row)"
-            >
-              裁定
-            </button>
+            <div class="actions">
+              <button class="text" @click="openDetail(row)">详情</button>
+              <button
+                class="text"
+                :disabled="row.status === 'DECIDED' || row.status === 'CLOSED'"
+                @click="openRule(row)"
+              >
+                裁定
+              </button>
+            </div>
           </td>
         </tr>
       </tbody>
     </table>
     <div v-if="!rows.length" class="empty">{{ loading ? '加载中…' : '暂无仲裁案件' }}</div>
   </div>
-  <div class="pager">
-    <button class="text" :disabled="page.page <= 1" @click="load(page.page - 1)">上一页</button>
-    <span>第 {{ page.page }} 页 · 共 {{ page.total }} 条</span>
-    <button class="text" :disabled="!page.has_more" @click="load(page.page + 1)">下一页</button>
-  </div>
+  <PaginationBar
+    :page="page.page"
+    :page-size="page.page_size"
+    :total="page.total"
+    @change="(payload) => load(payload.page, payload.pageSize)"
+  />
 
   <ModalShell v-if="detail" :title="`仲裁详情 · ${detail.case_no}`" @close="detail = null">
     <h2>仲裁详情 · {{ detail.case_no }}</h2>

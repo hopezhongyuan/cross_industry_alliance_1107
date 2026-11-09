@@ -238,3 +238,37 @@ def decide_audit(admin_user, task_id: int, decision: str, reason: str = "", requ
             request=request,
         )
     return task
+
+
+def batch_decide_audit(admin_user, task_ids, decision: str, reason: str = "", request=None):
+    """批量审核：逐条独立事务处理，返回每条结果，部分失败不影响已成功项。"""
+    require_platform_admin(admin_user)
+    if decision not in ("APPROVE", "REJECT"):
+        raise ApiError("VALIDATION_ERROR", "decision 取值非法", 422)
+    if decision == "REJECT" and not reason.strip():
+        raise ApiError("VALIDATION_ERROR", "批量驳回必须填写原因", 422)
+
+    results = []
+    for task_id in task_ids:
+        try:
+            task = decide_audit(admin_user, task_id, decision, reason, request=request)
+            results.append(
+                {
+                    "id": task_id,
+                    "ok": True,
+                    "status": task.status,
+                    "error_code": "",
+                    "error_message": "",
+                }
+            )
+        except ApiError as exc:
+            results.append(
+                {
+                    "id": task_id,
+                    "ok": False,
+                    "status": "",
+                    "error_code": exc.code,
+                    "error_message": exc.message,
+                }
+            )
+    return results

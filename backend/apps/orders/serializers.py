@@ -155,10 +155,18 @@ class CartItemSerializer(serializers.Serializer):
     available_stock = serializers.IntegerField(allow_null=True)
 
 
-class CartSerializer(serializers.Serializer):
-    merchant_id = serializers.IntegerField(allow_null=True)
+class CartGroupSerializer(serializers.Serializer):
+    merchant_id = serializers.IntegerField()
+    merchant_name = serializers.CharField()
     items = CartItemSerializer(many=True)
-    total_amount = serializers.IntegerField()
+    selected_count = serializers.IntegerField()
+    selected_amount = serializers.IntegerField()
+
+
+class CartSerializer(serializers.Serializer):
+    groups = CartGroupSerializer(many=True)
+    total_selected_count = serializers.IntegerField()
+    total_selected_amount = serializers.IntegerField()
 
 
 class OrderItemInputSerializer(serializers.Serializer):
@@ -185,6 +193,19 @@ class OrderCreateInputSerializer(serializers.Serializer):
     items = OrderItemInputSerializer(many=True, allow_empty=False)
     contact = ContactInputSerializer()
     appointment = AppointmentInputSerializer(required=False, allow_null=True)
+    remark = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+
+
+class BatchOrderGroupInputSerializer(serializers.Serializer):
+    merchant_id = serializers.IntegerField(min_value=1)
+    order_type = serializers.ChoiceField(choices=["EXPRESS", "PICKUP", "SERVICE"])
+    items = OrderItemInputSerializer(many=True, allow_empty=False)
+    appointment = AppointmentInputSerializer(required=False, allow_null=True)
+
+
+class BatchOrderCreateInputSerializer(serializers.Serializer):
+    groups = BatchOrderGroupInputSerializer(many=True, allow_empty=False)
+    contact = ContactInputSerializer()
     remark = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
 
 

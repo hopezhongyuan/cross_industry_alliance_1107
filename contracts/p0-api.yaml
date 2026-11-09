@@ -603,6 +603,40 @@ components:
       properties:
         action: { type: string, enum: [FORCE_OFF, RESTORE] }
         reason: { type: string, description: 强制下架必填 }
+    AdminProductBatchStatusInput:
+      type: object
+      required: [ids, action]
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { type: integer, format: int64 }
+        action: { type: string, enum: [FORCE_OFF, RESTORE] }
+        reason: { type: string, description: 批量强制下架必填 }
+    BatchActionResultItem:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        ok: { type: boolean }
+        status: { type: string, description: 成功时为处理后的状态 }
+        off_sale_by: { type: string, description: 仅商品批量操作返回 }
+        error_code: { type: string, description: 失败时的错误码 }
+        error_message: { type: string, description: 失败原因 }
+    BatchActionResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/BatchActionResultItem' }
+        succeeded: { type: integer }
+        failed: { type: integer }
+    BatchActionResultEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/BatchActionResult' }
 
     ProductStatusInput:
       type: object
@@ -715,6 +749,16 @@ components:
         quantity: { type: integer }
         selected: { type: boolean }
         available_stock: { type: integer }
+    CartGroup:
+      type: object
+      properties:
+        merchant_id: { type: integer, format: int64 }
+        merchant_name: { type: string }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/CartItem' }
+        selected_count: { type: integer, description: 该商户已选中商品件数 }
+        selected_amount: { type: integer, description: 该商户已选中商品合计（分） }
     CartEnvelope:
       allOf:
         - $ref: '#/components/schemas/Envelope'
@@ -723,11 +767,11 @@ components:
             data:
               type: object
               properties:
-                merchant_id: { type: integer, format: int64 }
-                items:
+                groups:
                   type: array
-                  items: { $ref: '#/components/schemas/CartItem' }
-                total_amount: { type: integer, description: 已选中项合计（分） }
+                  items: { $ref: '#/components/schemas/CartGroup' }
+                total_selected_count: { type: integer, description: 已选中商品总件数 }
+                total_selected_amount: { type: integer, description: 已选中商品合计（分） }
     OrderItemInput:
       type: object
       required: [product_id, quantity]
@@ -762,6 +806,41 @@ components:
         contact: { $ref: '#/components/schemas/Contact' }
         appointment: { $ref: '#/components/schemas/AppointmentInput' }
         remark: { type: string, maxLength: 200 }
+    BatchOrderGroupInput:
+      type: object
+      required: [merchant_id, order_type, items]
+      properties:
+        merchant_id: { type: integer, format: int64 }
+        order_type: { type: string, enum: [EXPRESS, PICKUP, SERVICE] }
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/OrderItemInput' }
+        appointment: { $ref: '#/components/schemas/AppointmentInput' }
+    BatchOrderCreateInput:
+      type: object
+      required: [groups, contact]
+      properties:
+        groups:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/BatchOrderGroupInput' }
+        contact: { $ref: '#/components/schemas/Contact' }
+        remark: { type: string, maxLength: 200 }
+    BatchOrderResult:
+      type: object
+      properties:
+        group_no: { type: string, description: 合单支付组号 }
+        orders:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer, format: int64 }
+              order_no: { type: string }
+              merchant_id: { type: integer, format: int64 }
+              payable_amount: { type: integer }
+        total_amount: { type: integer, description: 合单支付总金额（分） }
     OrderItem:
       type: object
       properties:
@@ -1001,22 +1080,204 @@ components:
         id: { type: integer, format: int64 }
         merchant_no: { type: string }
         name: { type: string }
+        short_name: { type: string }
+        logo_url: { type: string, format: uri }
+        description: { type: string }
+        contact_phone: { type: string }
+        province: { type: string }
+        city: { type: string }
+        district: { type: string }
+        address: { type: string }
+        lng: { type: number, format: double }
+        lat: { type: number, format: double }
+        business_hours: { type: object }
         status: { type: string }
-        commission_rate: { type: number, description: 生效佣金率（商户覆盖或类目默认） }
-        settlement_cycle_days: { type: integer }
-        balances:
-          type: object
-          properties:
-            pending_amount: { type: integer }
-            frozen_amount: { type: integer }
-            available_amount: { type: integer }
-            withdrawing_amount: { type: integer }
+        status_label: { type: string }
+        opened_at: { type: string, format: date-time }
     MerchantProfileEnvelope:
       allOf:
         - $ref: '#/components/schemas/Envelope'
         - type: object
           properties:
             data: { $ref: '#/components/schemas/MerchantProfile' }
+    MerchantDashboard:
+      type: object
+      description: 商户经营看板；金额单位为分，"今日"按 Asia/Shanghai 自然日
+      properties:
+        today_orders: { type: integer, description: 今日订单数 }
+        today_sales_amount: { type: integer, description: 今日已支付金额合计（分） }
+        pending_orders: { type: integer, description: 待处理订单数（待接单+待履约） }
+        pending_after_sales: { type: integer, description: 待商户处理的售后数 }
+        pending_products: { type: integer, description: 待审核商品数 }
+        available_balance: { type: integer, description: 可提现余额（分） }
+        today_refund_count: { type: integer, description: 今日售后申请数 }
+        today_verified_count: { type: integer, description: 今日核销数 }
+    MerchantDashboardEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/MerchantDashboard' }
+    MerchantAfterSaleRow:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        after_sale_no: { type: string }
+        order_id: { type: integer, format: int64 }
+        order_no: { type: string }
+        type: { type: string, enum: [REFUND_ONLY, RETURN_REFUND, SERVICE_ISSUE] }
+        type_label: { type: string }
+        status: { type: string }
+        status_label: { type: string }
+        request_amount: { type: integer, description: 申请金额（分） }
+        approved_amount: { type: integer, description: 批准金额（分） }
+        merchant_decision: { type: string, enum: [PENDING, AGREED, REJECTED] }
+        merchant_decision_label: { type: string }
+        merchant_reason: { type: string }
+        deadline_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+    MerchantAfterSalePageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/MerchantAfterSaleRowPage' }
+    MerchantAfterSaleRowPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/MerchantAfterSaleRow' }
+    PointsConfig:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        consumption_rate: { type: integer, description: 消费积分比例（分/积分） }
+        consumption_max_per_order: { type: integer, description: 单笔订单积分上限（0=不限） }
+        signin_points: { type: integer }
+        share_points: { type: integer }
+        share_daily_limit: { type: integer }
+        register_points: { type: integer }
+        review_points: { type: integer }
+        updated_by_name: { type: string }
+    PointsConfigInput:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        consumption_rate: { type: integer, minimum: 1 }
+        consumption_max_per_order: { type: integer, minimum: 0 }
+        signin_points: { type: integer, minimum: 0 }
+        share_points: { type: integer, minimum: 0 }
+        share_daily_limit: { type: integer, minimum: 0 }
+        register_points: { type: integer, minimum: 0 }
+        review_points: { type: integer, minimum: 0 }
+    PointsConfigEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/PointsConfig' }
+    PointAccount:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        user_id: { type: integer, format: int64 }
+        user_phone: { type: string }
+        user_nickname: { type: string }
+        balance: { type: integer, description: 可用积分 }
+        total_earned: { type: integer }
+        total_spent: { type: integer }
+    PointAccountEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/PointAccount' }
+    PointTransaction:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        user_id: { type: integer, format: int64 }
+        biz_type: { type: string, enum: [CONSUMPTION, SIGNIN, SHARE, REGISTER, REVIEW, ADMIN_ADJUST] }
+        biz_type_label: { type: string }
+        delta: { type: integer, description: 变动积分（正增负减） }
+        balance_after: { type: integer }
+        biz_id: { type: integer, format: int64 }
+        remark: { type: string }
+        operator_name: { type: string }
+        created_at: { type: string, format: date-time }
+    PointTransactionEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/PointTransaction' }
+    PointTransactionPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/PointTransaction' }
+    PointTransactionPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/PointTransactionPage' }
+    PointAwardResult:
+      type: object
+      properties:
+        delta: { type: integer }
+        balance_after: { type: integer }
+    PointAwardResultEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/PointAwardResult' }
+    ShareInput:
+      type: object
+      required: [target_type, target_id]
+      properties:
+        target_type: { type: string, enum: [PRODUCT, MERCHANT, PAGE] }
+        target_id: { type: integer, format: int64, minimum: 1 }
+    ShareResult:
+      type: object
+      properties:
+        awarded: { type: boolean }
+        delta: { type: integer }
+        balance_after: { type: integer }
+    ShareResultEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/ShareResult' }
+    PointUserPage:
+      allOf:
+        - $ref: '#/components/schemas/Page'
+        - type: object
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/PointAccount' }
+    PointUserPageEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/PointUserPage' }
+    AdminPointsAdjustInput:
+      type: object
+      required: [user_id, delta, reason]
+      properties:
+        user_id: { type: integer, format: int64, minimum: 1 }
+        delta: { type: integer, description: 调整积分（正增负减） }
+        reason: { type: string, maxLength: 200 }
     ProductInput:
       type: object
       required: [category_id, type, title, price_amount, delivery_types, skus]
@@ -1168,6 +1429,17 @@ components:
       properties:
         decision: { type: string, enum: [APPROVE, REJECT] }
         reason: { type: string, description: 驳回必填 }
+    AuditBatchDecisionInput:
+      type: object
+      required: [ids, decision]
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { type: integer, format: int64 }
+        decision: { type: string, enum: [APPROVE, REJECT] }
+        reason: { type: string, description: 批量驳回必填 }
     MerchantStatusInput:
       type: object
       required: [status, reason]
@@ -1306,10 +1578,13 @@ components:
         agreement_version: { type: string }
         miniapp_app_id: { type: string }
         miniapp_app_secret_configured: { type: boolean, description: 是否已配置，不返回明文 }
+        miniapp_app_secret_masked: { type: string, description: 掩码展示，仅保留尾 4 位 }
         miniapp_original_id: { type: string }
         amap_web_key_configured: { type: boolean, description: 是否已配置，不返回明文 }
+        amap_web_key_masked: { type: string, description: 掩码展示，仅保留尾 4 位 }
         amap_js_key: { type: string }
         amap_js_security_code_configured: { type: boolean, description: 是否已配置，不返回明文 }
+        amap_js_security_code_masked: { type: string, description: 掩码展示，仅保留尾 4 位 }
         amap_enabled: { type: boolean }
         updated_by_name: { type: string }
         updated_at: { type: string, format: date-time }
@@ -2077,7 +2352,7 @@ paths:
     get:
       tags: [cart]
       operationId: getCart
-      summary: 当前用户的购物车（单店）
+      summary: 当前用户的购物车（按商户分组）
       x-status: implemented
       security: [{ bearerAuth: [] }]
       responses:
@@ -2091,7 +2366,7 @@ paths:
     post:
       tags: [cart]
       operationId: addCartItem
-      summary: 加入购物车（同商品同规格累加）
+      summary: 加入购物车（同商品同规格累加，支持跨商户）
       x-status: implemented
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -2106,7 +2381,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/CartEnvelope' }
         '409':
-          description: 跨店购物车或库存不足
+          description: 商品下架或库存不足
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }
@@ -2203,6 +2478,37 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/OrderPageEnvelope' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/orders/batch/:
+    post:
+      tags: [order]
+      operationId: createBatchOrder
+      summary: 批量下单（按商户拆分为多个订单，共享合单支付组）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BatchOrderCreateInput' }
+      responses:
+        '201':
+          description: 批量订单已创建
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/BatchOrderResult' }
+        '409':
+          description: STOCK_NOT_ENOUGH / SLOT_FULL / IDEMPOTENCY_CONFLICT / MERCHANT_NOT_AVAILABLE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/orders/{id}/:
     get:
       tags: [order]
@@ -2273,6 +2579,35 @@ paths:
               schema: { $ref: '#/components/schemas/PayEnvelope' }
         '409':
           description: ORDER_EXPIRED / 订单状态不允许支付
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  /api/v1/payment-groups/{group_no}/pay/:
+    post:
+      tags: [payment]
+      operationId: payGroup
+      summary: 合单支付（一笔支付覆盖组内所有跨商户订单）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: group_no
+          in: path
+          required: true
+          schema: { type: string }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PayInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayEnvelope' }
+        '409':
+          description: ORDER_EXPIRED / 合单支付组状态不允许支付
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }
@@ -2378,6 +2713,87 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AfterSaleEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/points/account/:
+    get:
+      tags: [consumer]
+      operationId: getPointAccount
+      summary: 当前用户积分账户（余额、累计获得、累计消耗）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PointAccountEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/points/transactions/:
+    get:
+      tags: [consumer]
+      operationId: listPointTransactions
+      summary: 当前用户积分流水
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: biz_type
+          in: query
+          schema: { type: string, enum: [CONSUMPTION, SIGNIN, SHARE, REGISTER, REVIEW, ADMIN_ADJUST] }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PointTransactionPageEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/points/signin/:
+    post:
+      tags: [consumer]
+      operationId: signinPoints
+      summary: 签到领积分（每日一次，幂等）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PointAwardResultEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/points/share/:
+    post:
+      tags: [consumer]
+      operationId: sharePoints
+      summary: 分享赚积分（每日次数上限内）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ShareInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ShareResultEnvelope' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/points/rules/:
+    get:
+      tags: [consumer]
+      operationId: getPointRules
+      summary: 公开积分规则（前端展示用）
+      x-status: implemented
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PointsConfigEnvelope' }
   /api/v1/merchant/apply/:
     post:
       tags: [merchant]
@@ -2407,8 +2823,8 @@ paths:
     get:
       tags: [merchant]
       operationId: getMerchantProfile
-      summary: 门店与账户信息（店员不可见金额）
-      x-status: planned
+      summary: 当前商户自身资料（名称、Logo、地址、营业时间）
+      x-status: implemented
       security: [{ bearerAuth: [] }]
       responses:
         '200':
@@ -2416,6 +2832,20 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/MerchantProfileEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/merchant/dashboard/:
+    get:
+      tags: [merchant]
+      operationId: getMerchantDashboard
+      summary: 商户首页经营看板（今日口径为 Asia/Shanghai 自然日）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MerchantDashboardEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
   /api/v1/merchant/products/:
     get:
@@ -2816,6 +3246,30 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  /api/v1/merchant/after-sales/:
+    get:
+      tags: [merchant]
+      operationId: listMerchantAfterSales
+      summary: 本店售后列表（支持按状态/商户处理结果筛选）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [APPLIED, MERCHANT_PROCESSING, MERCHANT_AGREED, MERCHANT_REJECTED, ARBITRATING, RESOLVED, REFUNDING, COMPLETED, CANCELLED] }
+        - name: merchant_decision
+          in: query
+          schema: { type: string, enum: [PENDING, AGREED, REJECTED] }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MerchantAfterSalePageEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/merchant/after-sales/{id}/decision/:
     post:
       tags: [merchant]
@@ -2934,6 +3388,26 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AuditTaskPageEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/audits/batch-decision/:
+    post:
+      tags: [admin]
+      operationId: batchDecideAudit
+      summary: 批量审核（逐条处理，返回每条结果；单条失败不影响其他任务）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuditBatchDecisionInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BatchActionResultEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/admin/audits/{id}/decision/:
     post:
       tags: [admin]
@@ -3190,6 +3664,26 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AdminProductPageEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/products/batch-status/:
+    post:
+      tags: [admin]
+      operationId: batchSetAdminProductStatus
+      summary: 批量强制下架 / 恢复（逐条处理，返回每条结果；单条失败不影响其他商品）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminProductBatchStatusInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BatchActionResultEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/admin/products/{id}/:
     get:
       tags: [admin]
@@ -3412,6 +3906,100 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AdminPlatformConfigEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/admin/points/config/:
+    get:
+      tags: [admin]
+      operationId: getAdminPointsConfig
+      summary: 读取积分规则配置
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PointsConfigEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [admin]
+      operationId: updateAdminPointsConfig
+      summary: 修改积分规则配置
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PointsConfigInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PointsConfigEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/admin/points/users/:
+    get:
+      tags: [admin]
+      operationId: listAdminPointsUsers
+      summary: 用户积分账户列表（可按手机号/昵称搜索）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: keyword
+          in: query
+          schema: { type: string }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PointUserPageEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/points/users/{user_id}/transactions/:
+    get:
+      tags: [admin]
+      operationId: getAdminPointsUserTransactions
+      summary: 指定用户的积分流水
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PointTransactionPageEnvelope' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /api/v1/admin/points/adjust/:
+    post:
+      tags: [admin]
+      operationId: adminPointsAdjust
+      summary: 后台人工调整积分（可正可负，必填原因）
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminPointsAdjustInput' }
+      responses:
+        '201':
+          description: 已调整
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PointTransactionEnvelope' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/ValidationError' }
   /api/v1/storefront/nav/:

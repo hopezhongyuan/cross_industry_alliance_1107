@@ -3,7 +3,22 @@ import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, ApiError, type AdminOrderDetail, type AdminOrderRow, type Page } from '../api'
 import ModalShell from '../components/ModalShell.vue'
+import PageHeader from '../components/PageHeader.vue'
+import PaginationBar from '../components/PaginationBar.vue'
+import StatusTag from '../components/StatusTag.vue'
 import { formatDateTime, formatMoney } from '../format'
+
+const ORDER_STATUS: Record<string, string> = {
+  PENDING_PAYMENT: '待支付',
+  PENDING_ACCEPT: '待接单',
+  PENDING_FULFILL: '待履约',
+  FULFILLING: '履约中',
+  COMPLETED: '已完成',
+  AFTER_SALE: '售后中',
+  REFUNDING: '退款中',
+  REFUNDED: '已退款',
+  CLOSED: '已关闭',
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -21,7 +36,7 @@ const detail = ref<AdminOrderDetail | null>(null)
 const detailLoading = ref(false)
 const detailError = ref('')
 
-async function load(target = 1) {
+async function load(target = 1, size = page.value.page_size) {
   loading.value = true
   error.value = ''
   router.replace({
@@ -36,7 +51,7 @@ async function load(target = 1) {
       status: status.value,
       order_no: orderNo.value,
       page: target,
-      page_size: 20,
+      page_size: size,
     })
     rows.value = result.items
     page.value = result.page
@@ -89,26 +104,25 @@ onMounted(() => load(Number(route.query.page ?? 1)))
 </script>
 
 <template>
-  <h1>订单监控</h1>
+  <PageHeader title="订单监控" description="全平台订单检索与结算冻结；每笔订单有且仅有一个结算项。" />
   <div class="toolbar">
     <label class="field">
       <span>状态</span>
-      <select v-model="status">
-        <option value="">全部</option>
-        <option v-for="value in ['PENDING_PAYMENT', 'PENDING_ACCEPT', 'PENDING_FULFILL', 'FULFILLING', 'COMPLETED', 'AFTER_SALE', 'REFUNDING', 'REFUNDED', 'CLOSED']" :key="value" :value="value">
-          {{ value }}
-        </option>
+      <select v-model="status" @change="load(1)">
+        <option value="">全部状态</option>
+        <option v-for="(label, value) in ORDER_STATUS" :key="value" :value="value">{{ label }}</option>
       </select>
     </label>
     <label class="field">
       <span>订单号</span>
-      <input v-model="orderNo" name="order_no" autocomplete="off" placeholder="输入订单号…" aria-label="订单号搜索" />
+      <input v-model="orderNo" name="order_no" autocomplete="off" placeholder="输入订单号…" aria-label="订单号搜索" @keyup.enter="load(1)" />
     </label>
-    <button class="primary" :disabled="loading" @click="load()">查询</button>
+    <button class="primary" :disabled="loading" @click="load(1)">查询</button>
+    <button class="outline" @click="orderNo = ''; status = ''; load(1)">重置</button>
   </div>
 
   <div v-if="error" class="error" role="alert">{{ error }}</div>
-  <div class="card" style="padding: 0">
+  <div class="table-wrap">
     <table>
       <thead>
         <tr>
@@ -116,8 +130,8 @@ onMounted(() => load(Number(route.query.page ?? 1)))
           <th>商户</th>
           <th>类型</th>
           <th>状态</th>
-          <th>实付</th>
-          <th>已退</th>
+          <th class="money">实付</th>
+          <th class="money">已退</th>
           <th>创建时间</th>
           <th>操作</th>
         </tr>
@@ -127,25 +141,28 @@ onMounted(() => load(Number(route.query.page ?? 1)))
           <td>{{ row.order_no }}</td>
           <td>{{ row.merchant_name }}</td>
           <td>{{ row.order_type }}</td>
-          <td><span class="tag">{{ row.status }}</span></td>
+          <td><StatusTag :status="row.status" /></td>
           <td class="money">{{ formatMoney(row.paid_amount) }}</td>
           <td class="money">{{ formatMoney(row.refunded_amount) }}</td>
           <td>{{ formatDateTime(row.created_at) }}</td>
           <td>
-            <button class="text" @click="openDetail(row)">详情</button>
-            <button class="text" style="margin-left: 8px" @click="openAction(row, 'FREEZE')">冻结</button>
-            <button class="text" style="margin-left: 8px" @click="openAction(row, 'UNFREEZE')">解冻</button>
+            <div class="actions">
+              <button class="text" @click="openDetail(row)">详情</button>
+              <button class="text" @click="openAction(row, 'FREEZE')">冻结</button>
+              <button class="text" @click="openAction(row, 'UNFREEZE')">解冻</button>
+            </div>
           </td>
         </tr>
       </tbody>
     </table>
     <div v-if="!rows.length" class="empty">{{ loading ? '加载中…' : '暂无订单' }}</div>
   </div>
-  <div class="pager">
-    <button class="text" :disabled="page.page <= 1" @click="load(page.page - 1)">上一页</button>
-    <span>第 {{ page.page }} 页 · 共 {{ page.total }} 条</span>
-    <button class="text" :disabled="!page.has_more" @click="load(page.page + 1)">下一页</button>
-  </div>
+  <PaginationBar
+    :page="page.page"
+    :page-size="page.page_size"
+    :total="page.total"
+    @change="(payload) => load(payload.page, payload.pageSize)"
+  />
 
   <ModalShell v-if="detailLoading || detail || detailError" title="订单详情" wide @close="detail = null; detailError = ''">
     <template v-if="detailLoading">

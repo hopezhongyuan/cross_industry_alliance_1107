@@ -442,6 +442,12 @@ class AdminProductStatusInputSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
 
 
+class AdminProductBatchStatusInputSerializer(serializers.Serializer):
+    ids = serializers.ListField(child=serializers.IntegerField(), min_length=1, max_length=100)
+    action = serializers.ChoiceField(choices=("FORCE_OFF", "RESTORE"))
+    reason = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+
+
 class MerchantTemplateSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True, default="")
     adopted_product_id = serializers.SerializerMethodField()

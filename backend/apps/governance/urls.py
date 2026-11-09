@@ -3,6 +3,7 @@
 from django.urls import path
 
 from .views import (
+    AdminAuditBatchDecisionView,
     AdminAuditDecisionView,
     AdminAuditListView,
     AdminDecoPageDetailView,
@@ -22,6 +23,7 @@ urlpatterns = [
     path("logs/", AdminOperationLogListView.as_view(), name="admin-operation-logs"),
     path("rules/", AdminRulePublishView.as_view(), name="admin-rules-publish"),
     path("audits/", AdminAuditListView.as_view(), name="admin-audits"),
+    path("audits/batch-decision/", AdminAuditBatchDecisionView.as_view(), name="admin-audits-batch-decision"),
     path("audits/<int:pk>/decision/", AdminAuditDecisionView.as_view(), name="admin-audit-decision"),
     path("media-folders/", AdminMediaFolderListView.as_view(), name="admin-media-folders"),
     path("media-folders/<int:pk>/", AdminMediaFolderDetailView.as_view(), name="admin-media-folder-detail"),

@@ -98,3 +98,41 @@ class AuditCenterTests(TestCase):
     def test_missing_task_returns_404(self):
         response = self.client.post("/api/v1/admin/audits/9999/decision/", {"decision": "APPROVE"}, format="json")
         self.assertEqual(response.status_code, 404)
+
+    def test_batch_decision_reports_partial_result(self):
+        handled = AuditTask.objects.create(
+            biz_type=AuditTask.BizType.QUALIFICATION,
+            biz_id=self.qualification.id,
+            status=AuditTask.Status.APPROVED,
+        )
+        response = self.client.post(
+            "/api/v1/admin/audits/batch-decision/",
+            {"ids": [self.task.id, handled.id], "decision": "APPROVE"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        data = response.data["data"]
+        self.assertEqual(data["succeeded"], 1)
+        self.assertEqual(data["failed"], 1)
+        results = {item["id"]: item for item in data["items"]}
+        self.assertTrue(results[self.task.id]["ok"])
+        self.assertFalse(results[handled.id]["ok"])
+        self.assertEqual(results[handled.id]["error_code"], "AUDIT_STATE_CONFLICT")
+        self.merchant.refresh_from_db()
+        self.assertEqual(self.merchant.status, Merchant.Status.ACTIVE)
+
+    def test_batch_reject_requires_reason(self):
+        response = self.client.post(
+            "/api/v1/admin/audits/batch-decision/",
+            {"ids": [self.task.id], "decision": "REJECT", "reason": ""},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 422)
+
+    def test_batch_decision_requires_platform_admin(self):
+        response = self.consumer_client.post(
+            "/api/v1/admin/audits/batch-decision/",
+            {"ids": [self.task.id], "decision": "APPROVE"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)

@@ -35,6 +35,34 @@ class MerchantSerializer(serializers.ModelSerializer):
         )
 
 
+class MerchantSelfProfileSerializer(serializers.ModelSerializer):
+    """商户端自身资料：不含敏感资质与佣金信息。"""
+
+    status_label = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = Merchant
+        fields = (
+            "id",
+            "merchant_no",
+            "name",
+            "short_name",
+            "logo_url",
+            "description",
+            "contact_phone",
+            "province",
+            "city",
+            "district",
+            "address",
+            "lng",
+            "lat",
+            "business_hours",
+            "status",
+            "status_label",
+            "opened_at",
+        )
+
+
 class StoreSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True, default="")
     distance_meters = serializers.SerializerMethodField()

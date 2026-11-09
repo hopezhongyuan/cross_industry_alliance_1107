@@ -282,6 +282,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/admin/audits/batch-decision/:
+    post:
+      operationId: batchDecideAudit
+      description: 批量审核：逐条返回结果，失败项不阻断其他任务。
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditBatchDecisionInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AuditBatchDecisionInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AuditBatchDecisionInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/admin/categories/:
     get:
       operationId: listAdminCategories
@@ -833,6 +861,114 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/admin/points/adjust/:
+    post:
+      operationId: v1_admin_points_adjust_create
+      description: 后台人工调整用户积分，可正可负，必填原因。
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminAdjustInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminAdjustInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminAdjustInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/points/config/:
+    get:
+      operationId: v1_admin_points_config_retrieve
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+    put:
+      operationId: v1_admin_points_config_update
+      description: 使用统一响应包裹的 APIView。
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PointsConfigRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PointsConfigRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PointsConfigRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/points/users/:
+    get:
+      operationId: v1_admin_points_users_retrieve
+      description: 用户积分账户列表，可按手机号/昵称搜索。
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/points/users/{user_id}/transactions/:
+    get:
+      operationId: v1_admin_points_users_transactions_retrieve
+      description: 指定用户的积分流水。
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/admin/product-templates/:
     get:
       operationId: listAdminTemplates
@@ -1037,6 +1173,34 @@ paths:
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/AdminProductStatusInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/admin/products/batch-status/:
+    post:
+      operationId: batchSetAdminProductStatus
+      description: 批量违规下架 / 恢复：逐条返回结果，失败项不阻断其他项。
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminProductBatchStatusInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdminProductBatchStatusInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdminProductBatchStatusInputRequest'
         required: true
       security:
       - jwtAuth: []
@@ -1765,6 +1929,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/merchant/after-sales/:
+    get:
+      operationId: v1_merchant_after_sales_retrieve
+      description: 商户售后列表（仅本门店），支持按 status / merchant_decision 过滤。
+      tags:
+      - merchant
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/merchant/after-sales/{id}/decision/:
     post:
       operationId: v1_merchant_after_sales_decision_create
@@ -1789,6 +1969,22 @@ paths:
             schema:
               $ref: '#/components/schemas/AfterSaleDecisionRequest'
         required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/merchant/dashboard/:
+    get:
+      operationId: v1_merchant_dashboard_retrieve
+      description: 商户首页数据看板；所有"今日"口径为 Asia/Shanghai 自然日。
+      tags:
+      - merchant
       security:
       - jwtAuth: []
       - cookieAuth: []
@@ -2213,6 +2409,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/merchant/profile/:
+    get:
+      operationId: v1_merchant_profile_retrieve
+      description: 当前登录商户的自身资料（名称、Logo、地址等）。
+      tags:
+      - merchant
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/merchant/statements/:
     get:
       operationId: v1_merchant_statements_retrieve
@@ -2612,6 +2824,67 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/orders/batch/:
+    post:
+      operationId: v1_orders_batch_create
+      description: 批量下单：按商户拆分为多个订单，共享同一合单支付组。
+      tags:
+      - order
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchOrderCreateInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BatchOrderCreateInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BatchOrderCreateInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/payment-groups/{group_no}/pay/:
+    post:
+      operationId: v1_payment_groups_pay_create
+      description: 合单支付：为跨商户订单组发起一笔支付。
+      parameters:
+      - in: path
+        name: group_no
+        schema:
+          type: string
+        required: true
+      tags:
+      - payment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PayInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PayInputRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/platform/config/:
     get:
       operationId: getPlatformConfig
@@ -2620,6 +2893,107 @@ paths:
       - platform
       security:
       - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/points/account/:
+    get:
+      operationId: v1_points_account_retrieve
+      description: 当前用户积分账户：余额、累计获得、累计消耗。
+      tags:
+      - consumer
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/points/rules/:
+    get:
+      operationId: v1_points_rules_retrieve
+      description: 公开积分规则（供前端展示）。
+      tags:
+      - consumer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/points/share/:
+    post:
+      operationId: v1_points_share_create
+      description: 分享赚积分；每日次数上限内发放，超出返回 awarded=False。
+      tags:
+      - consumer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShareInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ShareInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ShareInputRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/points/signin/:
+    post:
+      operationId: v1_points_signin_create
+      description: 签到；每日一次，重复调用幂等。
+      tags:
+      - consumer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PointTransactionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PointTransactionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PointTransactionRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
+  /api/v1/points/transactions/:
+    get:
+      operationId: v1_points_transactions_retrieve
+      description: 当前用户积分流水，可按 biz_type 过滤。
+      tags:
+      - consumer
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
       responses:
         '200':
           content:
@@ -2776,6 +3150,30 @@ paths:
           description: ''
 components:
   schemas:
+    Action3f4Enum:
+      enum:
+      - FORCE_OFF
+      - RESTORE
+      type: string
+      description: |-
+        * `FORCE_OFF` - FORCE_OFF
+        * `RESTORE` - RESTORE
+    AdminAdjustInputRequest:
+      type: object
+      properties:
+        user_id:
+          type: integer
+          minimum: 1
+        delta:
+          type: integer
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 200
+      required:
+      - delta
+      - reason
+      - user_id
     AdminCategoryInputRequest:
       type: object
       properties:
@@ -2992,19 +3390,29 @@ components:
           default: false
       required:
       - platform_name
-    AdminProductStatusInputActionEnum:
-      enum:
-      - FORCE_OFF
-      - RESTORE
-      type: string
-      description: |-
-        * `FORCE_OFF` - FORCE_OFF
-        * `RESTORE` - RESTORE
+    AdminProductBatchStatusInputRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+          maxItems: 100
+          minItems: 1
+        action:
+          $ref: '#/components/schemas/Action3f4Enum'
+        reason:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - action
+      - ids
     AdminProductStatusInputRequest:
       type: object
       properties:
         action:
-          $ref: '#/components/schemas/AdminProductStatusInputActionEnum'
+          $ref: '#/components/schemas/Action3f4Enum'
         reason:
           type: string
           default: ''
@@ -3326,25 +3734,87 @@ components:
       required:
       - liability
       - ruling
-    AuditDecisionInputDecisionEnum:
-      enum:
-      - APPROVE
-      - REJECT
-      type: string
-      description: |-
-        * `APPROVE` - APPROVE
-        * `REJECT` - REJECT
-    AuditDecisionInputRequest:
+    AuditBatchDecisionInputRequest:
       type: object
       properties:
+        ids:
+          type: array
+          items:
+            type: integer
+          maxItems: 100
+          minItems: 1
         decision:
-          $ref: '#/components/schemas/AuditDecisionInputDecisionEnum'
+          $ref: '#/components/schemas/Decision328Enum'
         reason:
           type: string
           default: ''
           maxLength: 200
       required:
       - decision
+      - ids
+    AuditDecisionInputRequest:
+      type: object
+      properties:
+        decision:
+          $ref: '#/components/schemas/Decision328Enum'
+        reason:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - decision
+    BatchOrderCreateInputRequest:
+      type: object
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchOrderGroupInputRequest'
+        contact:
+          $ref: '#/components/schemas/ContactInputRequest'
+        remark:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - contact
+      - groups
+    BatchOrderGroupInputRequest:
+      type: object
+      properties:
+        merchant_id:
+          type: integer
+          minimum: 1
+        order_type:
+          $ref: '#/components/schemas/OrderType2ffEnum'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemInputRequest'
+        appointment:
+          allOf:
+          - $ref: '#/components/schemas/AppointmentInputRequest'
+          nullable: true
+      required:
+      - items
+      - merchant_id
+      - order_type
+    BizTypeEnum:
+      enum:
+      - CONSUMPTION
+      - SIGNIN
+      - SHARE
+      - REGISTER
+      - REVIEW
+      - ADMIN_ADJUST
+      type: string
+      description: |-
+        * `CONSUMPTION` - 消费返积分
+        * `SIGNIN` - 签到
+        * `SHARE` - 分享
+        * `REGISTER` - 注册
+        * `REVIEW` - 评价
+        * `ADMIN_ADJUST` - 后台调整
     CallbackAck:
       type: object
       properties:
@@ -3455,6 +3925,14 @@ components:
       required:
       - name
       - phone
+    Decision328Enum:
+      enum:
+      - APPROVE
+      - REJECT
+      type: string
+      description: |-
+        * `APPROVE` - APPROVE
+        * `REJECT` - REJECT
     DecoPageInputRequest:
       type: object
       properties:
@@ -4025,16 +4503,6 @@ components:
       - commission_rate
       - contact
       - order_type
-    OrderCreateInputOrderTypeEnum:
-      enum:
-      - EXPRESS
-      - PICKUP
-      - SERVICE
-      type: string
-      description: |-
-        * `EXPRESS` - EXPRESS
-        * `PICKUP` - PICKUP
-        * `SERVICE` - SERVICE
     OrderCreateInputRequest:
       type: object
       properties:
@@ -4042,7 +4510,7 @@ components:
           type: integer
           minimum: 1
         order_type:
-          $ref: '#/components/schemas/OrderCreateInputOrderTypeEnum'
+          $ref: '#/components/schemas/OrderType2ffEnum'
         items:
           type: array
           items:
@@ -4543,6 +5011,16 @@ components:
       - event
       - from_status
       - to_status
+    OrderType2ffEnum:
+      enum:
+      - EXPRESS
+      - PICKUP
+      - SERVICE
+      type: string
+      description: |-
+        * `EXPRESS` - EXPRESS
+        * `PICKUP` - PICKUP
+        * `SERVICE` - SERVICE
     OrderTypeEnum:
       enum:
       - EXPRESS
@@ -4695,6 +5173,66 @@ components:
       required:
       - paid_at
       - voucher_no
+    PointTransactionRequest:
+      type: object
+      properties:
+        biz_type:
+          allOf:
+          - $ref: '#/components/schemas/BizTypeEnum'
+          title: 业务类型
+        delta:
+          type: integer
+          title: 变动积分（正增负减）
+        balance_after:
+          type: integer
+          title: 变动后余额
+        biz_id:
+          type: integer
+          nullable: true
+          title: 业务单据 ID
+        remark:
+          type: string
+          title: 备注
+          maxLength: 200
+        operator_name:
+          type: string
+          title: 操作人
+          maxLength: 60
+      required:
+      - balance_after
+      - biz_type
+      - delta
+    PointsConfigRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          title: 积分功能启用
+        consumption_rate:
+          type: integer
+          title: 消费积分比例（分/积分）
+        consumption_max_per_order:
+          type: integer
+          title: 单笔订单积分上限（0=不限）
+        signin_points:
+          type: integer
+          title: 签到积分
+        share_points:
+          type: integer
+          title: 单次分享积分
+        share_daily_limit:
+          type: integer
+          title: 每日分享次数上限
+        register_points:
+          type: integer
+          title: 注册积分
+        review_points:
+          type: integer
+          title: 评价积分
+        updated_by_name:
+          type: string
+          title: 最后修改人
+          maxLength: 60
     Product:
       type: object
       properties:
@@ -4995,6 +5533,17 @@ components:
         * `PENDING` - 待发布
         * `PUBLISHED` - 已发布
         * `CLOSED` - 已关闭
+    ShareInputRequest:
+      type: object
+      properties:
+        target_type:
+          $ref: '#/components/schemas/TargetTypeEnum'
+        target_id:
+          type: integer
+          minimum: 1
+      required:
+      - target_id
+      - target_type
     ShipInputRequest:
       type: object
       properties:
@@ -5082,6 +5631,16 @@ components:
       required:
       - link_type
       - title
+    TargetTypeEnum:
+      enum:
+      - PRODUCT
+      - MERCHANT
+      - PAGE
+      type: string
+      description: |-
+        * `PRODUCT` - PRODUCT
+        * `MERCHANT` - MERCHANT
+        * `PAGE` - PAGE
     TemplateSyncInputRequest:
       type: object
       properties:
