@@ -18,7 +18,7 @@
 - [x] CP-R4: 卡券最后一次核销完成订单；卡券未核销可售后；服务拒单退款闭环
   - **Type**: `rule`
   - **Covers**: AC-7, AC-8, AC-10
-  - **Evidence**: `test_coupon_verify_completes_on_last_code`、`test_coupon_order_allows_after_sale_before_verify`、`test_m2_flow.py` 拒单退款
+  - **Evidence**: `test_coupon_verify_completes_on_last_code`、`test_coupon_order_allows_after_sale_before_verify`、`test_coupon_arbitration_reject_returns_to_pending_fulfill`、`test_m2_flow.py` 拒单退款
 
 - [x] CP-R5: 配送类订单按商户配送费计费，金额全为整数分
   - **Type**: `rule`
@@ -28,7 +28,7 @@
 - [x] CP-R6: make verify 全绿且 CI success
   - **Type**: `rule`
   - **Covers**: AC-11
-  - **Evidence**: 本地 258 passed / 91.41%；CI run 42728320098 success
+  - **Evidence**: 本地 270 passed / 91.72%；CI run 42728320098 success（首版），最终提交 39396e3 由 CI 复跑
 
 ## Review History
 
@@ -55,3 +55,17 @@
   - N-4（Low，actionable）：多张不同卡券同单时核销码有效期统一取首个快照。
   - N-5（Low，actionable）：ProductTemplate 响应 schema 缺 acceptance_required / valid_* / verify_count。
 - **Recommended Issues**: I-8..I-12，见 tasks.md
+
+### Review R3
+- **Result**: `pass`
+- **Evidence**: 评审者复查 39396e3，运行 `pytest apps/{aftersales,orders,payments}`（79 passed）、`apps/catalog`（39 passed）与 `make verify`（270 passed / 91.72%，lint/check/schema-check/contract-check 全绿）。
+- **N-1 fixed**：卡券且无结算项时仲裁驳回改走 `MERCHANT_REJECT_BACK_TO_FULFILL`；实测部分核销 1/3 后仲裁驳回可继续核销至完成并生成结算项；已完成卡券仍走 `ARBITRATION_REJECT`。
+- **N-2 fixed**：全额退款守卫下沉为「卡券且无结算项」；实测已完成卡券部分售后商户同意成功。
+- **N-3 fixed**：部分核销退款规则以 TBD 标注，未臆造。
+- **N-4 fixed**：核销码按商品快照分组，各自使用自身有效期（实测 5 码 7/30 天）。
+- **N-5 fixed**：ProductTemplate 响应契约补齐新字段。
+- **Advisory（不阻塞）**：
+  - A1 `test_completed_coupon_allows_partial_after_sale` 未断言商户同意退款结果（行为已实测正确，测试可加强）。
+  - A2 TBD 说明仅写于 Input schema 的 verify_count，ProductTemplate 响应描述未标。
+  - A3 openapi.yaml 无模板响应 schema 属既有空白，非本次引入。
+  - A4 既有范围外：部分核销后按全额退款（TBD）、RANGE 卡券过期商品仍可下单。
