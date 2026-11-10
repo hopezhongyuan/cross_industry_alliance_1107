@@ -18,8 +18,10 @@ def default_order_no() -> str:
 class Order(TimeStampedModel):
     class Type(models.TextChoices):
         EXPRESS = "EXPRESS", "快递配送"
+        STORE_DELIVERY = "STORE_DELIVERY", "门店配送"
         PICKUP = "PICKUP", "到店自提"
         SERVICE = "SERVICE", "到店服务"
+        COUPON = "COUPON", "卡券核销"
 
     class Status(models.TextChoices):
         PENDING_PAYMENT = "PENDING_PAYMENT", "待支付"

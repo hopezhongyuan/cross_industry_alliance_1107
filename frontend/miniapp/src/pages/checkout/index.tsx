@@ -104,7 +104,8 @@ export default function Checkout() {
   }, [cart])
 
   const directMerchantId = product?.merchant_id
-  const directOrderType = product?.type === 'SERVICE' ? 'SERVICE' : 'EXPRESS'
+  const directOrderType =
+    product?.type === 'SERVICE' ? 'SERVICE' : product?.type === 'COUPON' ? 'COUPON' : 'EXPRESS'
   const directTotal = (product?.price ?? 0) * directQuantity
   const needSlot = mode === 'direct' && Boolean(product?.appointment_required)
 

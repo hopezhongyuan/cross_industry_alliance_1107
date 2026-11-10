@@ -59,7 +59,7 @@ def ship_order(user, order_id, logistics_company="", logistics_no=""):
         if order.status != Order.Status.PENDING_FULFILL:
             raise ApiError("ORDER_STATE_CONFLICT", "当前状态不允许发货", 409)
 
-        if order.order_type == Order.Type.EXPRESS:
+        if order.order_type in (Order.Type.EXPRESS, Order.Type.STORE_DELIVERY):
             OrderDelivery.objects.filter(order=order).update(
                 logistics_company=logistics_company,
                 logistics_no=logistics_no,
@@ -68,11 +68,13 @@ def ship_order(user, order_id, logistics_company="", logistics_no=""):
             order = transit_order(order.id, "SHIP", operator_type="MERCHANT", operator_id=user.id)
         elif order.order_type == Order.Type.PICKUP:
             order = transit_order(order.id, "PICKUP_READY", operator_type="MERCHANT", operator_id=user.id)
-        else:
+        elif order.order_type == Order.Type.SERVICE:
             Appointment.objects.filter(order=order).update(
                 status=Appointment.Status.CONFIRMED, confirmed_at=timezone.now()
             )
             order = transit_order(order.id, "APPOINTMENT_CONFIRM", operator_type="MERCHANT", operator_id=user.id)
+        else:
+            raise ApiError("ORDER_STATE_CONFLICT", "卡券订单到店核销即可，无需发货", 409)
     return order
 
 
@@ -93,7 +95,20 @@ def verify_code(user, code: str):
         if order is None or order.merchant_id != merchant.id:
             raise ApiError("VERIFY_CODE_INVALID", "核销码不属于本店订单", 409)
 
-        if order.order_type == Order.Type.SERVICE and order.status == Order.Status.PENDING_FULFILL:
+        # 先标记本码已核销，再判断订单是否还有未核销的码
+        verify.status = VerifyCode.Status.USED
+        verify.used_at = timezone.now()
+        verify.used_by_id = user.id
+        verify.used_by_name = user.username if hasattr(user, "username") else ""
+        verify.save(update_fields=["status", "used_at", "used_by_id", "used_by_name", "updated_at"])
+
+        if order.order_type == Order.Type.COUPON:
+            remaining = VerifyCode.objects.filter(order=order, status=VerifyCode.Status.ACTIVE).exists()
+            if remaining:
+                # 还有未核销的码：订单保持待履约，不触发状态迁移
+                return order
+            event = "SERVICE_VERIFY"
+        elif order.order_type == Order.Type.SERVICE and order.status == Order.Status.PENDING_FULFILL:
             event = "SERVICE_VERIFY"
         elif order.status == Order.Status.FULFILLING:
             event = "PICKUP_VERIFY" if order.order_type == Order.Type.PICKUP else "SERVICE_VERIFY"
@@ -101,11 +116,6 @@ def verify_code(user, code: str):
             raise ApiError("ORDER_STATE_CONFLICT", "当前订单状态不允许核销", 409)
 
         order = transit_order(order.id, event, operator_type="MERCHANT", operator_id=user.id)
-        verify.status = VerifyCode.Status.USED
-        verify.used_at = timezone.now()
-        verify.used_by_id = user.id
-        verify.used_by_name = user.username if hasattr(user, "username") else ""
-        verify.save(update_fields=["status", "used_at", "used_by_id", "used_by_name", "updated_at"])
         order.refresh_from_db()
         create_settlement_item(order)
     return order

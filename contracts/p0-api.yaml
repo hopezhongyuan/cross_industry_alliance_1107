@@ -265,7 +265,7 @@ components:
         merchant_address: { type: string }
         merchant_phone: { type: string }
         category_id: { type: integer, format: int64 }
-        type: { type: string, enum: [PHYSICAL, SERVICE] }
+        type: { type: string, enum: [PHYSICAL, SERVICE, COUPON] }
         title: { type: string }
         subtitle: { type: string }
         cover_url: { type: string }
@@ -280,7 +280,17 @@ components:
         appointment_required: { type: boolean }
         delivery_types:
           type: array
-          items: { type: string, enum: [EXPRESS, PICKUP, VERIFY, APPOINTMENT] }
+          items: { type: string, enum: [EXPRESS, STORE_DELIVERY, PICKUP, VERIFY, APPOINTMENT] }
+        valid_type: { type: string, enum: [DAYS, PERMANENT, RANGE], description: 卡券有效期类型 }
+        valid_days: { type: integer, nullable: true, description: 卡券有效天数 }
+        valid_from: { type: string, format: date-time, nullable: true }
+        valid_to: { type: string, format: date-time, nullable: true }
+        usable_weekdays:
+          type: array
+          description: 可用星期（1=周一，空=不限）
+          items: { type: integer, minimum: 1, maximum: 7 }
+        exclude_holidays: { type: boolean, description: 法定节假日不可用（仅文案提示，商户人工判断） }
+        verify_count: { type: integer, description: 可核销次数 }
         skus:
           type: array
           items: { $ref: '#/components/schemas/Sku' }
@@ -322,7 +332,7 @@ components:
         product_code: { type: string, description: 商户货号，商户内唯一，可为空 }
         merchant_category_id: { type: integer, format: int64, nullable: true }
         merchant_category_name: { type: string }
-        type: { type: string, enum: [PHYSICAL, SERVICE] }
+        type: { type: string, enum: [PHYSICAL, SERVICE, COUPON] }
         title: { type: string }
         subtitle: { type: string }
         cover_url: { type: string }
@@ -333,7 +343,7 @@ components:
         sold_count: { type: integer }
         delivery_types:
           type: array
-          items: { type: string, enum: [EXPRESS, PICKUP, VERIFY, APPOINTMENT] }
+          items: { type: string, enum: [EXPRESS, STORE_DELIVERY, PICKUP, VERIFY, APPOINTMENT] }
         submitted_at: { type: string, format: date-time, nullable: true }
         updated_at: { type: string, format: date-time }
         off_sale_by: { type: string, enum: ['', MERCHANT, PLATFORM] }
@@ -354,6 +364,16 @@ components:
             original_price: { type: integer }
             verify_days: { type: integer }
             appointment_required: { type: boolean }
+            acceptance_required: { type: boolean, description: 是否需要商户接单（实物商品可配置） }
+            valid_type: { type: string, enum: [DAYS, PERMANENT, RANGE] }
+            valid_days: { type: integer, nullable: true }
+            valid_from: { type: string, format: date-time, nullable: true }
+            valid_to: { type: string, format: date-time, nullable: true }
+            usable_weekdays:
+              type: array
+              items: { type: integer, minimum: 1, maximum: 7 }
+            exclude_holidays: { type: boolean }
+            verify_count: { type: integer }
             skus:
               type: array
               items: { $ref: '#/components/schemas/MerchantSku' }
@@ -469,7 +489,7 @@ components:
         template_no: { type: string }
         title: { type: string }
         subtitle: { type: string }
-        type: { type: string, enum: [PHYSICAL, SERVICE] }
+        type: { type: string, enum: [PHYSICAL, SERVICE, COUPON] }
         category_id: { type: integer, format: int64 }
         category_name: { type: string }
         cover_url: { type: string }
@@ -483,7 +503,7 @@ components:
         appointment_required: { type: boolean }
         delivery_types:
           type: array
-          items: { type: string, enum: [EXPRESS, PICKUP, VERIFY, APPOINTMENT] }
+          items: { type: string, enum: [EXPRESS, STORE_DELIVERY, PICKUP, VERIFY, APPOINTMENT] }
         skus:
           type: array
           items:
@@ -507,7 +527,7 @@ components:
       properties:
         title: { type: string }
         subtitle: { type: string }
-        type: { type: string, enum: [PHYSICAL, SERVICE] }
+        type: { type: string, enum: [PHYSICAL, SERVICE, COUPON] }
         category_id: { type: integer, format: int64 }
         cover_url: { type: string, description: 必须是素材库地址 }
         images:
@@ -518,9 +538,20 @@ components:
         original_price_amount: { type: integer }
         verify_days: { type: integer }
         appointment_required: { type: boolean }
+        acceptance_required: { type: boolean, default: true, description: 是否需要商户接单 }
         delivery_types:
           type: array
-          items: { type: string, enum: [EXPRESS, PICKUP, VERIFY, APPOINTMENT] }
+          items: { type: string, enum: [EXPRESS, STORE_DELIVERY, PICKUP, VERIFY, APPOINTMENT] }
+        valid_type: { type: string, enum: [DAYS, PERMANENT, RANGE], default: DAYS }
+        valid_days: { type: integer, nullable: true, description: valid_type=DAYS 时必填 }
+        valid_from: { type: string, format: date-time, nullable: true, description: valid_type=RANGE 时必填 }
+        valid_to: { type: string, format: date-time, nullable: true, description: valid_type=RANGE 时必填 }
+        usable_weekdays:
+          type: array
+          description: 可用星期（1=周一，空=不限）
+          items: { type: integer, minimum: 1, maximum: 7 }
+        exclude_holidays: { type: boolean, default: false, description: 法定节假日不可用（文案提示） }
+        verify_count: { type: integer, minimum: 1, maximum: 999, default: 1, description: 可核销次数 }
         skus:
           type: array
           items:
@@ -798,7 +829,7 @@ components:
       required: [merchant_id, order_type, items, contact]
       properties:
         merchant_id: { type: integer, format: int64 }
-        order_type: { type: string, enum: [EXPRESS, PICKUP, SERVICE] }
+        order_type: { type: string, enum: [EXPRESS, STORE_DELIVERY, PICKUP, SERVICE, COUPON] }
         items:
           type: array
           minItems: 1
@@ -811,7 +842,7 @@ components:
       required: [merchant_id, order_type, items]
       properties:
         merchant_id: { type: integer, format: int64 }
-        order_type: { type: string, enum: [EXPRESS, PICKUP, SERVICE] }
+        order_type: { type: string, enum: [EXPRESS, STORE_DELIVERY, PICKUP, SERVICE, COUPON] }
         items:
           type: array
           minItems: 1
@@ -868,7 +899,7 @@ components:
         order_no: { type: string }
         merchant_id: { type: integer, format: int64 }
         merchant_name: { type: string }
-        order_type: { type: string, enum: [EXPRESS, PICKUP, SERVICE] }
+        order_type: { type: string, enum: [EXPRESS, STORE_DELIVERY, PICKUP, SERVICE, COUPON] }
         status:
           type: string
           enum: [PENDING_PAYMENT, PENDING_ACCEPT, PENDING_FULFILL, FULFILLING, COMPLETED, AFTER_SALE, REFUNDING, REFUNDED, CLOSED]
@@ -939,7 +970,7 @@ components:
         order_no: { type: string }
         merchant_id: { type: integer, format: int64 }
         merchant_name: { type: string }
-        order_type: { type: string, enum: [EXPRESS, PICKUP, SERVICE] }
+        order_type: { type: string, enum: [EXPRESS, STORE_DELIVERY, PICKUP, SERVICE, COUPON] }
         status: { type: string }
         product_amount: { type: integer }
         delivery_fee: { type: integer }
@@ -1283,7 +1314,7 @@ components:
       required: [category_id, type, title, price_amount, delivery_types, skus]
       properties:
         category_id: { type: integer, format: int64 }
-        type: { type: string, enum: [PHYSICAL, SERVICE] }
+        type: { type: string, enum: [PHYSICAL, SERVICE, COUPON] }
         title: { type: string }
         subtitle: { type: string }
         cover_url: { type: string, format: uri }
@@ -1295,9 +1326,20 @@ components:
         original_price_amount: { type: integer }
         verify_days: { type: integer, minimum: 1 }
         appointment_required: { type: boolean }
+        acceptance_required: { type: boolean, default: true, description: 是否需要商户接单（实物商品可配置） }
         delivery_types:
           type: array
-          items: { type: string, enum: [EXPRESS, PICKUP, VERIFY, APPOINTMENT] }
+          items: { type: string, enum: [EXPRESS, STORE_DELIVERY, PICKUP, VERIFY, APPOINTMENT] }
+        valid_type: { type: string, enum: [DAYS, PERMANENT, RANGE], default: DAYS, description: 卡券有效期类型 }
+        valid_days: { type: integer, minimum: 1, nullable: true, description: valid_type=DAYS 时必填 }
+        valid_from: { type: string, format: date-time, nullable: true, description: valid_type=RANGE 时必填 }
+        valid_to: { type: string, format: date-time, nullable: true, description: valid_type=RANGE 时必填 }
+        usable_weekdays:
+          type: array
+          description: 可用星期（1=周一，空=不限）
+          items: { type: integer, minimum: 1, maximum: 7 }
+        exclude_holidays: { type: boolean, default: false, description: 法定节假日不可用（文案提示） }
+        verify_count: { type: integer, minimum: 1, maximum: 999, default: 1, description: 可核销次数 }
         product_code: { type: string, description: 商户货号，商户内唯一，可为空 }
         merchant_category_id: { type: integer, format: int64, nullable: true, description: 商户自有分类，仅一级 }
         skus:
@@ -1446,6 +1488,14 @@ components:
       properties:
         status: { type: string, enum: [ACTIVE, RESTING, BANNED], description: 停业 RESTING / 封禁 BANNED / 恢复 ACTIVE }
         reason: { type: string, description: 变更原因，写入操作日志 }
+    MerchantProfileInput:
+      type: object
+      properties:
+        industry:
+          type: string
+          enum: [RESTAURANT, ACCOMMODATION, BEAUTY, FITNESS, RETAIL, LIFE_SERVICE, OTHER]
+          description: 商户行业，仅后台可见
+        delivery_fee: { type: integer, minimum: 0, description: 配送费（分） }
     AdminMerchant:
       type: object
       properties:
@@ -1455,12 +1505,18 @@ components:
         short_name: { type: string }
         category_id: { type: integer, format: int64, nullable: true }
         category_name: { type: string }
+        industry:
+          type: string
+          enum: [RESTAURANT, ACCOMMODATION, BEAUTY, FITNESS, RETAIL, LIFE_SERVICE, OTHER]
+          description: 行业（仅后台可见，用于后台归类与统计）
+        industry_label: { type: string }
         contact_phone: { type: string }
         city: { type: string }
         district: { type: string }
         status: { type: string, enum: [PENDING, ACTIVE, RESTING, BANNED, REJECTED] }
         commission_rate: { type: number, description: 生效佣金率（商户覆盖优先，类目默认兜底） }
         settlement_cycle_days: { type: integer }
+        delivery_fee: { type: integer, description: 配送费（分），配送类订单计入订单 }
         today_orders: { type: integer, description: 今日订单数 }
         settled_amount: { type: integer, description: 累计已结算金额（分） }
         created_at: { type: string, format: date-time }
@@ -1768,6 +1824,10 @@ components:
         name: { type: string, maxLength: 80 }
         short_name: { type: string, maxLength: 40 }
         category_id: { type: integer, format: int64 }
+        industry:
+          type: string
+          enum: [RESTAURANT, ACCOMMODATION, BEAUTY, FITNESS, RETAIL, LIFE_SERVICE, OTHER]
+          default: OTHER
         contact_phone: { type: string, maxLength: 20 }
         province: { type: string, maxLength: 32 }
         city: { type: string, maxLength: 32 }
@@ -1778,6 +1838,7 @@ components:
         business_hours: { type: object, additionalProperties: true }
         commission_rate: { type: number, minimum: 0, maximum: 1, description: 商户覆盖佣金率，空则继承类目 }
         settlement_cycle_days: { type: integer, minimum: 1, maximum: 360, default: 7 }
+        delivery_fee: { type: integer, minimum: 0, default: 0, description: 配送费（分） }
         bank_info:
           type: object
           description: 加密存储，仅接受 bank / card_no
@@ -2420,7 +2481,7 @@ paths:
           schema: { type: integer, format: int64 }
         - name: type
           in: query
-          schema: { type: string, enum: [PHYSICAL, SERVICE] }
+          schema: { type: string, enum: [PHYSICAL, SERVICE, COUPON] }
         - name: search
           in: query
           schema: { type: string }
@@ -4409,6 +4470,11 @@ paths:
         - name: city
           in: query
           schema: { type: string }
+        - name: industry
+          in: query
+          schema:
+            type: string
+            enum: [RESTAURANT, ACCOMMODATION, BEAUTY, FITNESS, RETAIL, LIFE_SERVICE, OTHER]
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/PageSizeParam'
       responses:
@@ -4529,6 +4595,42 @@ paths:
                           city: { type: string }
                           district: { type: string }
                           address: { type: string }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/admin/merchants/{id}/profile/:
+    patch:
+      tags: [admin]
+      operationId: updateMerchantProfile
+      summary: '维护商户归类信息（industry: 行业；delivery_fee: 配送费），仅后台可见，写操作记录操作日志'
+      x-status: implemented
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MerchantProfileInput' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Envelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id: { type: integer, format: int64 }
+                          industry: { type: string }
+                          delivery_fee: { type: integer }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/ValidationError' }

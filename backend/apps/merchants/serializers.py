@@ -94,6 +94,7 @@ class AdminMerchantSerializer(serializers.ModelSerializer):
     """平台商户列表行：佣金率返回生效值（商户覆盖优先，类目默认兜底）。"""
 
     category_name = serializers.CharField(source="category.name", read_only=True, default="")
+    industry_label = serializers.CharField(source="get_industry_display", read_only=True)
     commission_rate = serializers.SerializerMethodField()
     today_orders = serializers.IntegerField(read_only=True, default=0)
     settled_amount = serializers.IntegerField(read_only=True, default=0)
@@ -107,12 +108,15 @@ class AdminMerchantSerializer(serializers.ModelSerializer):
             "short_name",
             "category_id",
             "category_name",
+            "industry",
+            "industry_label",
             "contact_phone",
             "city",
             "district",
             "status",
             "commission_rate",
             "settlement_cycle_days",
+            "delivery_fee",
             "today_orders",
             "settled_amount",
             "created_at",
@@ -208,6 +212,13 @@ class AdminMerchantLocationInputSerializer(serializers.Serializer):
     address = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
 
 
+class AdminMerchantProfileInputSerializer(serializers.Serializer):
+    """平台维护商户归类信息：行业与配送费，仅后台可见。"""
+
+    industry = serializers.ChoiceField(choices=Merchant.Industry.choices, required=False)
+    delivery_fee = serializers.IntegerField(required=False, min_value=0)
+
+
 class AdminMerchantQualificationInputSerializer(serializers.Serializer):
     type = serializers.ChoiceField(choices=MerchantQualification.Type.choices)
     file_url = serializers.CharField(max_length=300)
@@ -225,6 +236,9 @@ class AdminMerchantCreateInputSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=80)
     short_name = serializers.CharField(max_length=40, required=False, allow_blank=True, default="")
     category_id = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), source="category")
+    industry = serializers.ChoiceField(
+        choices=Merchant.Industry.choices, required=False, default=Merchant.Industry.OTHER
+    )
     contact_phone = serializers.CharField(max_length=20)
     province = serializers.CharField(max_length=32, required=False, allow_blank=True, default="")
     city = serializers.CharField(max_length=32)
@@ -261,6 +275,7 @@ class AdminMerchantCreateInputSerializer(serializers.Serializer):
         max_value=360,
         default=settings.DEFAULT_SETTLEMENT_CYCLE_DAYS,
     )
+    delivery_fee = serializers.IntegerField(required=False, min_value=0, default=0)
     bank_info = serializers.JSONField(required=False, default=dict)
     qualifications = AdminMerchantQualificationInputSerializer(many=True, required=False, default=list)
     owner_phone = serializers.CharField(max_length=20)

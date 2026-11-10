@@ -189,7 +189,7 @@ class AppointmentInputSerializer(serializers.Serializer):
 
 class OrderCreateInputSerializer(serializers.Serializer):
     merchant_id = serializers.IntegerField(min_value=1)
-    order_type = serializers.ChoiceField(choices=["EXPRESS", "PICKUP", "SERVICE"])
+    order_type = serializers.ChoiceField(choices=Order.Type.choices)
     items = OrderItemInputSerializer(many=True, allow_empty=False)
     contact = ContactInputSerializer()
     appointment = AppointmentInputSerializer(required=False, allow_null=True)
@@ -199,7 +199,7 @@ class OrderCreateInputSerializer(serializers.Serializer):
 
 class BatchOrderGroupInputSerializer(serializers.Serializer):
     merchant_id = serializers.IntegerField(min_value=1)
-    order_type = serializers.ChoiceField(choices=["EXPRESS", "PICKUP", "SERVICE"])
+    order_type = serializers.ChoiceField(choices=Order.Type.choices)
     items = OrderItemInputSerializer(many=True, allow_empty=False)
     appointment = AppointmentInputSerializer(required=False, allow_null=True)
     user_coupon_id = serializers.IntegerField(required=False, allow_null=True, default=None)

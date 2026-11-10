@@ -84,7 +84,7 @@ export type ProductDetail = {
   merchant_name: string
   merchant_address: string
   merchant_phone: string
-  type: 'PHYSICAL' | 'SERVICE'
+  type: 'PHYSICAL' | 'SERVICE' | 'COUPON'
   title: string
   subtitle?: string
   cover_url?: string
@@ -94,6 +94,13 @@ export type ProductDetail = {
   original_price?: number
   verify_days?: number
   appointment_required: boolean
+  valid_type?: 'DAYS' | 'PERMANENT' | 'RANGE'
+  valid_days?: number | null
+  valid_from?: string | null
+  valid_to?: string | null
+  usable_weekdays?: number[]
+  exclude_holidays?: boolean
+  verify_count?: number
   refund_policy?: string
   skus: Array<{ id: number; price: number; available_stock: number; sku_code: string }>
   slots: Array<{ id: number; slot_date: string; start_time: string; end_time: string; remaining: number }>
@@ -219,6 +226,14 @@ export type MerchantProductDetail = MerchantProductRow & {
   original_price: number
   verify_days: number
   appointment_required: boolean
+  acceptance_required: boolean
+  valid_type: 'DAYS' | 'PERMANENT' | 'RANGE'
+  valid_days: number | null
+  valid_from: string | null
+  valid_to: string | null
+  usable_weekdays: number[]
+  exclude_holidays: boolean
+  verify_count: number
   skus: MerchantSkuRow[]
   audited_at: string | null
   version: number
@@ -229,7 +244,7 @@ export type MerchantProductPayload = {
   category_id: number
   merchant_category_id?: number | null
   product_code?: string
-  type: 'PHYSICAL' | 'SERVICE'
+  type: 'PHYSICAL' | 'SERVICE' | 'COUPON'
   title: string
   subtitle?: string
   cover_url?: string
@@ -239,6 +254,14 @@ export type MerchantProductPayload = {
   original_price_amount?: number
   verify_days?: number
   appointment_required?: boolean
+  acceptance_required?: boolean
+  valid_type?: 'DAYS' | 'PERMANENT' | 'RANGE'
+  valid_days?: number | null
+  valid_from?: string | null
+  valid_to?: string | null
+  usable_weekdays?: number[]
+  exclude_holidays?: boolean
+  verify_count?: number
   delivery_types: string[]
   skus: Array<{ sku_code: string; spec?: Record<string, unknown>; price_amount: number; stock: number }>
   version?: number

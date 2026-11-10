@@ -19,6 +19,15 @@ class Merchant(TimeStampedModel):
         BANNED = "BANNED", "已封禁"
         REJECTED = "REJECTED", "审核驳回"
 
+    class Industry(models.TextChoices):
+        RESTAURANT = "RESTAURANT", "餐饮"
+        ACCOMMODATION = "ACCOMMODATION", "酒店民宿"
+        BEAUTY = "BEAUTY", "美容美发"
+        FITNESS = "FITNESS", "健身运动"
+        RETAIL = "RETAIL", "零售"
+        LIFE_SERVICE = "LIFE_SERVICE", "生活服务"
+        OTHER = "OTHER", "其他"
+
     merchant_no = models.CharField("商户编号", max_length=32, unique=True)
     name = models.CharField("商户名称", max_length=80)
     short_name = models.CharField("简称", max_length=40, blank=True, default="")
@@ -29,6 +38,13 @@ class Merchant(TimeStampedModel):
         blank=True,
         related_name="merchants",
         verbose_name="主营类目",
+    )
+    industry = models.CharField(
+        "行业（仅后台可见）",
+        max_length=24,
+        choices=Industry.choices,
+        default=Industry.OTHER,
+        db_index=True,
     )
     logo_url = models.URLField("Logo", blank=True, default="")
     description = models.TextField("简介", blank=True, default="")
@@ -47,6 +63,7 @@ class Merchant(TimeStampedModel):
     settlement_cycle_days = models.PositiveSmallIntegerField(
         "结算周期（天）", default=settings.DEFAULT_SETTLEMENT_CYCLE_DAYS
     )
+    delivery_fee = models.BigIntegerField("配送费（分）", default=0)
     bank_info = EncryptedJSONField("收款银行信息（加密存储，T9）", default=dict, blank=True)
     create_idempotency_key = models.CharField("创建幂等键", max_length=64, unique=True, null=True, blank=True)
     opened_at = models.DateTimeField("开店时间", null=True, blank=True)

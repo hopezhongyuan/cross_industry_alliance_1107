@@ -219,4 +219,10 @@ def refund_order(
             from apps.coupons.services import release_user_coupon_by_order
 
             release_user_coupon_by_order(order.id)
+            if order.order_type == Order.Type.COUPON:
+                from apps.fulfillment.models import VerifyCode
+
+                VerifyCode.objects.filter(order=order, status=VerifyCode.Status.ACTIVE).update(
+                    status=VerifyCode.Status.INVALID
+                )
     return refund

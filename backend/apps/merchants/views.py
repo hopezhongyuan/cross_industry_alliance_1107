@@ -19,12 +19,13 @@ from .serializers import (
     AdminMerchantCreateInputSerializer,
     AdminMerchantDetailSerializer,
     AdminMerchantLocationInputSerializer,
+    AdminMerchantProfileInputSerializer,
     AdminMerchantSerializer,
     MerchantSerializer,
     MerchantStatusInputSerializer,
     StoreSerializer,
 )
-from .services import change_merchant_status, create_merchant, update_merchant_location
+from .services import change_merchant_status, create_merchant, update_merchant_location, update_merchant_profile
 
 
 def _distance_meters(lat1, lng1, lat2, lng2) -> int:
@@ -181,6 +182,12 @@ class AdminMerchantListView(EnvelopeAPIView):
         if city:
             queryset = queryset.filter(city__icontains=city)
 
+        industry = request.query_params.get("industry")
+        if industry:
+            if industry not in Merchant.Industry.values:
+                raise ApiError("VALIDATION_ERROR", "industry 取值非法", 422)
+            queryset = queryset.filter(industry=industry)
+
         payload = paginated(request, queryset, AdminMerchantSerializer)
         payload["summary"] = Merchant.objects.aggregate(
             total=Count("id"),
@@ -256,6 +263,26 @@ class AdminMerchantStatusView(EnvelopeAPIView):
             request=request,
         )
         return ok(request, {"id": merchant.id, "status": merchant.status, "changed": changed})
+
+
+@extend_schema(
+    tags=["admin"],
+    request=AdminMerchantProfileInputSerializer,
+    responses=EnvelopeResponse,
+)
+class AdminMerchantProfileView(EnvelopeAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AdminMerchantProfileInputSerializer
+
+    @extend_schema(operation_id="updateMerchantProfile")
+    def patch(self, request, pk):
+        serializer = AdminMerchantProfileInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        merchant = update_merchant_profile(request.user, pk, serializer.validated_data, request=request)
+        return ok(
+            request,
+            {"id": merchant.id, "industry": merchant.industry, "delivery_fee": merchant.delivery_fee},
+        )
 
 
 @extend_schema(

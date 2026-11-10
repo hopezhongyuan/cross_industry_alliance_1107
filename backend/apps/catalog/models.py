@@ -10,6 +10,14 @@ def default_template_no() -> str:
     return generate_no("PT")
 
 
+class ValidPeriodType(models.TextChoices):
+    """卡券有效期类型：商品与模板共用。"""
+
+    DAYS = "DAYS", "N天有效"
+    PERMANENT = "PERMANENT", "永久有效"
+    RANGE = "RANGE", "固定时间段"
+
+
 class Category(TimeStampedModel):
     class Status(models.TextChoices):
         ENABLED = "ENABLED", "启用"
@@ -81,6 +89,7 @@ class ProductTemplate(TimeStampedModel):
     class Type(models.TextChoices):
         PHYSICAL = "PHYSICAL", "实物商品"
         SERVICE = "SERVICE", "到店服务"
+        COUPON = "COUPON", "卡券核销"
 
     template_no = models.CharField("模板编号", max_length=32, unique=True, default=default_template_no)
     title = models.CharField("标题", max_length=120)
@@ -96,7 +105,17 @@ class ProductTemplate(TimeStampedModel):
     original_price = models.BigIntegerField("划线价（分）", default=0)
     verify_days = models.PositiveSmallIntegerField("核销有效期（天）", default=30)
     appointment_required = models.BooleanField("需预约", default=False)
+    acceptance_required = models.BooleanField("需要商户接单", default=True)
     delivery_types = models.JSONField("履约方式", default=list, blank=True)
+    valid_type = models.CharField(
+        "卡券有效期类型", max_length=16, choices=ValidPeriodType.choices, default=ValidPeriodType.DAYS
+    )
+    valid_days = models.PositiveSmallIntegerField("卡券有效天数", null=True, blank=True)
+    valid_from = models.DateTimeField("卡券生效时间", null=True, blank=True)
+    valid_to = models.DateTimeField("卡券失效时间", null=True, blank=True)
+    usable_weekdays = models.JSONField("可用星期（1=周一，空=不限）", default=list, blank=True)
+    exclude_holidays = models.BooleanField("法定节假日不可用（文案提示）", default=False)
+    verify_count = models.PositiveSmallIntegerField("可核销次数", default=1)
     skus = models.JSONField("默认 SKU", default=list, blank=True)
     status = models.CharField("状态", max_length=16, choices=Status.choices, default=Status.DRAFT, db_index=True)
     scope = models.CharField("分发范围", max_length=16, choices=Scope.choices, default=Scope.NONE, db_index=True)
@@ -121,6 +140,7 @@ class Product(TimeStampedModel):
     class Type(models.TextChoices):
         PHYSICAL = "PHYSICAL", "实物商品"
         SERVICE = "SERVICE", "到店服务"
+        COUPON = "COUPON", "卡券核销"
 
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "草稿"
@@ -131,9 +151,12 @@ class Product(TimeStampedModel):
 
     class DeliveryType(models.TextChoices):
         EXPRESS = "EXPRESS", "快递配送"
+        STORE_DELIVERY = "STORE_DELIVERY", "门店配送"
         PICKUP = "PICKUP", "到店自提"
         VERIFY = "VERIFY", "到店核销"
         APPOINTMENT = "APPOINTMENT", "预约服务"
+
+    ValidType = ValidPeriodType
 
     merchant = models.ForeignKey(
         "merchants.Merchant", on_delete=models.CASCADE, related_name="products", verbose_name="商户"
@@ -169,7 +192,16 @@ class Product(TimeStampedModel):
     status = models.CharField("状态", max_length=16, choices=Status.choices, default=Status.DRAFT, db_index=True)
     verify_days = models.PositiveSmallIntegerField("核销有效期（天）", default=30)
     appointment_required = models.BooleanField("需预约", default=False)
+    acceptance_required = models.BooleanField("需要商户接单", default=True)
     delivery_types = models.JSONField("履约方式", default=list, blank=True)
+    # 卡券核销专属：有效期 / 可用规则 / 核销次数（其它类型忽略）
+    valid_type = models.CharField("卡券有效期类型", max_length=16, choices=ValidType.choices, default=ValidType.DAYS)
+    valid_days = models.PositiveSmallIntegerField("卡券有效天数", null=True, blank=True)
+    valid_from = models.DateTimeField("卡券生效时间", null=True, blank=True)
+    valid_to = models.DateTimeField("卡券失效时间", null=True, blank=True)
+    usable_weekdays = models.JSONField("可用星期（1=周一，空=不限）", default=list, blank=True)
+    exclude_holidays = models.BooleanField("法定节假日不可用（文案提示）", default=False)
+    verify_count = models.PositiveSmallIntegerField("可核销次数", default=1)
     sold_count = models.PositiveIntegerField("已售件数", default=0)
     sort = models.IntegerField("排序", default=0)
     reject_reason = models.CharField("驳回原因", max_length=200, blank=True, default="")

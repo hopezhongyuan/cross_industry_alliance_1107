@@ -409,6 +409,10 @@ export interface paths {
     /** 设置商户真实定位（经纬度必填，GCJ-02） */
     put: operations["updateMerchantLocation"];
   };
+  "/api/v1/admin/merchants/{id}/profile/": {
+    /** 维护商户归类信息（industry: 行业；delivery_fee: 配送费），仅后台可见，写操作记录操作日志 */
+    patch: operations["updateMerchantProfile"];
+  };
   "/api/v1/admin/orders/": {
     /** 平台订单查询（多条件筛选，数据脱敏） */
     get: operations["listAdminOrders"];
@@ -700,7 +704,7 @@ export interface components {
       /** Format: int64 */
       category_id?: number;
       /** @enum {string} */
-      type?: "PHYSICAL" | "SERVICE";
+      type?: "PHYSICAL" | "SERVICE" | "COUPON";
       title?: string;
       subtitle?: string;
       cover_url?: string;
@@ -711,7 +715,24 @@ export interface components {
       sold_count?: number;
       verify_days?: number;
       appointment_required?: boolean;
-      delivery_types?: ("EXPRESS" | "PICKUP" | "VERIFY" | "APPOINTMENT")[];
+      delivery_types?: ("EXPRESS" | "STORE_DELIVERY" | "PICKUP" | "VERIFY" | "APPOINTMENT")[];
+      /**
+       * @description 卡券有效期类型
+       * @enum {string}
+       */
+      valid_type?: "DAYS" | "PERMANENT" | "RANGE";
+      /** @description 卡券有效天数 */
+      valid_days?: number | null;
+      /** Format: date-time */
+      valid_from?: string | null;
+      /** Format: date-time */
+      valid_to?: string | null;
+      /** @description 可用星期（1=周一，空=不限） */
+      usable_weekdays?: number[];
+      /** @description 法定节假日不可用（仅文案提示，商户人工判断） */
+      exclude_holidays?: boolean;
+      /** @description 可核销次数 */
+      verify_count?: number;
       skus?: components["schemas"]["Sku"][];
       slots?: components["schemas"]["ServiceSlot"][];
       /** @description P0 展示文本，具体规则 TBD */
@@ -746,7 +767,7 @@ export interface components {
       merchant_category_id?: number | null;
       merchant_category_name?: string;
       /** @enum {string} */
-      type?: "PHYSICAL" | "SERVICE";
+      type?: "PHYSICAL" | "SERVICE" | "COUPON";
       title?: string;
       subtitle?: string;
       cover_url?: string;
@@ -756,7 +777,7 @@ export interface components {
       reject_reason?: string;
       total_stock?: number;
       sold_count?: number;
-      delivery_types?: ("EXPRESS" | "PICKUP" | "VERIFY" | "APPOINTMENT")[];
+      delivery_types?: ("EXPRESS" | "STORE_DELIVERY" | "PICKUP" | "VERIFY" | "APPOINTMENT")[];
       /** Format: date-time */
       submitted_at?: string | null;
       /** Format: date-time */
@@ -777,6 +798,18 @@ export interface components {
       original_price?: number;
       verify_days?: number;
       appointment_required?: boolean;
+      /** @description 是否需要商户接单（实物商品可配置） */
+      acceptance_required?: boolean;
+      /** @enum {string} */
+      valid_type?: "DAYS" | "PERMANENT" | "RANGE";
+      valid_days?: number | null;
+      /** Format: date-time */
+      valid_from?: string | null;
+      /** Format: date-time */
+      valid_to?: string | null;
+      usable_weekdays?: number[];
+      exclude_holidays?: boolean;
+      verify_count?: number;
       skus?: components["schemas"]["MerchantSku"][];
       /** Format: date-time */
       audited_at?: string | null;
@@ -866,7 +899,7 @@ export interface components {
       title?: string;
       subtitle?: string;
       /** @enum {string} */
-      type?: "PHYSICAL" | "SERVICE";
+      type?: "PHYSICAL" | "SERVICE" | "COUPON";
       /** Format: int64 */
       category_id?: number;
       category_name?: string;
@@ -877,7 +910,7 @@ export interface components {
       original_price?: number;
       verify_days?: number;
       appointment_required?: boolean;
-      delivery_types?: ("EXPRESS" | "PICKUP" | "VERIFY" | "APPOINTMENT")[];
+      delivery_types?: ("EXPRESS" | "STORE_DELIVERY" | "PICKUP" | "VERIFY" | "APPOINTMENT")[];
       skus?: {
           sku_code?: string;
           spec?: {
@@ -901,7 +934,7 @@ export interface components {
       title: string;
       subtitle?: string;
       /** @enum {string} */
-      type: "PHYSICAL" | "SERVICE";
+      type: "PHYSICAL" | "SERVICE" | "COUPON";
       /** Format: int64 */
       category_id: number;
       /** @description 必须是素材库地址 */
@@ -912,7 +945,41 @@ export interface components {
       original_price_amount?: number;
       verify_days?: number;
       appointment_required?: boolean;
-      delivery_types: ("EXPRESS" | "PICKUP" | "VERIFY" | "APPOINTMENT")[];
+      /**
+       * @description 是否需要商户接单
+       * @default true
+       */
+      acceptance_required?: boolean;
+      delivery_types: ("EXPRESS" | "STORE_DELIVERY" | "PICKUP" | "VERIFY" | "APPOINTMENT")[];
+      /**
+       * @default DAYS
+       * @enum {string}
+       */
+      valid_type?: "DAYS" | "PERMANENT" | "RANGE";
+      /** @description valid_type=DAYS 时必填 */
+      valid_days?: number | null;
+      /**
+       * Format: date-time
+       * @description valid_type=RANGE 时必填
+       */
+      valid_from?: string | null;
+      /**
+       * Format: date-time
+       * @description valid_type=RANGE 时必填
+       */
+      valid_to?: string | null;
+      /** @description 可用星期（1=周一，空=不限） */
+      usable_weekdays?: number[];
+      /**
+       * @description 法定节假日不可用（文案提示）
+       * @default false
+       */
+      exclude_holidays?: boolean;
+      /**
+       * @description 可核销次数
+       * @default 1
+       */
+      verify_count?: number;
       skus: {
           sku_code?: string;
           spec?: {
@@ -1147,7 +1214,7 @@ export interface components {
       /** Format: int64 */
       merchant_id: number;
       /** @enum {string} */
-      order_type: "EXPRESS" | "PICKUP" | "SERVICE";
+      order_type: "EXPRESS" | "STORE_DELIVERY" | "PICKUP" | "SERVICE" | "COUPON";
       items: components["schemas"]["OrderItemInput"][];
       contact: components["schemas"]["Contact"];
       appointment?: components["schemas"]["AppointmentInput"];
@@ -1157,7 +1224,7 @@ export interface components {
       /** Format: int64 */
       merchant_id: number;
       /** @enum {string} */
-      order_type: "EXPRESS" | "PICKUP" | "SERVICE";
+      order_type: "EXPRESS" | "STORE_DELIVERY" | "PICKUP" | "SERVICE" | "COUPON";
       items: components["schemas"]["OrderItemInput"][];
       appointment?: components["schemas"]["AppointmentInput"];
     };
@@ -1221,7 +1288,7 @@ export interface components {
       merchant_id?: number;
       merchant_name?: string;
       /** @enum {string} */
-      order_type?: "EXPRESS" | "PICKUP" | "SERVICE";
+      order_type?: "EXPRESS" | "STORE_DELIVERY" | "PICKUP" | "SERVICE" | "COUPON";
       /** @enum {string} */
       status?: "PENDING_PAYMENT" | "PENDING_ACCEPT" | "PENDING_FULFILL" | "FULFILLING" | "COMPLETED" | "AFTER_SALE" | "REFUNDING" | "REFUNDED" | "CLOSED";
       /** @enum {string} */
@@ -1299,7 +1366,7 @@ export interface components {
       merchant_id?: number;
       merchant_name?: string;
       /** @enum {string} */
-      order_type?: "EXPRESS" | "PICKUP" | "SERVICE";
+      order_type?: "EXPRESS" | "STORE_DELIVERY" | "PICKUP" | "SERVICE" | "COUPON";
       status?: string;
       product_amount?: number;
       delivery_fee?: number;
@@ -1611,7 +1678,7 @@ export interface components {
       /** Format: int64 */
       category_id: number;
       /** @enum {string} */
-      type: "PHYSICAL" | "SERVICE";
+      type: "PHYSICAL" | "SERVICE" | "COUPON";
       title: string;
       subtitle?: string;
       /** Format: uri */
@@ -1622,7 +1689,42 @@ export interface components {
       original_price_amount?: number;
       verify_days?: number;
       appointment_required?: boolean;
-      delivery_types: ("EXPRESS" | "PICKUP" | "VERIFY" | "APPOINTMENT")[];
+      /**
+       * @description 是否需要商户接单（实物商品可配置）
+       * @default true
+       */
+      acceptance_required?: boolean;
+      delivery_types: ("EXPRESS" | "STORE_DELIVERY" | "PICKUP" | "VERIFY" | "APPOINTMENT")[];
+      /**
+       * @description 卡券有效期类型
+       * @default DAYS
+       * @enum {string}
+       */
+      valid_type?: "DAYS" | "PERMANENT" | "RANGE";
+      /** @description valid_type=DAYS 时必填 */
+      valid_days?: number | null;
+      /**
+       * Format: date-time
+       * @description valid_type=RANGE 时必填
+       */
+      valid_from?: string | null;
+      /**
+       * Format: date-time
+       * @description valid_type=RANGE 时必填
+       */
+      valid_to?: string | null;
+      /** @description 可用星期（1=周一，空=不限） */
+      usable_weekdays?: number[];
+      /**
+       * @description 法定节假日不可用（文案提示）
+       * @default false
+       */
+      exclude_holidays?: boolean;
+      /**
+       * @description 可核销次数
+       * @default 1
+       */
+      verify_count?: number;
       /** @description 商户货号，商户内唯一，可为空 */
       product_code?: string;
       /**
@@ -1758,6 +1860,15 @@ export interface components {
       /** @description 变更原因，写入操作日志 */
       reason: string;
     };
+    MerchantProfileInput: {
+      /**
+       * @description 商户行业，仅后台可见
+       * @enum {string}
+       */
+      industry?: "RESTAURANT" | "ACCOMMODATION" | "BEAUTY" | "FITNESS" | "RETAIL" | "LIFE_SERVICE" | "OTHER";
+      /** @description 配送费（分） */
+      delivery_fee?: number;
+    };
     AdminMerchant: {
       /** Format: int64 */
       id?: number;
@@ -1767,6 +1878,12 @@ export interface components {
       /** Format: int64 */
       category_id?: number | null;
       category_name?: string;
+      /**
+       * @description 行业（仅后台可见，用于后台归类与统计）
+       * @enum {string}
+       */
+      industry?: "RESTAURANT" | "ACCOMMODATION" | "BEAUTY" | "FITNESS" | "RETAIL" | "LIFE_SERVICE" | "OTHER";
+      industry_label?: string;
       contact_phone?: string;
       city?: string;
       district?: string;
@@ -1775,6 +1892,8 @@ export interface components {
       /** @description 生效佣金率（商户覆盖优先，类目默认兜底） */
       commission_rate?: number;
       settlement_cycle_days?: number;
+      /** @description 配送费（分），配送类订单计入订单 */
+      delivery_fee?: number;
       /** @description 今日订单数 */
       today_orders?: number;
       /** @description 累计已结算金额（分） */
@@ -2054,6 +2173,11 @@ export interface components {
       short_name?: string;
       /** Format: int64 */
       category_id: number;
+      /**
+       * @default OTHER
+       * @enum {string}
+       */
+      industry?: "RESTAURANT" | "ACCOMMODATION" | "BEAUTY" | "FITNESS" | "RETAIL" | "LIFE_SERVICE" | "OTHER";
       contact_phone: string;
       province?: string;
       city: string;
@@ -2068,6 +2192,11 @@ export interface components {
       commission_rate?: number;
       /** @default 7 */
       settlement_cycle_days?: number;
+      /**
+       * @description 配送费（分）
+       * @default 0
+       */
+      delivery_fee?: number;
       /** @description 加密存储，仅接受 bank / card_no */
       bank_info?: {
         bank?: string;
@@ -2724,7 +2853,7 @@ export interface operations {
       query?: {
         merchant?: number;
         category?: number;
-        type?: "PHYSICAL" | "SERVICE";
+        type?: "PHYSICAL" | "SERVICE" | "COUPON";
         search?: string;
         page?: components["parameters"]["PageParam"];
         page_size?: components["parameters"]["PageSizeParam"];
@@ -4593,6 +4722,7 @@ export interface operations {
         q?: string;
         category?: number;
         city?: string;
+        industry?: "RESTAURANT" | "ACCOMMODATION" | "BEAUTY" | "FITNESS" | "RETAIL" | "LIFE_SERVICE" | "OTHER";
         page?: components["parameters"]["PageParam"];
         page_size?: components["parameters"]["PageSizeParam"];
       };
@@ -4707,6 +4837,37 @@ export interface operations {
               city?: string;
               district?: string;
               address?: string;
+            };
+          };
+        };
+      };
+      403: components["responses"]["Forbidden"];
+      404: components["responses"]["NotFound"];
+      422: components["responses"]["ValidationError"];
+    };
+  };
+  /** 维护商户归类信息（industry: 行业；delivery_fee: 配送费），仅后台可见，写操作记录操作日志 */
+  updateMerchantProfile: {
+    parameters: {
+      path: {
+        id: number;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MerchantProfileInput"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        content: {
+          "application/json": components["schemas"]["Envelope"] & {
+            data?: {
+              /** Format: int64 */
+              id?: number;
+              industry?: string;
+              delivery_fee?: number;
             };
           };
         };

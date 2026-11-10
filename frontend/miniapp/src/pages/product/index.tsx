@@ -5,6 +5,26 @@ import { useState } from 'react'
 import { api, ApiError, type ProductDetail } from '../../api'
 import { formatMoney } from '../../format'
 
+const WEEKDAY_LABELS: Record<number, string> = {
+  1: '周一',
+  2: '周二',
+  3: '周三',
+  4: '周四',
+  5: '周五',
+  6: '周六',
+  7: '周日',
+}
+
+function couponValidityText(detail: ProductDetail): string {
+  if (detail.valid_type === 'PERMANENT') return '永久有效'
+  if (detail.valid_type === 'RANGE') {
+    const from = detail.valid_from ? detail.valid_from.slice(0, 10) : '—'
+    const to = detail.valid_to ? detail.valid_to.slice(0, 10) : '—'
+    return `${from} 至 ${to}`
+  }
+  return detail.valid_days ? `支付后 ${detail.valid_days} 天内` : '以门店说明为准'
+}
+
 export default function ProductDetailPage() {
   const router = useRouter()
   const productId = Number(router.params.id)
@@ -110,8 +130,25 @@ export default function ProductDetailPage() {
           {detail?.description || detail?.subtitle || '到店体验，详情请咨询门店。'}
         </Text>
         <View className="rule-card">
-          {detail?.verify_days ? (
+          {detail?.type === 'COUPON' ? (
+            <View className="rule-line"><Text>卡券有效期</Text><Text>{couponValidityText(detail)}</Text></View>
+          ) : detail?.verify_days ? (
             <View className="rule-line"><Text>核销有效期</Text><Text>支付后 {detail.verify_days} 天内</Text></View>
+          ) : null}
+          {detail?.type === 'COUPON' && (
+            <View className="rule-line">
+              <Text>可核销次数</Text>
+              <Text>{detail?.verify_count ?? 1} 次（每次一个独立核销码）</Text>
+            </View>
+          )}
+          {detail?.type === 'COUPON' && detail?.usable_weekdays?.length ? (
+            <View className="rule-line">
+              <Text>可用星期</Text>
+              <Text>{detail.usable_weekdays.map((d) => WEEKDAY_LABELS[d] ?? d).join('、')}</Text>
+            </View>
+          ) : null}
+          {detail?.type === 'COUPON' && detail?.exclude_holidays ? (
+            <View className="rule-line"><Text>节假日</Text><Text>法定节假日不可用，请以门店说明为准</Text></View>
           ) : null}
           <View className="rule-line">
             <Text>预约方式</Text>

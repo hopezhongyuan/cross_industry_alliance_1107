@@ -6,6 +6,7 @@ from .views import (
     AdminMerchantDetailView,
     AdminMerchantListView,
     AdminMerchantLocationView,
+    AdminMerchantProfileView,
     AdminMerchantStatusView,
 )
 
@@ -14,4 +15,5 @@ urlpatterns = [
     path("merchants/<int:pk>/", AdminMerchantDetailView.as_view(), name="admin-merchant-detail"),
     path("merchants/<int:pk>/status/", AdminMerchantStatusView.as_view(), name="admin-merchant-status"),
     path("merchants/<int:pk>/location/", AdminMerchantLocationView.as_view(), name="admin-merchant-location"),
+    path("merchants/<int:pk>/profile/", AdminMerchantProfileView.as_view(), name="admin-merchant-profile"),
 ]

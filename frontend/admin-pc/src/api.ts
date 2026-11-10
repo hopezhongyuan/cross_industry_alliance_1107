@@ -143,12 +143,15 @@ export type AdminMerchantRow = {
   short_name: string
   category_id: number | null
   category_name: string
+  industry: string
+  industry_label: string
   contact_phone: string
   city: string
   district: string
   status: string
   commission_rate: number
   settlement_cycle_days: number
+  delivery_fee: number
   today_orders: number
   settled_amount: number
   created_at: string
@@ -479,6 +482,7 @@ export type MerchantCreatePayload = {
   name: string
   short_name?: string
   category_id: number
+  industry?: string
   contact_phone: string
   province?: string
   city: string
@@ -486,6 +490,7 @@ export type MerchantCreatePayload = {
   address: string
   commission_rate?: string | null
   settlement_cycle_days?: number
+  delivery_fee?: number
   bank_info?: { bank?: string; card_no?: string }
   qualifications?: Array<{ type: string; file_url: string; expire_at?: string | null }>
   owner_phone: string
@@ -537,7 +542,7 @@ export function clearToken() {
 }
 
 type RequestOptions = {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
   headers?: Record<string, string>
 }
@@ -613,10 +618,18 @@ export const api = {
     q?: string
     category?: string
     city?: string
+    industry?: string
     page?: number
     page_size?: number
   }) {
     return request<MerchantPage>(`/admin/merchants/${query(params)}`)
+  },
+
+  updateMerchantProfile(merchantId: number, payload: { industry?: string; delivery_fee?: number }) {
+    return request<{ id: number; industry: string; delivery_fee: number }>(
+      `/admin/merchants/${merchantId}/profile/`,
+      { method: 'PATCH', body: payload },
+    )
   },
 
   adminMerchantDetail(merchantId: number) {

@@ -148,6 +148,33 @@ def update_merchant_location(admin_user, merchant_id: int, data: dict, request=N
     return merchant
 
 
+def update_merchant_profile(admin_user, merchant_id: int, data: dict, request=None):
+    """平台维护商户归类信息（行业、配送费），仅后台可见。"""
+    require_platform_admin(admin_user)
+    with transaction.atomic():
+        merchant = Merchant.objects.select_for_update().filter(pk=merchant_id).first()
+        if merchant is None:
+            raise ApiError("NOT_FOUND", "商户不存在", 404)
+        before = {"industry": merchant.industry, "delivery_fee": merchant.delivery_fee}
+        update_fields = []
+        for field in ("industry", "delivery_fee"):
+            if field in data:
+                setattr(merchant, field, data[field])
+                update_fields.append(field)
+        if update_fields:
+            merchant.save(update_fields=[*update_fields, "updated_at"])
+            log_operation(
+                operator=admin_user,
+                action="MERCHANT_PROFILE_UPDATE",
+                biz_type="MERCHANT",
+                biz_id=merchant.id,
+                before=before,
+                after={"industry": merchant.industry, "delivery_fee": merchant.delivery_fee},
+                request=request,
+            )
+    return merchant
+
+
 def resolve_commission_rate(merchant: Merchant) -> Decimal:
     """返回下单时应快照的佣金率；两者都未配置时为 0。"""
     if merchant.commission_rate is not None:

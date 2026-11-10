@@ -8,6 +8,7 @@ from apps.common.models import TimeStampedModel
 class OrderDelivery(TimeStampedModel):
     class Type(models.TextChoices):
         EXPRESS = "EXPRESS", "快递"
+        STORE_DELIVERY = "STORE_DELIVERY", "门店配送"
         PICKUP = "PICKUP", "自提"
 
     order = models.OneToOneField("orders.Order", on_delete=models.CASCADE, related_name="delivery", verbose_name="订单")

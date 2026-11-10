@@ -8,7 +8,7 @@ from apps.governance.services import log_operation, require_platform_admin
 from apps.ledger.constants import AccountType, Direction
 from apps.ledger.services import post_transaction
 from apps.orders.models import Order
-from apps.orders.order_services import mark_order_paid
+from apps.orders.order_services import mark_order_paid, resolve_pay_success_event
 from apps.orders.services import transit_order
 
 from .models import PaymentGroup, PaymentOrder, PlatformPaymentConfig
@@ -85,7 +85,7 @@ def process_payment_success(payment_no: str, transaction_id: str, amount: int) -
         order.paid_amount = payment.amount
         order.save(update_fields=["paid_amount", "updated_at"])
 
-        transit_order(order.id, "PAY_SUCCESS", operator_type="SYSTEM")
+        transit_order(order.id, resolve_pay_success_event(order), operator_type="SYSTEM")
         entries = [
             {
                 "account_type": AccountType.PLATFORM_CASH,
@@ -202,7 +202,7 @@ def process_group_payment_success(group_no: str, transaction_id: str, amount: in
         for order in orders:
             order.paid_amount = order.payable_amount
             order.save(update_fields=["paid_amount", "updated_at"])
-            transit_order(order.id, "PAY_SUCCESS", operator_type="SYSTEM")
+            transit_order(order.id, resolve_pay_success_event(order), operator_type="SYSTEM")
             entries = [
                 {
                     "account_type": AccountType.PLATFORM_CASH,

@@ -43,7 +43,9 @@ def apply_after_sale(
         order = Order.objects.select_for_update().filter(pk=order_id, user=user).first()
         if order is None:
             raise ApiError("NOT_FOUND", "订单不存在", 404)
-        if order.status != Order.Status.COMPLETED:
+        if order.status != Order.Status.COMPLETED and not (
+            order.order_type == Order.Type.COUPON and order.status == Order.Status.PENDING_FULFILL
+        ):
             raise ApiError("AFTER_SALE_NOT_ALLOWED", "当前订单状态不支持售后", 409)
         if AfterSale.objects.filter(order=order, status__in=ACTIVE_STATUSES).exists():
             raise ApiError("AFTER_SALE_ALREADY_EXISTS", "该订单已有进行中的售后", 409)
@@ -165,7 +167,13 @@ def decide_after_sale(user, after_sale_id, decision, approved_amount=None, reaso
             after_sale.merchant_decision = AfterSale.MerchantDecision.REJECTED
             after_sale.merchant_reason = reason
             after_sale.save(update_fields=["status", "merchant_decision", "merchant_reason", "updated_at"])
-            transit_order(order.id, "MERCHANT_REJECT", operator_type="MERCHANT", operator_id=user.id, reason=reason)
+            if order.order_type == Order.Type.COUPON:
+                # 卡券未核销完成，驳回后退回待核销，剩余核销码继续有效
+                transit_order(
+                    order.id, "MERCHANT_REJECT_BACK_TO_FULFILL", operator_type="MERCHANT", operator_id=user.id
+                )
+            else:
+                transit_order(order.id, "MERCHANT_REJECT", operator_type="MERCHANT", operator_id=user.id, reason=reason)
             _unfreeze(order, after_sale)
     after_sale.refresh_from_db()
     return after_sale

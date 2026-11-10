@@ -6,7 +6,7 @@ import ConfirmDialog from '../components/ConfirmDialog.vue'
 import ModalShell from '../components/ModalShell.vue'
 import PageHeader from '../components/PageHeader.vue'
 import StatusTag from '../components/StatusTag.vue'
-import { formatDateTime, formatMoney } from '../format'
+import { formatDateTime, formatMoney, INDUSTRY_OPTIONS } from '../format'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,6 +25,43 @@ const locationOpen = ref(false)
 const locationError = ref('')
 const locationSaving = ref(false)
 const locationForm = reactive({ lng: '', lat: '', province: '', city: '', district: '', address: '' })
+
+const profileOpen = ref(false)
+const profileError = ref('')
+const profileSaving = ref(false)
+const profileForm = reactive({ industry: 'OTHER', delivery_fee_yuan: '0' })
+
+function openProfile() {
+  if (!detail.value) return
+  profileForm.industry = detail.value.industry || 'OTHER'
+  profileForm.delivery_fee_yuan = (detail.value.delivery_fee / 100).toFixed(2)
+  profileError.value = ''
+  profileOpen.value = true
+}
+
+async function submitProfile() {
+  if (!detail.value) return
+  const fee = Math.round(Number(profileForm.delivery_fee_yuan || 0) * 100)
+  if (!Number.isFinite(fee) || fee < 0) {
+    profileError.value = '配送费不能为负'
+    return
+  }
+  profileSaving.value = true
+  profileError.value = ''
+  try {
+    await api.updateMerchantProfile(detail.value.id, {
+      industry: profileForm.industry,
+      delivery_fee: fee,
+    })
+    profileOpen.value = false
+    message.value = '归类信息已保存'
+    await load()
+  } catch (exc) {
+    profileError.value = exc instanceof ApiError ? `${exc.code}：${exc.message}` : '保存归类信息失败'
+  } finally {
+    profileSaving.value = false
+  }
+}
 
 function formatRate(rate: number | null | undefined): string {
   return `${((rate ?? 0) * 100).toFixed(1)}%`
@@ -117,6 +154,7 @@ onMounted(load)
   <PageHeader :title="detail ? `商户详情 · ${detail.name}` : '商户详情'">
     <template #actions>
       <button class="outline" @click="router.push('/merchants')">返回列表</button>
+      <button v-if="detail" class="outline" @click="openProfile">编辑归类</button>
       <button v-if="detail" class="outline" @click="openLocation">设置定位</button>
       <button v-if="detail?.status === 'ACTIVE'" class="outline" @click="actionStatus = 'RESTING'">停业</button>
       <button v-if="detail?.status === 'ACTIVE'" class="outline" @click="actionStatus = 'BANNED'">封禁</button>
@@ -181,6 +219,8 @@ onMounted(load)
           <span v-else class="muted">未设置（消费者端暂不支持导航）</span>
         </b>
         <span>联系电话</span><b>{{ detail.contact_phone || '-' }}</b>
+        <span>行业</span><b>{{ detail.industry_label || '未设置' }}</b>
+        <span>配送费</span><b>{{ formatMoney(detail.delivery_fee) }}</b>
         <span>结算周期</span><b>{{ detail.settlement_cycle_days }} 天</b>
         <span>开店时间</span><b>{{ detail.opened_at ? formatDateTime(detail.opened_at) : '-' }}</b>
         <span>创建时间</span><b>{{ formatDateTime(detail.created_at) }}</b>
@@ -290,6 +330,33 @@ onMounted(load)
       <button class="outline" @click="locationOpen = false">取消</button>
       <button class="primary" :disabled="locationSaving" @click="submitLocation">
         {{ locationSaving ? '保存中…' : '保存定位' }}
+      </button>
+    </div>
+  </ModalShell>
+
+  <ModalShell v-if="profileOpen && detail" :title="`编辑归类 · ${detail.name}`" @close="profileOpen = false">
+    <div class="modal-head">
+      <h2>编辑归类 · {{ detail.name }}</h2>
+      <button class="modal-close" type="button" aria-label="关闭" @click="profileOpen = false">✕</button>
+    </div>
+    <div class="muted">行业与配送费仅后台可见，用于归类统计与配送订单计费。</div>
+    <div v-if="profileError" class="error" role="alert">{{ profileError }}</div>
+    <div class="form-grid">
+      <label class="field">
+        <span>行业</span>
+        <select v-model="profileForm.industry">
+          <option v-for="item in INDUSTRY_OPTIONS" :key="item.value" :value="item.value">{{ item.label }}</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>配送费（元）</span>
+        <input v-model="profileForm.delivery_fee_yuan" type="number" min="0" step="0.01" />
+      </label>
+    </div>
+    <div class="toolbar" style="margin: 0; justify-content: flex-end">
+      <button class="outline" @click="profileOpen = false">取消</button>
+      <button class="primary" :disabled="profileSaving" @click="submitProfile">
+        {{ profileSaving ? '保存中…' : '保存' }}
       </button>
     </div>
   </ModalShell>

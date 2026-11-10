@@ -19,3 +19,13 @@ export function formatDateTime(value: string | null | undefined): string {
   if (Number.isNaN(date.getTime())) return value
   return dateTimeFormatter.format(date)
 }
+
+export const INDUSTRY_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'RESTAURANT', label: '餐饮' },
+  { value: 'ACCOMMODATION', label: '酒店民宿' },
+  { value: 'BEAUTY', label: '美容美发' },
+  { value: 'FITNESS', label: '健身运动' },
+  { value: 'RETAIL', label: '零售' },
+  { value: 'LIFE_SERVICE', label: '生活服务' },
+  { value: 'OTHER', label: '其他' },
+]

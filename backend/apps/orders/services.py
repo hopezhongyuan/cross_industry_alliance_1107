@@ -14,6 +14,7 @@ class InvalidTransition(Exception):
 
 ORDER_TRANSITIONS = {
     (Order.Status.PENDING_PAYMENT, "PAY_SUCCESS"): Order.Status.PENDING_ACCEPT,
+    (Order.Status.PENDING_PAYMENT, "PAY_SUCCESS_DIRECT"): Order.Status.PENDING_FULFILL,
     (Order.Status.PENDING_PAYMENT, "CANCEL"): Order.Status.CLOSED,
     (Order.Status.PENDING_PAYMENT, "TIMEOUT"): Order.Status.CLOSED,
     (Order.Status.PENDING_ACCEPT, "MERCHANT_ACCEPT"): Order.Status.PENDING_FULFILL,
@@ -29,16 +30,19 @@ ORDER_TRANSITIONS = {
     (Order.Status.FULFILLING, "PICKUP_VERIFY"): Order.Status.COMPLETED,
     (Order.Status.FULFILLING, "SERVICE_VERIFY"): Order.Status.COMPLETED,
     (Order.Status.COMPLETED, "APPLY_AFTER_SALE"): Order.Status.AFTER_SALE,
+    (Order.Status.PENDING_FULFILL, "APPLY_AFTER_SALE"): Order.Status.AFTER_SALE,
     (Order.Status.AFTER_SALE, "REFUND_APPROVED"): Order.Status.REFUNDING,
     (Order.Status.AFTER_SALE, "ARBITRATION_REFUND"): Order.Status.REFUNDING,
     (Order.Status.AFTER_SALE, "ARBITRATION_REJECT"): Order.Status.COMPLETED,
     (Order.Status.AFTER_SALE, "MERCHANT_REJECT"): Order.Status.COMPLETED,
+    (Order.Status.AFTER_SALE, "MERCHANT_REJECT_BACK_TO_FULFILL"): Order.Status.PENDING_FULFILL,
     (Order.Status.REFUNDING, "REFUND_SUCCESS_FULL"): Order.Status.REFUNDED,
     (Order.Status.REFUNDING, "REFUND_SUCCESS_PARTIAL"): Order.Status.COMPLETED,
 }
 
 FULFILLMENT_BY_EVENT = {
     "PAY_SUCCESS": Order.FulfillmentStatus.NOT_STARTED,
+    "PAY_SUCCESS_DIRECT": Order.FulfillmentStatus.VERIFY_READY,
     "SHIP": Order.FulfillmentStatus.SHIPPED,
     "PICKUP_READY": Order.FulfillmentStatus.PICKUP_READY,
     "APPOINTMENT_CONFIRM": Order.FulfillmentStatus.APPOINTMENT_CONFIRMED,
@@ -77,6 +81,8 @@ def transit_order(
 
         if target == Order.Status.FULFILLING and event in FULFILLMENT_BY_EVENT:
             order.fulfillment_status = FULFILLMENT_BY_EVENT[event]
+        elif event == "PAY_SUCCESS_DIRECT":
+            order.fulfillment_status = FULFILLMENT_BY_EVENT[event]
         elif event == "SERVICE_VERIFY" or event in ("CONFIRM_RECEIVE", "PICKUP_VERIFY"):
             order.fulfillment_status = Order.FulfillmentStatus.DONE
 
@@ -84,6 +90,9 @@ def transit_order(
         if stamp_field:
             setattr(order, stamp_field, timezone.now())
             update_fields.append(stamp_field)
+        if event == "PAY_SUCCESS_DIRECT" and order.paid_at is None:
+            order.paid_at = timezone.now()
+            update_fields.append("paid_at")
 
         if target == Order.Status.CLOSED and reason:
             order.cancel_reason = reason

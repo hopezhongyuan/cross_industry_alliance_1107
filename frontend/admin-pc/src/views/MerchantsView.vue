@@ -6,7 +6,7 @@ import ConfirmDialog from '../components/ConfirmDialog.vue'
 import PageHeader from '../components/PageHeader.vue'
 import PaginationBar from '../components/PaginationBar.vue'
 import StatusTag from '../components/StatusTag.vue'
-import { formatMoney } from '../format'
+import { formatMoney, INDUSTRY_OPTIONS } from '../format'
 
 const route = useRoute()
 const router = useRouter()
@@ -24,6 +24,7 @@ const rows = ref<AdminMerchantRow[]>([])
 const summary = ref<MerchantSummary>({ total: 0, active: 0, pending: 0, resting: 0, banned: 0, rejected: 0 })
 const page = ref({ page: 1, page_size: 20, total: 0, has_more: false })
 const status = ref(String(route.query.status ?? ''))
+const industry = ref(String(route.query.industry ?? ''))
 const keyword = ref(String(route.query.q ?? ''))
 const loading = ref(false)
 const error = ref('')
@@ -44,6 +45,7 @@ async function load(target = 1, size = page.value.page_size) {
   router.replace({
     query: {
       ...(status.value ? { status: status.value } : {}),
+      ...(industry.value ? { industry: industry.value } : {}),
       ...(keyword.value.trim() ? { q: keyword.value.trim() } : {}),
       ...(target > 1 ? { page: String(target) } : {}),
     },
@@ -51,6 +53,7 @@ async function load(target = 1, size = page.value.page_size) {
   try {
     const result = await api.adminMerchants({
       status: status.value,
+      industry: industry.value,
       q: keyword.value.trim(),
       page: target,
       page_size: size,
@@ -67,6 +70,7 @@ async function load(target = 1, size = page.value.page_size) {
 
 function reset() {
   status.value = ''
+  industry.value = ''
   keyword.value = ''
   load(1)
 }
@@ -123,6 +127,13 @@ onMounted(() => load(Number(route.query.page ?? 1)))
       </select>
     </label>
     <label class="field">
+      <span>行业</span>
+      <select v-model="industry" @change="load(1)">
+        <option value="">全部行业</option>
+        <option v-for="item in INDUSTRY_OPTIONS" :key="item.value" :value="item.value">{{ item.label }}</option>
+      </select>
+    </label>
+    <label class="field">
       <span>关键词</span>
       <input v-model="keyword" name="q" autocomplete="off" placeholder="商户名称 / 编号 / 电话…" @keyup.enter="load(1)" />
     </label>
@@ -154,7 +165,7 @@ onMounted(() => load(Number(route.query.page ?? 1)))
           </td>
           <td>
             {{ row.category_name || '未分类' }}
-            <div class="muted">{{ row.city }}{{ row.district }}</div>
+            <div class="muted">{{ row.industry_label || '未设置行业' }} · {{ row.city }}{{ row.district }}</div>
           </td>
           <td><StatusTag :status="row.status" /></td>
           <td class="money">{{ formatRate(row.commission_rate) }}</td>

@@ -6,13 +6,25 @@ import { api, ApiError, type CategoryRow, type MerchantProductCategoryRow, type 
 const DELIVERY_OPTIONS: Record<string, Array<{ value: string; label: string }>> = {
   PHYSICAL: [
     { value: 'EXPRESS', label: '快递配送' },
+    { value: 'STORE_DELIVERY', label: '门店配送' },
     { value: 'PICKUP', label: '到店自提' },
   ],
   SERVICE: [
     { value: 'VERIFY', label: '到店核销' },
     { value: 'APPOINTMENT', label: '预约服务' },
   ],
+  COUPON: [{ value: 'VERIFY', label: '到店核销' }],
 }
+
+const WEEKDAY_OPTIONS = [
+  { value: 1, label: '周一' },
+  { value: 2, label: '周二' },
+  { value: 3, label: '周三' },
+  { value: 4, label: '周四' },
+  { value: 5, label: '周五' },
+  { value: 6, label: '周六' },
+  { value: 7, label: '周日' },
+]
 
 type SkuForm = { sku_code: string; spec_name: string; price: string; stock: string }
 
@@ -35,6 +47,14 @@ export default function MerchantProductEdit() {
     original_price: '',
     verify_days: '30',
     appointment_required: false,
+    acceptance_required: true,
+    valid_type: 'DAYS' as 'DAYS' | 'PERMANENT' | 'RANGE',
+    valid_days: '7',
+    valid_from: '',
+    valid_to: '',
+    usable_weekdays: [] as number[],
+    exclude_holidays: false,
+    verify_count: '1',
     delivery_types: ['EXPRESS'],
   })
   const [skus, setSkus] = useState<SkuForm[]>([{ sku_code: 'DEFAULT', spec_name: '默认规格', price: '', stock: '0' }])
@@ -65,6 +85,14 @@ export default function MerchantProductEdit() {
           original_price: String(product.original_price / 100),
           verify_days: String(product.verify_days),
           appointment_required: product.appointment_required,
+          acceptance_required: product.acceptance_required ?? true,
+          valid_type: product.valid_type ?? 'DAYS',
+          valid_days: String(product.valid_days ?? 7),
+          valid_from: product.valid_from ?? '',
+          valid_to: product.valid_to ?? '',
+          usable_weekdays: product.usable_weekdays ?? [],
+          exclude_holidays: product.exclude_holidays ?? false,
+          verify_count: String(product.verify_count ?? 1),
           delivery_types: product.delivery_types,
         })
         setSkus(
@@ -85,12 +113,20 @@ export default function MerchantProductEdit() {
     setForm((current) => ({ ...current, ...values }))
   }
 
-  function changeType(value: 'PHYSICAL' | 'SERVICE') {
+  function changeType(value: 'PHYSICAL' | 'SERVICE' | 'COUPON') {
     patch({
       type: value,
       delivery_types: [DELIVERY_OPTIONS[value][0].value],
       appointment_required: false,
+      acceptance_required: value === 'PHYSICAL' ? form.acceptance_required : true,
     })
+  }
+
+  function toggleWeekday(value: number) {
+    const next = form.usable_weekdays.includes(value)
+      ? form.usable_weekdays.filter((item) => item !== value)
+      : [...form.usable_weekdays, value].sort((a, b) => a - b)
+    patch({ usable_weekdays: next })
   }
 
   function toggleDelivery(value: string) {
@@ -139,12 +175,22 @@ export default function MerchantProductEdit() {
     if (skuPayload.some((sku) => !Number.isInteger(sku.stock) || sku.stock < 0)) {
       return setError('SKU 库存必须为非负整数')
     }
+    if (form.type === 'COUPON') {
+      if (form.valid_type === 'DAYS' && Number(form.valid_days || 0) < 1) {
+        return setError('请填写卡券有效天数')
+      }
+      if (form.valid_type === 'RANGE' && (!form.valid_from || !form.valid_to)) {
+        return setError('请选择卡券生效与失效时间')
+      }
+      const count = Number(form.verify_count || 0)
+      if (!Number.isInteger(count) || count < 1) return setError('核销次数必须大于 0')
+    }
 
     const payload: MerchantProductPayload = {
       category_id: Number(form.category_id),
       merchant_category_id: form.merchant_category_id ? Number(form.merchant_category_id) : null,
       product_code: form.product_code.trim(),
-      type: form.type as 'PHYSICAL' | 'SERVICE',
+      type: form.type as 'PHYSICAL' | 'SERVICE' | 'COUPON',
       title: form.title.trim(),
       subtitle: form.subtitle.trim(),
       cover_url: form.cover_url.trim(),
@@ -153,8 +199,18 @@ export default function MerchantProductEdit() {
       original_price_amount: yuanToFen(form.original_price),
       verify_days: Number(form.verify_days || 30),
       appointment_required: form.appointment_required,
+      acceptance_required: form.type === 'PHYSICAL' ? form.acceptance_required : true,
       delivery_types: form.delivery_types,
       skus: skuPayload,
+    }
+    if (form.type === 'COUPON') {
+      payload.valid_type = form.valid_type
+      payload.valid_days = form.valid_type === 'DAYS' ? Number(form.valid_days || 1) : null
+      payload.valid_from = form.valid_type === 'RANGE' ? new Date(form.valid_from).toISOString() : null
+      payload.valid_to = form.valid_type === 'RANGE' ? new Date(form.valid_to).toISOString() : null
+      payload.usable_weekdays = form.usable_weekdays
+      payload.exclude_holidays = form.exclude_holidays
+      payload.verify_count = Number(form.verify_count || 1)
     }
 
     setSaving(true)
@@ -216,11 +272,12 @@ export default function MerchantProductEdit() {
           {[
             { value: 'PHYSICAL', label: '实物商品' },
             { value: 'SERVICE', label: '到店服务' },
+            { value: 'COUPON', label: '卡券核销' },
           ].map((item) => (
             <Button
               key={item.value}
               className={`chip ${form.type === item.value ? 'active' : ''}`}
-              onClick={() => changeType(item.value as 'PHYSICAL' | 'SERVICE')}
+              onClick={() => changeType(item.value as 'PHYSICAL' | 'SERVICE' | 'COUPON')}
             >
               {item.label}
             </Button>
@@ -340,6 +397,18 @@ export default function MerchantProductEdit() {
           ))}
         </View>
 
+        {form.type === 'PHYSICAL' && (
+          <View style={{ marginBottom: '12px' }}>
+            <Text className="field-label">商户接单</Text>
+            <Button
+              className={`chip ${form.acceptance_required ? 'active' : ''}`}
+              onClick={() => patch({ acceptance_required: !form.acceptance_required })}
+            >
+              {form.acceptance_required ? '下单后需接单' : '支付后直接履约'}
+            </Button>
+          </View>
+        )}
+
         {form.type === 'SERVICE' && (
           <View style={{ marginBottom: '12px' }}>
             <Text className="field-label">核销有效期（天）</Text>
@@ -358,6 +427,95 @@ export default function MerchantProductEdit() {
                 {form.appointment_required ? '需预约' : '不需预约'}
               </Button>
             )}
+          </View>
+        )}
+
+        {form.type === 'COUPON' && (
+          <View>
+            <Text className="field-label">有效期类型</Text>
+            <View style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
+              {[
+                { value: 'DAYS', label: 'N 天有效' },
+                { value: 'PERMANENT', label: '永久有效' },
+                { value: 'RANGE', label: '固定时间段' },
+              ].map((item) => (
+                <Button
+                  key={item.value}
+                  className={`chip ${form.valid_type === item.value ? 'active' : ''}`}
+                  onClick={() => patch({ valid_type: item.value as 'DAYS' | 'PERMANENT' | 'RANGE' })}
+                >
+                  {item.label}
+                </Button>
+              ))}
+            </View>
+
+            {form.valid_type === 'DAYS' && (
+              <View style={{ marginBottom: '12px' }}>
+                <Text className="field-label">购买后有效天数</Text>
+                <Input
+                  className="input"
+                  name="valid_days"
+                  type="number"
+                  value={form.valid_days}
+                  onInput={(event) => patch({ valid_days: event.detail.value })}
+                />
+              </View>
+            )}
+
+            {form.valid_type === 'RANGE' && (
+              <View style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                <View style={{ flex: 1 }}>
+                  <Text className="field-label">生效日期</Text>
+                  <Picker
+                    mode="date"
+                    value={form.valid_from}
+                    onChange={(event) => patch({ valid_from: String(event.detail.value) })}
+                  >
+                    <View className="input">{form.valid_from || '请选择'}</View>
+                  </Picker>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text className="field-label">失效日期</Text>
+                  <Picker
+                    mode="date"
+                    value={form.valid_to}
+                    onChange={(event) => patch({ valid_to: String(event.detail.value) })}
+                  >
+                    <View className="input">{form.valid_to || '请选择'}</View>
+                  </Picker>
+                </View>
+              </View>
+            )}
+
+            <Text className="field-label">可用星期（不选=不限）</Text>
+            <View style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
+              {WEEKDAY_OPTIONS.map((item) => (
+                <Button
+                  key={item.value}
+                  className={`chip ${form.usable_weekdays.includes(item.value) ? 'active' : ''}`}
+                  onClick={() => toggleWeekday(item.value)}
+                >
+                  {item.label}
+                </Button>
+              ))}
+            </View>
+
+            <Button
+              className={`chip ${form.exclude_holidays ? 'active' : ''}`}
+              onClick={() => patch({ exclude_holidays: !form.exclude_holidays })}
+            >
+              {form.exclude_holidays ? '法定节假日不可用' : '节假日可用'}
+            </Button>
+
+            <Text className="field-label">可核销次数</Text>
+            <Input
+              className="input"
+              name="verify_count"
+              type="number"
+              value={form.verify_count}
+              onInput={(event) => patch({ verify_count: event.detail.value })}
+            />
+            <View className="muted">按次数生成对应数量的独立核销码，全部核销后订单完成。</View>
           </View>
         )}
       </View>

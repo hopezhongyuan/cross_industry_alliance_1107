@@ -91,7 +91,15 @@ def _product_fields(data: dict, merchant_category=None) -> dict:
         "original_price": data.get("original_price_amount", 0),
         "verify_days": data.get("verify_days", 30),
         "appointment_required": data.get("appointment_required", False),
+        "acceptance_required": data.get("acceptance_required", True),
         "delivery_types": data["delivery_types"],
+        "valid_type": data.get("valid_type", "DAYS"),
+        "valid_days": data.get("valid_days"),
+        "valid_from": data.get("valid_from"),
+        "valid_to": data.get("valid_to"),
+        "usable_weekdays": data.get("usable_weekdays", []),
+        "exclude_holidays": data.get("exclude_holidays", False),
+        "verify_count": data.get("verify_count", 1),
     }
 
 

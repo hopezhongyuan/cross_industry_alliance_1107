@@ -2,7 +2,7 @@
 
 import secrets
 from collections import defaultdict
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.db import transaction
@@ -18,6 +18,16 @@ from .models import Order, OrderItem
 from .services import transit_order
 from .split_services import build_line_split
 
+PRODUCT_TYPE_BY_ORDER_TYPE = {
+    Order.Type.EXPRESS: Product.Type.PHYSICAL,
+    Order.Type.STORE_DELIVERY: Product.Type.PHYSICAL,
+    Order.Type.PICKUP: Product.Type.PHYSICAL,
+    Order.Type.SERVICE: Product.Type.SERVICE,
+    Order.Type.COUPON: Product.Type.COUPON,
+}
+
+DELIVERY_ORDER_TYPES = (Order.Type.EXPRESS, Order.Type.STORE_DELIVERY)
+
 
 def _validate_products(merchant_id, order_type, items):
     product_ids = [item["product_id"] for item in items]
@@ -31,10 +41,9 @@ def _validate_products(merchant_id, order_type, items):
             raise ApiError("PRODUCT_NOT_AVAILABLE", "商品不存在或已下架", 409)
         if product.merchant_id != merchant_id:
             raise ApiError("MERCHANT_MISMATCH", "商品不属于该商户", 409)
-        if order_type == Order.Type.SERVICE and product.type != Product.Type.SERVICE:
-            raise ApiError("DELIVERY_TYPE_NOT_SUPPORTED", "服务订单包含实物商品", 409)
-        if order_type != Order.Type.SERVICE and product.type != Product.Type.PHYSICAL:
-            raise ApiError("DELIVERY_TYPE_NOT_SUPPORTED", "实物订单包含服务商品", 409)
+        expected_type = PRODUCT_TYPE_BY_ORDER_TYPE.get(order_type)
+        if expected_type and product.type != expected_type:
+            raise ApiError("DELIVERY_TYPE_NOT_SUPPORTED", "商品类型与订单类型不匹配", 409)
         contexts.append({"item": item, "product": product, "sku": None})
     return contexts
 
@@ -176,6 +185,8 @@ def _create_single_order(
         platform_amounts, commission_amount = build_line_split(line_amounts, rate)
 
     payable_amount = product_amount - discount_amount
+    delivery_fee = merchant.delivery_fee if order_type in DELIVERY_ORDER_TYPES else 0
+    payable_amount += delivery_fee
     now = timezone.now()
     order = Order.objects.create(
         user=user,
@@ -183,7 +194,7 @@ def _create_single_order(
         order_type=order_type,
         status=Order.Status.PENDING_PAYMENT,
         product_amount=product_amount,
-        delivery_fee=0,
+        delivery_fee=delivery_fee,
         payable_amount=payable_amount,
         commission_rate=rate,
         commission_amount=commission_amount,
@@ -229,6 +240,14 @@ def _create_single_order(
                 "spec": sku.spec_json if sku else {},
                 "type": product.type,
                 "verify_days": product.verify_days,
+                "acceptance_required": product.acceptance_required,
+                "valid_type": product.valid_type,
+                "valid_days": product.valid_days,
+                "valid_from": product.valid_from.isoformat() if product.valid_from else None,
+                "valid_to": product.valid_to.isoformat() if product.valid_to else None,
+                "usable_weekdays": product.usable_weekdays,
+                "exclude_holidays": product.exclude_holidays,
+                "verify_count": product.verify_count,
             },
             title=product.title,
             price=price,
@@ -246,7 +265,7 @@ def _create_single_order(
         sku.version += 1
         sku.save(update_fields=["locked_stock", "version", "updated_at"])
 
-    if order_type in (Order.Type.EXPRESS, Order.Type.PICKUP):
+    if order_type in (Order.Type.EXPRESS, Order.Type.STORE_DELIVERY, Order.Type.PICKUP):
         OrderDelivery.objects.create(
             order=order,
             type=order_type,
@@ -619,14 +638,62 @@ def review_order(user, order_id, score, content="", images=None):
         return review
 
 
+def resolve_pay_success_event(order) -> str:
+    """支付成功后应触发的事件：卡券/免接单实物直达待履约，其余进入待接单。"""
+    items = list(order.items.all())
+    if not items:
+        return "PAY_SUCCESS"
+    snapshots = [item.snapshot_json or {} for item in items]
+    if all(snap.get("type") == Product.Type.COUPON for snap in snapshots):
+        return "PAY_SUCCESS_DIRECT"
+    if all(
+        snap.get("type") == Product.Type.PHYSICAL and snap.get("acceptance_required") is False for snap in snapshots
+    ):
+        return "PAY_SUCCESS_DIRECT"
+    return "PAY_SUCCESS"
+
+
+def _coupon_validity(snapshot: dict) -> tuple:
+    """按商品快照计算卡券核销码有效期，返回 (valid_from, valid_to)。"""
+    now = timezone.now()
+    valid_type = snapshot.get("valid_type") or Product.ValidType.DAYS
+    if valid_type == Product.ValidType.PERMANENT:
+        return now, None
+    if valid_type == Product.ValidType.RANGE:
+        valid_from = _parse_dt(snapshot.get("valid_from")) or now
+        valid_to = _parse_dt(snapshot.get("valid_to"))
+        return valid_from, valid_to
+    days = int(snapshot.get("valid_days") or snapshot.get("verify_days") or 1)
+    return now, now + timedelta(days=max(days, 1))
+
+
+def _parse_dt(value):
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    else:
+        try:
+            parsed = datetime.fromisoformat(str(value))
+        except (TypeError, ValueError):
+            return None
+    if timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed)
+    return parsed
+
+
 def mark_order_paid(order):
     """支付成功后：锁定库存转已售，生成核销码/提货码。"""
     need = defaultdict(int)
     max_verify_days = 0
+    coupon_snapshot = None
     for item in order.items.all():
         if item.sku_id:
             need[item.sku_id] += item.quantity
-        max_verify_days = max(max_verify_days, int(item.snapshot_json.get("verify_days", 0)))
+        snapshot = item.snapshot_json or {}
+        max_verify_days = max(max_verify_days, int(snapshot.get("verify_days", 0)))
+        if snapshot.get("type") == Product.Type.COUPON and coupon_snapshot is None:
+            coupon_snapshot = snapshot
 
     if need:
         skus = {sku.id: sku for sku in ProductSku.objects.select_for_update().filter(pk__in=need)}
@@ -638,6 +705,10 @@ def mark_order_paid(order):
             sku.sold_stock += quantity
             sku.version += 1
             sku.save(update_fields=["locked_stock", "sold_stock", "version", "updated_at"])
+
+    if order.order_type == Order.Type.COUPON:
+        _generate_coupon_codes(order, coupon_snapshot or {})
+        return
 
     if order.order_type not in (Order.Type.PICKUP, Order.Type.SERVICE):
         return
@@ -657,6 +728,33 @@ def mark_order_paid(order):
     )
     if order.order_type == Order.Type.PICKUP:
         OrderDelivery.objects.filter(order=order).update(pickup_code=verify_code.code)
+
+
+def _generate_coupon_codes(order, snapshot: dict):
+    """卡券订单按可核销次数生成 N 个独立核销码，幂等：已生成则跳过。"""
+    if VerifyCode.objects.filter(order=order).exists():
+        return
+    count = max(int(snapshot.get("verify_count") or 1), 1)
+    valid_from, valid_to = _coupon_validity(snapshot)
+    used: set = set()
+    codes = []
+    for _ in range(count):
+        code = _generate_verify_code()
+        while code in used:
+            code = _generate_verify_code()
+        used.add(code)
+        codes.append(
+            VerifyCode(
+                order=order,
+                merchant=order.merchant,
+                code=code,
+                type=VerifyCode.Type.VERIFY,
+                status=VerifyCode.Status.ACTIVE,
+                valid_from=valid_from,
+                valid_to=valid_to,
+            )
+        )
+    VerifyCode.objects.bulk_create(codes)
 
 
 def _generate_verify_code() -> str:

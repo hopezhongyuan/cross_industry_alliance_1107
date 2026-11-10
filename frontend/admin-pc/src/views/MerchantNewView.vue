@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, ApiError, type CategoryRow, type StaffUser } from '../api'
+import { INDUSTRY_OPTIONS } from '../format'
 import MediaPicker from '../components/MediaPicker.vue'
 import PageHeader from '../components/PageHeader.vue'
 
@@ -17,6 +18,7 @@ const form = reactive({
   name: '',
   short_name: '',
   category_id: '',
+  industry: 'OTHER',
   contact_phone: '',
   province: '',
   city: '',
@@ -24,6 +26,7 @@ const form = reactive({
   address: '',
   commission_percent: '',
   settlement_cycle_days: '7',
+  delivery_fee_yuan: '0',
   bank: '',
   card_no: '',
   license_url: '',
@@ -83,6 +86,7 @@ async function submit() {
       name: form.name.trim(),
       short_name: form.short_name.trim(),
       category_id: Number(form.category_id),
+      industry: form.industry,
       contact_phone: form.contact_phone.trim(),
       province: form.province.trim(),
       city: form.city.trim(),
@@ -90,6 +94,7 @@ async function submit() {
       address: form.address.trim(),
       commission_rate: percent ? (Number(percent) / 100).toFixed(4) : null,
       settlement_cycle_days: cycle,
+      delivery_fee: Math.round(Number(form.delivery_fee_yuan || 0) * 100),
       bank_info:
         form.bank.trim() || form.card_no.trim() ? { bank: form.bank.trim(), card_no: form.card_no.trim() } : {},
       qualifications: form.license_url
@@ -138,6 +143,13 @@ onMounted(loadCategories)
               <option v-for="item in categories" :key="item.id" :value="String(item.id)">{{ item.name }}</option>
             </select>
             <span class="field-help">经营类目决定默认佣金率与消费者端归类。</span>
+          </label>
+          <label class="field">
+            <span>行业</span>
+            <select v-model="form.industry" name="industry">
+              <option v-for="item in INDUSTRY_OPTIONS" :key="item.value" :value="item.value">{{ item.label }}</option>
+            </select>
+            <span class="field-help">仅后台可见，用于商户归类与统计。</span>
           </label>
           <label class="field">
             <span>联系电话<i class="req">*</i></span>
@@ -228,6 +240,11 @@ onMounted(loadCategories)
             <span>结算周期（天）</span>
             <input v-model="form.settlement_cycle_days" name="settlement_cycle_days" type="number" min="1" max="360" />
             <span class="field-help">订单完成后第 N 天结算，范围 1–360。</span>
+          </label>
+          <label class="field">
+            <span>配送费（元）</span>
+            <input v-model="form.delivery_fee_yuan" name="delivery_fee" type="number" min="0" step="0.01" />
+            <span class="field-help">快递/门店配送订单按此金额计入订单，0 表示免配送费。</span>
           </label>
         </div>
       </div>

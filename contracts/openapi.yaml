@@ -724,6 +724,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/EnvelopeResponse'
           description: ''
+  /api/v1/admin/merchants/{id}/profile/:
+    patch:
+      operationId: updateMerchantProfile
+      description: 使用统一响应包裹的 APIView。
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - admin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminMerchantProfileInputRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminMerchantProfileInputRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAdminMerchantProfileInputRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+          description: ''
   /api/v1/admin/merchants/{id}/status/:
     post:
       operationId: changeMerchantStatus
@@ -2844,13 +2877,17 @@ paths:
           type: string
           title: 订单类型
           enum:
+          - COUPON
           - EXPRESS
           - PICKUP
           - SERVICE
+          - STORE_DELIVERY
         description: |-
           * `EXPRESS` - 快递配送
+          * `STORE_DELIVERY` - 门店配送
           * `PICKUP` - 到店自提
           * `SERVICE` - 到店服务
+          * `COUPON` - 卡券核销
       - name: ordering
         required: false
         in: query
@@ -3340,11 +3377,13 @@ paths:
           type: string
           title: 商品类型
           enum:
+          - COUPON
           - PHYSICAL
           - SERVICE
         description: |-
           * `PHYSICAL` - 实物商品
           * `SERVICE` - 到店服务
+          * `COUPON` - 卡券核销
       tags:
       - v1
       security:
@@ -3548,6 +3587,10 @@ components:
           maxLength: 40
         category_id:
           type: integer
+        industry:
+          allOf:
+          - $ref: '#/components/schemas/IndustryEnum'
+          default: OTHER
         contact_phone:
           type: string
           minLength: 1
@@ -3589,6 +3632,10 @@ components:
           maximum: 360
           minimum: 1
           default: 7
+        delivery_fee:
+          type: integer
+          minimum: 0
+          default: 0
         bank_info: {}
         qualifications:
           type: array
@@ -4126,7 +4173,7 @@ components:
           type: integer
           minimum: 1
         order_type:
-          $ref: '#/components/schemas/OrderType2ffEnum'
+          $ref: '#/components/schemas/OrderTypeEnum'
         items:
           type: array
           items:
@@ -4459,12 +4506,14 @@ components:
     DeliveryTypesEnum:
       enum:
       - EXPRESS
+      - STORE_DELIVERY
       - PICKUP
       - VERIFY
       - APPOINTMENT
       type: string
       description: |-
         * `EXPRESS` - 快递配送
+        * `STORE_DELIVERY` - 门店配送
         * `PICKUP` - 到店自提
         * `VERIFY` - 到店核销
         * `APPOINTMENT` - 预约服务
@@ -4546,6 +4595,24 @@ components:
       - service
       - status
       - time
+    IndustryEnum:
+      enum:
+      - RESTAURANT
+      - ACCOMMODATION
+      - BEAUTY
+      - FITNESS
+      - RETAIL
+      - LIFE_SERVICE
+      - OTHER
+      type: string
+      description: |-
+        * `RESTAURANT` - 餐饮
+        * `ACCOMMODATION` - 酒店民宿
+        * `BEAUTY` - 美容美发
+        * `FITNESS` - 健身运动
+        * `RETAIL` - 零售
+        * `LIFE_SERVICE` - 生活服务
+        * `OTHER` - 其他
     LiabilityEnum:
       enum:
       - MERCHANT
@@ -4804,11 +4871,45 @@ components:
         appointment_required:
           type: boolean
           default: false
+        acceptance_required:
+          type: boolean
+          default: true
         delivery_types:
           type: array
           items:
             $ref: '#/components/schemas/DeliveryTypesEnum'
           minItems: 1
+        valid_type:
+          allOf:
+          - $ref: '#/components/schemas/ValidTypeEnum'
+          default: DAYS
+        valid_days:
+          type: integer
+          maximum: 3650
+          minimum: 1
+          nullable: true
+        valid_from:
+          type: string
+          format: date-time
+          nullable: true
+        valid_to:
+          type: string
+          format: date-time
+          nullable: true
+        usable_weekdays:
+          type: array
+          items:
+            type: integer
+            maximum: 7
+            minimum: 1
+        exclude_holidays:
+          type: boolean
+          default: false
+        verify_count:
+          type: integer
+          maximum: 999
+          minimum: 1
+          default: 1
         skus:
           type: array
           items:
@@ -5008,7 +5109,7 @@ components:
           type: integer
           minimum: 1
         order_type:
-          $ref: '#/components/schemas/OrderType2ffEnum'
+          $ref: '#/components/schemas/OrderTypeEnum'
         items:
           type: array
           items:
@@ -5116,10 +5217,12 @@ components:
     OrderDeliveryTypeEnum:
       enum:
       - EXPRESS
+      - STORE_DELIVERY
       - PICKUP
       type: string
       description: |-
         * `EXPRESS` - 快递
+        * `STORE_DELIVERY` - 门店配送
         * `PICKUP` - 自提
     OrderDetail:
       type: object
@@ -5512,26 +5615,20 @@ components:
       - event
       - from_status
       - to_status
-    OrderType2ffEnum:
-      enum:
-      - EXPRESS
-      - PICKUP
-      - SERVICE
-      type: string
-      description: |-
-        * `EXPRESS` - EXPRESS
-        * `PICKUP` - PICKUP
-        * `SERVICE` - SERVICE
     OrderTypeEnum:
       enum:
       - EXPRESS
+      - STORE_DELIVERY
       - PICKUP
       - SERVICE
+      - COUPON
       type: string
       description: |-
         * `EXPRESS` - 快递配送
+        * `STORE_DELIVERY` - 门店配送
         * `PICKUP` - 到店自提
         * `SERVICE` - 到店服务
+        * `COUPON` - 卡券核销
     PaginatedMerchantList:
       type: object
       required:
@@ -5601,6 +5698,15 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProductList'
+    PatchedAdminMerchantProfileInputRequest:
+      type: object
+      description: 平台维护商户归类信息：行业与配送费，仅后台可见。
+      properties:
+        industry:
+          $ref: '#/components/schemas/IndustryEnum'
+        delivery_fee:
+          type: integer
+          minimum: 0
     PatchedCartItemPatchRequest:
       type: object
       properties:
@@ -5922,6 +6028,32 @@ components:
           title: 需预约
         delivery_types:
           title: 履约方式
+        valid_type:
+          allOf:
+          - $ref: '#/components/schemas/ValidTypeEnum'
+          title: 卡券有效期类型
+        valid_days:
+          type: integer
+          nullable: true
+          title: 卡券有效天数
+        valid_from:
+          type: string
+          format: date-time
+          nullable: true
+          title: 卡券生效时间
+        valid_to:
+          type: string
+          format: date-time
+          nullable: true
+          title: 卡券失效时间
+        usable_weekdays:
+          title: 可用星期（1=周一，空=不限）
+        exclude_holidays:
+          type: boolean
+          title: 法定节假日不可用（文案提示）
+        verify_count:
+          type: integer
+          title: 可核销次数
         sold_count:
           type: integer
           title: 已售件数
@@ -6038,10 +6170,12 @@ components:
       enum:
       - PHYSICAL
       - SERVICE
+      - COUPON
       type: string
       description: |-
         * `PHYSICAL` - 实物商品
         * `SERVICE` - 到店服务
+        * `COUPON` - 卡券核销
     RejectInputRequest:
       type: object
       properties:
@@ -6370,6 +6504,16 @@ components:
       required:
       - channel
       - open_id
+    ValidTypeEnum:
+      enum:
+      - DAYS
+      - PERMANENT
+      - RANGE
+      type: string
+      description: |-
+        * `DAYS` - N天有效
+        * `PERMANENT` - 永久有效
+        * `RANGE` - 固定时间段
     VerifyCode:
       type: object
       properties:

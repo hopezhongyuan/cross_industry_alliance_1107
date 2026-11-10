@@ -112,6 +112,13 @@ class ProductSerializer(serializers.ModelSerializer):
             "verify_days",
             "appointment_required",
             "delivery_types",
+            "valid_type",
+            "valid_days",
+            "valid_from",
+            "valid_to",
+            "usable_weekdays",
+            "exclude_holidays",
+            "verify_count",
             "sold_count",
             "skus",
             "slots",
@@ -131,7 +138,7 @@ class ProductSerializer(serializers.ModelSerializer):
         return ServiceSlotSerializer(slots, many=True).data
 
     def get_refund_policy(self, obj):
-        if obj.type == Product.Type.SERVICE:
+        if obj.type in (Product.Type.SERVICE, Product.Type.COUPON):
             return "未核销、有效期内可退"
         return "未发货可退，已签收按售后规则处理"
 
@@ -181,9 +188,20 @@ class MerchantProductInputSerializer(serializers.Serializer):
     original_price_amount = serializers.IntegerField(min_value=0, required=False, default=0)
     verify_days = serializers.IntegerField(min_value=1, max_value=3650, required=False, default=30)
     appointment_required = serializers.BooleanField(required=False, default=False)
+    acceptance_required = serializers.BooleanField(required=False, default=True)
     delivery_types = serializers.ListField(
         child=serializers.ChoiceField(choices=Product.DeliveryType.choices), min_length=1
     )
+    # 卡券核销专属字段
+    valid_type = serializers.ChoiceField(choices=Product.ValidType.choices, required=False, default="DAYS")
+    valid_days = serializers.IntegerField(min_value=1, max_value=3650, required=False, allow_null=True)
+    valid_from = serializers.DateTimeField(required=False, allow_null=True)
+    valid_to = serializers.DateTimeField(required=False, allow_null=True)
+    usable_weekdays = serializers.ListField(
+        child=serializers.IntegerField(min_value=1, max_value=7), required=False, default=list
+    )
+    exclude_holidays = serializers.BooleanField(required=False, default=False)
+    verify_count = serializers.IntegerField(min_value=1, max_value=999, required=False, default=1)
     skus = MerchantProductSkuInputSerializer(many=True, min_length=1)
     version = serializers.IntegerField(min_value=0, required=False)
 
@@ -194,18 +212,44 @@ class MerchantProductInputSerializer(serializers.Serializer):
         if category.parent_id and category.parent.status != Category.Status.ENABLED:
             raise serializers.ValidationError("上级类目已停用")
         allowed = {
-            Product.Type.PHYSICAL: {Product.DeliveryType.EXPRESS, Product.DeliveryType.PICKUP},
+            Product.Type.PHYSICAL: {
+                Product.DeliveryType.EXPRESS,
+                Product.DeliveryType.STORE_DELIVERY,
+                Product.DeliveryType.PICKUP,
+            },
             Product.Type.SERVICE: {Product.DeliveryType.VERIFY, Product.DeliveryType.APPOINTMENT},
+            Product.Type.COUPON: {Product.DeliveryType.VERIFY},
         }
         deliveries = set(attrs["delivery_types"])
-        if deliveries - allowed[attrs["type"]]:
+        product_type = attrs["type"]
+        if deliveries - allowed[product_type]:
             raise serializers.ValidationError("履约方式与商品类型不匹配")
         if attrs.get("appointment_required") and Product.DeliveryType.APPOINTMENT not in deliveries:
             raise serializers.ValidationError("需预约商品必须包含预约履约方式")
+        if product_type == Product.Type.COUPON:
+            self._validate_coupon(attrs)
         codes = [sku["sku_code"] for sku in attrs["skus"]]
         if len(set(codes)) != len(codes):
             raise serializers.ValidationError("SKU 编码重复")
         return attrs
+
+    def _validate_coupon(self, attrs):
+        valid_type = attrs.get("valid_type") or Product.ValidType.DAYS
+        valid_days = attrs.get("valid_days")
+        valid_from = attrs.get("valid_from")
+        valid_to = attrs.get("valid_to")
+        if valid_type == Product.ValidType.DAYS:
+            if not valid_days or valid_days < 1:
+                raise serializers.ValidationError("卡券有效天数必填且大于 0")
+        elif valid_type == Product.ValidType.RANGE:
+            if not valid_from or not valid_to:
+                raise serializers.ValidationError("卡券固定时间段需填写生效与失效时间")
+            if valid_from >= valid_to:
+                raise serializers.ValidationError("卡券失效时间必须晚于生效时间")
+        elif valid_type == Product.ValidType.PERMANENT:
+            attrs["valid_days"] = None
+            attrs["valid_from"] = None
+            attrs["valid_to"] = None
 
 
 class MerchantSkuSerializer(ProductSkuSerializer):
@@ -273,7 +317,15 @@ class MerchantProductDetailSerializer(serializers.ModelSerializer):
             "reject_reason",
             "verify_days",
             "appointment_required",
+            "acceptance_required",
             "delivery_types",
+            "valid_type",
+            "valid_days",
+            "valid_from",
+            "valid_to",
+            "usable_weekdays",
+            "exclude_holidays",
+            "verify_count",
             "sold_count",
             "skus",
             "submitted_at",
@@ -320,7 +372,15 @@ class AdminProductDetailSerializer(serializers.ModelSerializer):
             "reject_reason",
             "verify_days",
             "appointment_required",
+            "acceptance_required",
             "delivery_types",
+            "valid_type",
+            "valid_days",
+            "valid_from",
+            "valid_to",
+            "usable_weekdays",
+            "exclude_holidays",
+            "verify_count",
             "sold_count",
             "skus",
             "submitted_at",
