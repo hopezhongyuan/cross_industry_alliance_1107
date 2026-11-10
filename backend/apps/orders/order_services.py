@@ -28,6 +28,14 @@ PRODUCT_TYPE_BY_ORDER_TYPE = {
 
 DELIVERY_ORDER_TYPES = (Order.Type.EXPRESS, Order.Type.STORE_DELIVERY)
 
+REQUIRED_DELIVERY_BY_ORDER_TYPE = {
+    Order.Type.EXPRESS: {Product.DeliveryType.EXPRESS},
+    Order.Type.STORE_DELIVERY: {Product.DeliveryType.STORE_DELIVERY},
+    Order.Type.PICKUP: {Product.DeliveryType.PICKUP},
+    Order.Type.SERVICE: {Product.DeliveryType.VERIFY, Product.DeliveryType.APPOINTMENT},
+    Order.Type.COUPON: {Product.DeliveryType.VERIFY},
+}
+
 
 def _validate_products(merchant_id, order_type, items):
     product_ids = [item["product_id"] for item in items]
@@ -44,6 +52,11 @@ def _validate_products(merchant_id, order_type, items):
         expected_type = PRODUCT_TYPE_BY_ORDER_TYPE.get(order_type)
         if expected_type and product.type != expected_type:
             raise ApiError("DELIVERY_TYPE_NOT_SUPPORTED", "商品类型与订单类型不匹配", 409)
+        required = REQUIRED_DELIVERY_BY_ORDER_TYPE.get(order_type)
+        product_deliveries = set(product.delivery_types or [])
+        # 历史商品可能未配置履约方式，空列表不做拦截
+        if required and product_deliveries and not (product_deliveries & required):
+            raise ApiError("DELIVERY_TYPE_NOT_SUPPORTED", "商品不支持该履约方式", 409)
         contexts.append({"item": item, "product": product, "sku": None})
     return contexts
 
@@ -199,7 +212,7 @@ def _create_single_order(
         commission_rate=rate,
         commission_amount=commission_amount,
         platform_income_amount=commission_amount,
-        merchant_income_amount=commission_base - commission_amount,
+        merchant_income_amount=commission_base - commission_amount + delivery_fee,
         platform_subsidy_amount=platform_subsidy_amount,
         merchant_discount_amount=merchant_discount_amount,
         discount_amount=discount_amount,
@@ -687,13 +700,16 @@ def mark_order_paid(order):
     need = defaultdict(int)
     max_verify_days = 0
     coupon_snapshot = None
+    coupon_code_count = 0
     for item in order.items.all():
         if item.sku_id:
             need[item.sku_id] += item.quantity
         snapshot = item.snapshot_json or {}
         max_verify_days = max(max_verify_days, int(snapshot.get("verify_days", 0)))
-        if snapshot.get("type") == Product.Type.COUPON and coupon_snapshot is None:
-            coupon_snapshot = snapshot
+        if snapshot.get("type") == Product.Type.COUPON:
+            if coupon_snapshot is None:
+                coupon_snapshot = snapshot
+            coupon_code_count += max(int(snapshot.get("verify_count") or 1), 1) * item.quantity
 
     if need:
         skus = {sku.id: sku for sku in ProductSku.objects.select_for_update().filter(pk__in=need)}
@@ -707,7 +723,7 @@ def mark_order_paid(order):
             sku.save(update_fields=["locked_stock", "sold_stock", "version", "updated_at"])
 
     if order.order_type == Order.Type.COUPON:
-        _generate_coupon_codes(order, coupon_snapshot or {})
+        _generate_coupon_codes(order, coupon_snapshot or {}, coupon_code_count)
         return
 
     if order.order_type not in (Order.Type.PICKUP, Order.Type.SERVICE):
@@ -730,11 +746,11 @@ def mark_order_paid(order):
         OrderDelivery.objects.filter(order=order).update(pickup_code=verify_code.code)
 
 
-def _generate_coupon_codes(order, snapshot: dict):
-    """卡券订单按可核销次数生成 N 个独立核销码，幂等：已生成则跳过。"""
+def _generate_coupon_codes(order, snapshot: dict, count: int = 0):
+    """卡券订单按可核销次数 × 购买数量生成独立核销码，幂等：已生成则跳过。"""
     if VerifyCode.objects.filter(order=order).exists():
         return
-    count = max(int(snapshot.get("verify_count") or 1), 1)
+    count = max(count, 1)
     valid_from, valid_to = _coupon_validity(snapshot)
     used: set = set()
     codes = []

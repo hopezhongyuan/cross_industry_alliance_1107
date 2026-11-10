@@ -53,6 +53,18 @@ def apply_after_sale(
         remaining = order.paid_amount - order.refunded_amount
         if request_amount <= 0 or request_amount > remaining:
             raise ApiError("REFUND_AMOUNT_EXCEEDED", "申请金额超过可退金额", 409, {"refundable_amount": remaining})
+        if (
+            order.order_type == Order.Type.COUPON
+            and order.status == Order.Status.PENDING_FULFILL
+            and request_amount < remaining
+        ):
+            # 卡券未核销完成前仅支持全额售后，避免部分退款后剩余码与资金不一致
+            raise ApiError(
+                "REFUND_AMOUNT_EXCEEDED",
+                "卡券未核销完成前仅支持全额退款",
+                409,
+                {"refundable_amount": remaining},
+            )
 
         after_sale = AfterSale.objects.create(
             order=order,

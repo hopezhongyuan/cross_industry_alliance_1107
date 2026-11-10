@@ -164,7 +164,10 @@
   - TR-8.2 通过：`npm run build:h5` 成功
   - 附加：商户商品编辑页支持卡券类型/有效期/可用星期/节假日提示/核销次数；商品详情展示卡券规则；订单详情已按码逐个展示
 ## Task 9: 全量门禁与提交
-- **Status**: `pending`
+- **Status**: `completed`
+- **Completion Evidence**:
+  - TR-9.1 通过：`make verify` exit 0（258 passed，覆盖率 91.41%）
+  - TR-9.2 通过：CI run 42728320098 conclusion=success
 - **Priority**: high
 - **Depends On**: Task 1-8
 - **Description**:
@@ -175,3 +178,97 @@
 - **Test Requirements**:
   - `rule` TR-9.1: make verify exit 0
   - `rule` TR-9.2: CI run conclusion=success
+
+## Issue I-1: 卡券核销缺少订单状态守卫
+- **Status**: `completed`
+- **Completion Evidence**:
+  - TR-I-1.1 通过：`test_coupon_verify_blocked_while_after_sale`（409 且码仍 ACTIVE）
+- **Priority**: high
+- **Depends On**: None
+- **Discovered By**: Review R1 (F1)
+- **Description**:
+  - `verify_code` 卡券分支在标记核销码前必须校验 `order.status == PENDING_FULFILL`，否则 409 且不解码
+- **Acceptance Criteria Addressed**: AC-7, AC-10
+- **Test Requirements**:
+  - `rule` TR-I-1.1: 售后中卡券订单核销返回 409，核销码仍为 ACTIVE
+
+## Issue I-2: 卡券履约前部分退款导致资金悬空
+- **Status**: `completed`
+- **Completion Evidence**:
+  - TR-I-2.1 通过：`test_coupon_partial_refund_rejected_before_verify`（409 REFUND_AMOUNT_EXCEEDED）；全额退款作废码逻辑保留
+- **Priority**: high
+- **Depends On**: None
+- **Discovered By**: Review R1 (F2)
+- **Description**:
+  - 卡券订单在未完成（PENDING_FULFILL/AFTER_SALE）时只允许全额退款，部分退款 409；全额退款作废剩余码（已实现）
+- **Acceptance Criteria Addressed**: AC-10
+- **Test Requirements**:
+  - `rule` TR-I-2.1: 卡券未完成订单部分退款被拒 409；全额退款成功且剩余码 INVALID
+
+## Issue I-3: 模板侧 COUPON / STORE_DELIVERY 与卡券字段未对齐
+- **Status**: `completed`
+- **Completion Evidence**:
+  - TR-I-3.1 通过：`AdminTemplateTypeTests` 3 项（COUPON 模板合法、实物+门店配送合法、COUPON 拒绝非 VERIFY）；模板字段经 `_template_fields` / `_apply_coupon_fields` / adopt 透传
+- **Priority**: high
+- **Depends On**: None
+- **Discovered By**: Review R1 (F3)
+- **Description**:
+  - 模板序列化器 allowed 补 COUPON / PHYSICAL+STORE_DELIVERY，缺失类型不再 KeyError
+  - 模板入参与 `_template_fields`、`sync_template`、adopt 透传 acceptance_required 与卡券字段
+- **Acceptance Criteria Addressed**: AC-3, AC-11
+- **Test Requirements**:
+  - `rule` TR-I-3.1: 创建 COUPON 模板不再 500；认领后的商品带出卡券配置
+
+## Issue I-4: 免接单实物履约状态错误
+- **Status**: `completed`
+- **Completion Evidence**:
+  - TR-I-4.1 通过：`test_physical_without_acceptance_goes_direct` 断言 fulfillment_status=NOT_STARTED；`_direct_fulfillment_status` 按订单类型分流
+- **Priority**: medium
+- **Depends On**: None
+- **Discovered By**: Review R1 (F4)
+- **Description**:
+  - `PAY_SUCCESS_DIRECT` 按订单类型设置履约状态：COUPON→VERIFY_READY；实物→按 EXPRESS/PICKUP/STORE_DELIVERY 分别 NOT_STARTED/PICKUP_READY/NOT_STARTED
+- **Acceptance Criteria Addressed**: AC-4
+- **Test Requirements**:
+  - `rule` TR-I-4.1: 免接单实物快递单支付后 fulfillment_status=NOT_STARTED
+
+## Issue I-5: 核销未校验生效时间
+- **Status**: `completed`
+- **Completion Evidence**:
+  - TR-I-5.1 通过：`test_coupon_range_valid_from_blocks_early_verify`（409）
+- **Priority**: medium
+- **Depends On**: None
+- **Discovered By**: Review R1 (F5)
+- **Description**:
+  - 核销前校验 `valid_from`，未生效返回 409
+- **Acceptance Criteria Addressed**: AC-6
+- **Test Requirements**:
+  - `rule` TR-I-5.1: RANGE 卡券未到生效日核销被拒
+
+## Issue I-6: 核销码数量未按购买数量计算（语义 TBD）
+- **Status**: `completed`
+- **Completion Evidence**:
+  - TR-I-6.1 通过：`test_coupon_codes_multiplied_by_quantity`（2 件 × 3 次 = 6 码）
+- **Priority**: medium
+- **Depends On**: None
+- **Discovered By**: Review R1 (F6)
+- **Description**:
+  - 按 `sum(verify_count × quantity)` 生成核销码；契约补 TBD 说明（部分核销退款规则未定）
+- **Acceptance Criteria Addressed**: AC-5
+- **Test Requirements**:
+  - `rule` TR-I-6.1: 购买 2 件、每件 3 次核销的卡券订单生成 6 个码
+
+## Issue I-7: 下单未校验履约方式 + 建单商家分账未含配送费
+- **Status**: `completed`
+- **Completion Evidence**:
+  - TR-I-7.1 通过：`test_order_type_must_match_product_delivery_types`（409）；TR-I-7.2 通过：`test_delivery_fee_included_in_merchant_income`
+- **Priority**: low
+- **Depends On**: None
+- **Discovered By**: Review R1 (F7)
+- **Description**:
+  - 下单校验所选 order_type 对应履约方式在商品 delivery_types 中，否则 409
+  - 建单 `merchant_income_amount` 含 delivery_fee，与结算口径一致
+- **Acceptance Criteria Addressed**: AC-9
+- **Test Requirements**:
+  - `rule` TR-I-7.1: PICKUP 专用商品下 STORE_DELIVERY 订单返回 409
+  - `rule` TR-I-7.2: 配送订单建单时 merchant_income_amount 含配送费

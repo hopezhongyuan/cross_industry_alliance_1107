@@ -4,6 +4,7 @@ from datetime import timedelta
 from uuid import uuid4
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import AppUser
@@ -42,6 +43,7 @@ class ProductTypeFlowTests(TestCase):
             title="实物",
             price=1000,
             status=Product.Status.ON_SALE,
+            delivery_types=["EXPRESS", "STORE_DELIVERY", "PICKUP"],
         )
         self.physical_sku = ProductSku.objects.create(product=self.physical, sku_code="EXT-P", price=1000, stock=20)
 
@@ -153,11 +155,90 @@ class ProductTypeFlowTests(TestCase):
         order = self._create_order("EXPRESS", self.physical, self.physical_sku)
         self._pay(order)
         self.assertEqual(order.status, Order.Status.PENDING_FULFILL)
+        self.assertEqual(order.fulfillment_status, Order.FulfillmentStatus.NOT_STARTED)
 
     def test_physical_with_acceptance_waits_for_merchant(self):
         order = self._create_order("EXPRESS", self.physical, self.physical_sku)
         self._pay(order)
         self.assertEqual(order.status, Order.Status.PENDING_ACCEPT)
+
+    # ---------- Review 修复回归 ----------
+    def test_coupon_verify_blocked_while_after_sale(self):
+        order = self._create_order("COUPON", self.coupon, self.coupon_sku)
+        self._pay(order)
+        self.client.post(
+            "/api/v1/after-sales/",
+            {
+                "order_id": order.id,
+                "type": "REFUND_ONLY",
+                "reason_code": "OTHER",
+                "request_amount": order.paid_amount,
+                "description": "退款",
+            },
+            format="json",
+        )
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.AFTER_SALE)
+        code = VerifyCode.objects.filter(order=order).first()
+        response = self.merchant_client.post("/api/v1/merchant/verify/", {"code": code.code}, format="json")
+        self.assertEqual(response.status_code, 409, response.data)
+        code.refresh_from_db()
+        self.assertEqual(code.status, VerifyCode.Status.ACTIVE)
+
+    def test_coupon_partial_refund_rejected_before_verify(self):
+        order = self._create_order("COUPON", self.coupon, self.coupon_sku)
+        self._pay(order)
+        response = self.client.post(
+            "/api/v1/after-sales/",
+            {
+                "order_id": order.id,
+                "type": "REFUND_ONLY",
+                "reason_code": "OTHER",
+                "request_amount": 100,
+                "description": "部分退款",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 409, response.data)
+        self.assertEqual(response.data["code"], "REFUND_AMOUNT_EXCEEDED")
+
+    def test_coupon_codes_multiplied_by_quantity(self):
+        order = self._create_order("COUPON", self.coupon, self.coupon_sku, quantity=2)
+        self._pay(order)
+        self.assertEqual(VerifyCode.objects.filter(order=order).count(), 6)
+
+    def test_coupon_range_valid_from_blocks_early_verify(self):
+        future = timezone.now() + timedelta(days=3)
+        self.coupon.valid_type = Product.ValidType.RANGE
+        self.coupon.valid_days = None
+        self.coupon.valid_from = future
+        self.coupon.valid_to = future + timedelta(days=10)
+        self.coupon.save(update_fields=["valid_type", "valid_days", "valid_from", "valid_to"])
+        order = self._create_order("COUPON", self.coupon, self.coupon_sku)
+        self._pay(order)
+        code = VerifyCode.objects.filter(order=order).first()
+        response = self.merchant_client.post("/api/v1/merchant/verify/", {"code": code.code}, format="json")
+        self.assertEqual(response.status_code, 409, response.data)
+
+    def test_order_type_must_match_product_delivery_types(self):
+        self.physical.delivery_types = ["PICKUP"]
+        self.physical.save(update_fields=["delivery_types"])
+        payload = {
+            "merchant_id": self.merchant.id,
+            "order_type": "EXPRESS",
+            "items": [{"product_id": self.physical.id, "sku_id": self.physical_sku.id, "quantity": 1}],
+            "contact": {"name": "李四", "phone": "13800138001", "address_detail": "测试地址"},
+        }
+        response = self.client.post("/api/v1/orders/", payload, format="json", HTTP_IDEMPOTENCY_KEY=uuid4().hex)
+        self.assertEqual(response.status_code, 409, response.data)
+        self.assertEqual(response.data["code"], "DELIVERY_TYPE_NOT_SUPPORTED")
+
+    def test_delivery_fee_included_in_merchant_income(self):
+        order = self._create_order("STORE_DELIVERY", self.physical, self.physical_sku)
+        self.assertEqual(
+            order.merchant_income_amount,
+            order.product_amount - order.commission_amount + order.delivery_fee,
+        )
 
     # ---------- 配送费 ----------
     def test_store_delivery_charges_merchant_delivery_fee(self):

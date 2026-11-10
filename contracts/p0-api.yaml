@@ -551,7 +551,12 @@ components:
           description: 可用星期（1=周一，空=不限）
           items: { type: integer, minimum: 1, maximum: 7 }
         exclude_holidays: { type: boolean, default: false, description: 法定节假日不可用（文案提示） }
-        verify_count: { type: integer, minimum: 1, maximum: 999, default: 1, description: 可核销次数 }
+        verify_count:
+          type: integer
+          minimum: 1
+          maximum: 999
+          default: 1
+          description: 可核销次数；实际生成码数 = 次数 × 购买数量。TBD：部分核销后的退款金额规则待确认
         skus:
           type: array
           items:
@@ -1339,7 +1344,12 @@ components:
           description: 可用星期（1=周一，空=不限）
           items: { type: integer, minimum: 1, maximum: 7 }
         exclude_holidays: { type: boolean, default: false, description: 法定节假日不可用（文案提示） }
-        verify_count: { type: integer, minimum: 1, maximum: 999, default: 1, description: 可核销次数 }
+        verify_count:
+          type: integer
+          minimum: 1
+          maximum: 999
+          default: 1
+          description: 可核销次数；实际生成码数 = 次数 × 购买数量。TBD：部分核销后的退款金额规则待确认
         product_code: { type: string, description: 商户货号，商户内唯一，可为空 }
         merchant_category_id: { type: integer, format: int64, nullable: true, description: 商户自有分类，仅一级 }
         skus:

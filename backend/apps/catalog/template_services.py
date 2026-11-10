@@ -43,9 +43,28 @@ def _template_fields(data):
         "original_price": data.get("original_price_amount", 0),
         "verify_days": data.get("verify_days", 30),
         "appointment_required": data.get("appointment_required", False),
+        "acceptance_required": data.get("acceptance_required", True),
         "delivery_types": data.get("delivery_types", []),
+        "valid_type": data.get("valid_type", "DAYS"),
+        "valid_days": data.get("valid_days"),
+        "valid_from": data.get("valid_from"),
+        "valid_to": data.get("valid_to"),
+        "usable_weekdays": data.get("usable_weekdays", []),
+        "exclude_holidays": data.get("exclude_holidays", False),
+        "verify_count": data.get("verify_count", 1),
         "skus": data.get("skus", []),
     }
+
+
+def _apply_coupon_fields(product, template):
+    """同步模板的卡券配置到已认领商品。"""
+    product.valid_type = template.valid_type
+    product.valid_days = template.valid_days
+    product.valid_from = template.valid_from
+    product.valid_to = template.valid_to
+    product.usable_weekdays = template.usable_weekdays
+    product.exclude_holidays = template.exclude_holidays
+    product.verify_count = template.verify_count
 
 
 def create_template(admin_user, data, request=None):
@@ -138,7 +157,9 @@ def sync_template(admin_user, template_id, merchant_ids=None, request=None):
             product.original_price = template.original_price
             product.verify_days = template.verify_days
             product.appointment_required = template.appointment_required
+            product.acceptance_required = template.acceptance_required
             product.delivery_types = template.delivery_types
+            _apply_coupon_fields(product, template)
             product.version += 1
             product.save()
             sku_items = [
@@ -187,7 +208,15 @@ def adopt_template(user, template_id, listed=True, request=None):
             original_price=template.original_price,
             verify_days=template.verify_days,
             appointment_required=template.appointment_required,
+            acceptance_required=template.acceptance_required,
             delivery_types=template.delivery_types,
+            valid_type=template.valid_type,
+            valid_days=template.valid_days,
+            valid_from=template.valid_from,
+            valid_to=template.valid_to,
+            usable_weekdays=template.usable_weekdays,
+            exclude_holidays=template.exclude_holidays,
+            verify_count=template.verify_count,
             status=Product.Status.ON_SALE if listed else Product.Status.OFF_SALE,
             audited_at=timezone.now(),
         )

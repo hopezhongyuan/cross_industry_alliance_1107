@@ -404,9 +404,19 @@ class AdminTemplateInputSerializer(serializers.Serializer):
     original_price_amount = serializers.IntegerField(min_value=0, required=False, default=0)
     verify_days = serializers.IntegerField(min_value=1, max_value=3650, required=False, default=30)
     appointment_required = serializers.BooleanField(required=False, default=False)
+    acceptance_required = serializers.BooleanField(required=False, default=True)
     delivery_types = serializers.ListField(
         child=serializers.ChoiceField(choices=Product.DeliveryType.choices), min_length=1
     )
+    valid_type = serializers.ChoiceField(choices=Product.ValidType.choices, required=False, default="DAYS")
+    valid_days = serializers.IntegerField(min_value=1, max_value=3650, required=False, allow_null=True)
+    valid_from = serializers.DateTimeField(required=False, allow_null=True)
+    valid_to = serializers.DateTimeField(required=False, allow_null=True)
+    usable_weekdays = serializers.ListField(
+        child=serializers.IntegerField(min_value=1, max_value=7), required=False, default=list
+    )
+    exclude_holidays = serializers.BooleanField(required=False, default=False)
+    verify_count = serializers.IntegerField(min_value=1, max_value=999, required=False, default=1)
     skus = MerchantProductSkuInputSerializer(many=True, min_length=1)
     status = serializers.ChoiceField(
         choices=ProductTemplate.Status.choices, required=False, default=ProductTemplate.Status.DRAFT
@@ -423,11 +433,19 @@ class AdminTemplateInputSerializer(serializers.Serializer):
         if category.parent_id and category.parent.status != Category.Status.ENABLED:
             raise serializers.ValidationError("上级类目已停用")
         allowed = {
-            ProductTemplate.Type.PHYSICAL: {Product.DeliveryType.EXPRESS, Product.DeliveryType.PICKUP},
+            ProductTemplate.Type.PHYSICAL: {
+                Product.DeliveryType.EXPRESS,
+                Product.DeliveryType.STORE_DELIVERY,
+                Product.DeliveryType.PICKUP,
+            },
             ProductTemplate.Type.SERVICE: {Product.DeliveryType.VERIFY, Product.DeliveryType.APPOINTMENT},
+            ProductTemplate.Type.COUPON: {Product.DeliveryType.VERIFY},
         }
-        if set(attrs["delivery_types"]) - allowed[attrs["type"]]:
+        product_type = attrs["type"]
+        if set(attrs["delivery_types"]) - allowed.get(product_type, set()):
             raise serializers.ValidationError("履约方式与商品类型不匹配")
+        if product_type == Product.Type.COUPON:
+            MerchantProductInputSerializer._validate_coupon(self, attrs)
         codes = [sku["sku_code"] for sku in attrs["skus"]]
         if len(set(codes)) != len(codes):
             raise serializers.ValidationError("SKU 编码重复")
@@ -456,7 +474,15 @@ class AdminTemplateSerializer(serializers.ModelSerializer):
             "original_price",
             "verify_days",
             "appointment_required",
+            "acceptance_required",
             "delivery_types",
+            "valid_type",
+            "valid_days",
+            "valid_from",
+            "valid_to",
+            "usable_weekdays",
+            "exclude_holidays",
+            "verify_count",
             "skus",
             "status",
             "scope",

@@ -59,6 +59,15 @@ TIMESTAMP_BY_STATUS = {
 }
 
 
+def _direct_fulfillment_status(order) -> str:
+    """支付直达待履约时的履约状态：卡券待核销，自提待自提，其余未开始。"""
+    if order.order_type == Order.Type.COUPON:
+        return Order.FulfillmentStatus.VERIFY_READY
+    if order.order_type == Order.Type.PICKUP:
+        return Order.FulfillmentStatus.PICKUP_READY
+    return Order.FulfillmentStatus.NOT_STARTED
+
+
 def transit_order(
     order_id: int,
     event: str,
@@ -82,7 +91,7 @@ def transit_order(
         if target == Order.Status.FULFILLING and event in FULFILLMENT_BY_EVENT:
             order.fulfillment_status = FULFILLMENT_BY_EVENT[event]
         elif event == "PAY_SUCCESS_DIRECT":
-            order.fulfillment_status = FULFILLMENT_BY_EVENT[event]
+            order.fulfillment_status = _direct_fulfillment_status(order)
         elif event == "SERVICE_VERIFY" or event in ("CONFIRM_RECEIVE", "PICKUP_VERIFY"):
             order.fulfillment_status = Order.FulfillmentStatus.DONE
 

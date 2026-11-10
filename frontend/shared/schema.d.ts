@@ -976,7 +976,7 @@ export interface components {
        */
       exclude_holidays?: boolean;
       /**
-       * @description 可核销次数
+       * @description 可核销次数；实际生成码数 = 次数 × 购买数量。TBD：部分核销后的退款金额规则待确认
        * @default 1
        */
       verify_count?: number;
@@ -1721,7 +1721,7 @@ export interface components {
        */
       exclude_holidays?: boolean;
       /**
-       * @description 可核销次数
+       * @description 可核销次数；实际生成码数 = 次数 × 购买数量。TBD：部分核销后的退款金额规则待确认
        * @default 1
        */
       verify_count?: number;

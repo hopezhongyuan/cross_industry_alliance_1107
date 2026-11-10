@@ -3846,11 +3846,45 @@ components:
         appointment_required:
           type: boolean
           default: false
+        acceptance_required:
+          type: boolean
+          default: true
         delivery_types:
           type: array
           items:
             $ref: '#/components/schemas/DeliveryTypesEnum'
           minItems: 1
+        valid_type:
+          allOf:
+          - $ref: '#/components/schemas/ValidTypeEnum'
+          default: DAYS
+        valid_days:
+          type: integer
+          maximum: 3650
+          minimum: 1
+          nullable: true
+        valid_from:
+          type: string
+          format: date-time
+          nullable: true
+        valid_to:
+          type: string
+          format: date-time
+          nullable: true
+        usable_weekdays:
+          type: array
+          items:
+            type: integer
+            maximum: 7
+            minimum: 1
+        exclude_holidays:
+          type: boolean
+          default: false
+        verify_count:
+          type: integer
+          maximum: 999
+          minimum: 1
+          default: 1
         skus:
           type: array
           items:
