@@ -699,17 +699,15 @@ def mark_order_paid(order):
     """支付成功后：锁定库存转已售，生成核销码/提货码。"""
     need = defaultdict(int)
     max_verify_days = 0
-    coupon_snapshot = None
-    coupon_code_count = 0
+    coupon_groups = []
     for item in order.items.all():
         if item.sku_id:
             need[item.sku_id] += item.quantity
         snapshot = item.snapshot_json or {}
         max_verify_days = max(max_verify_days, int(snapshot.get("verify_days", 0)))
         if snapshot.get("type") == Product.Type.COUPON:
-            if coupon_snapshot is None:
-                coupon_snapshot = snapshot
-            coupon_code_count += max(int(snapshot.get("verify_count") or 1), 1) * item.quantity
+            count = max(int(snapshot.get("verify_count") or 1), 1) * item.quantity
+            coupon_groups.append((snapshot, count))
 
     if need:
         skus = {sku.id: sku for sku in ProductSku.objects.select_for_update().filter(pk__in=need)}
@@ -723,7 +721,7 @@ def mark_order_paid(order):
             sku.save(update_fields=["locked_stock", "sold_stock", "version", "updated_at"])
 
     if order.order_type == Order.Type.COUPON:
-        _generate_coupon_codes(order, coupon_snapshot or {}, coupon_code_count)
+        _generate_coupon_codes(order, coupon_groups)
         return
 
     if order.order_type not in (Order.Type.PICKUP, Order.Type.SERVICE):
@@ -746,31 +744,34 @@ def mark_order_paid(order):
         OrderDelivery.objects.filter(order=order).update(pickup_code=verify_code.code)
 
 
-def _generate_coupon_codes(order, snapshot: dict, count: int = 0):
-    """卡券订单按可核销次数 × 购买数量生成独立核销码，幂等：已生成则跳过。"""
+def _generate_coupon_codes(order, groups):
+    """按商品快照分组生成独立核销码（码数 = 次数 × 数量），幂等：已生成则跳过。"""
     if VerifyCode.objects.filter(order=order).exists():
         return
-    count = max(count, 1)
-    valid_from, valid_to = _coupon_validity(snapshot)
-    used: set = set()
+    if not groups:
+        groups = [({}, 1)]
     codes = []
-    for _ in range(count):
-        code = _generate_verify_code()
-        while code in used:
+    used: set = set()
+    for snapshot, count in groups:
+        valid_from, valid_to = _coupon_validity(snapshot)
+        for _ in range(max(count, 0)):
             code = _generate_verify_code()
-        used.add(code)
-        codes.append(
-            VerifyCode(
-                order=order,
-                merchant=order.merchant,
-                code=code,
-                type=VerifyCode.Type.VERIFY,
-                status=VerifyCode.Status.ACTIVE,
-                valid_from=valid_from,
-                valid_to=valid_to,
+            while code in used:
+                code = _generate_verify_code()
+            used.add(code)
+            codes.append(
+                VerifyCode(
+                    order=order,
+                    merchant=order.merchant,
+                    code=code,
+                    type=VerifyCode.Type.VERIFY,
+                    status=VerifyCode.Status.ACTIVE,
+                    valid_from=valid_from,
+                    valid_to=valid_to,
+                )
             )
-        )
-    VerifyCode.objects.bulk_create(codes)
+    if codes:
+        VerifyCode.objects.bulk_create(codes)
 
 
 def _generate_verify_code() -> str:

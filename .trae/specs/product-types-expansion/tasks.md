@@ -272,3 +272,68 @@
 - **Test Requirements**:
   - `rule` TR-I-7.1: PICKUP 专用商品下 STORE_DELIVERY 订单返回 409
   - `rule` TR-I-7.2: 配送订单建单时 merchant_income_amount 含配送费
+
+## Issue I-8: 仲裁驳回绕过卡券待核销状态
+- **Status**: `completed`
+- **Priority**: high
+- **Depends On**: None
+- **Discovered By**: Review R2 (N-1)
+- **Description**:
+  - 卡券未履约完成（无结算项）时仲裁驳回改为 `MERCHANT_REJECT_BACK_TO_FULFILL`，其余仍 `ARBITRATION_REJECT`
+- **Acceptance Criteria Addressed**: AC-7, AC-10
+- **Test Requirements**:
+  - `rule` TR-I-8.1: 卡券售后转仲裁、裁定用户责任后订单回到 PENDING_FULFILL 且可核销
+- **Completion Evidence**:
+  - TR-I-8.1 通过：`test_coupon_arbitration_reject_returns_to_pending_fulfill`
+
+## Issue I-9: 已完成卡券部分售后审批失败
+- **Status**: `completed`
+- **Priority**: medium
+- **Depends On**: None
+- **Discovered By**: Review R2 (N-2)
+- **Description**:
+  - 退款守卫改为「卡券且无结算项」才要求全额，已完成卡券允许部分退款
+- **Acceptance Criteria Addressed**: AC-10
+- **Test Requirements**:
+  - `rule` TR-I-9.1: 全部核销后的卡券订单可提交部分售后
+- **Completion Evidence**:
+  - TR-I-9.1 通过：`test_completed_coupon_allows_partial_after_sale`；原 `test_coupon_partial_refund_rejected_before_verify` 仍通过
+
+## Issue I-10: 多卡券商品共用首个有效期
+- **Status**: `completed`
+- **Priority**: low
+- **Depends On**: None
+- **Discovered By**: Review R2 (N-4)
+- **Description**:
+  - 按商品快照分组生成核销码，每组使用各自 valid_type/valid_days
+- **Acceptance Criteria Addressed**: AC-5, AC-6
+- **Test Requirements**:
+  - `rule` TR-I-10.1: 同单两种卡券（7 天 3 次 / 30 天 2 次）生成 5 码且有效期分别为 7/30 天
+- **Completion Evidence**:
+  - TR-I-10.1 通过：`test_coupon_codes_use_each_product_validity`
+
+## Issue I-11: ProductTemplate 响应 schema 缺字段
+- **Status**: `completed`
+- **Priority**: low
+- **Depends On**: None
+- **Discovered By**: Review R2 (N-5)
+- **Description**:
+  - 契约 ProductTemplate 补 acceptance_required、valid_type/valid_days/valid_from/valid_to、usable_weekdays、exclude_holidays、verify_count
+- **Acceptance Criteria Addressed**: AC-11
+- **Test Requirements**:
+  - `rule` TR-I-11.1: schema-check 通过且字段与实现一致
+- **Completion Evidence**:
+  - TR-I-11.1 通过：`make schema-check` 通过；schema.d.ts 已重新生成
+
+## Issue I-12: 部分核销后超额退款规则未定义
+- **Status**: `completed`
+- **Priority**: low
+- **Depends On**: None
+- **Discovered By**: Review R2 (N-3)
+- **Description**:
+  - 规则 TBD：在契约 `verify_count` 描述中标注「部分核销后的退款金额规则待确认」，不臆造规则
+- **Acceptance Criteria Addressed**: AC-10
+- **Test Requirements**:
+  - `rule` TR-I-12.1: 契约存在 TBD 说明且 contract-check 通过
+- **Completion Evidence**:
+  - TR-I-12.1 通过：p0-api.yaml verify_count description 含 TBD，contract-check 通过

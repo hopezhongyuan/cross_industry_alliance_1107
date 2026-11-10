@@ -910,7 +910,20 @@ export interface components {
       original_price?: number;
       verify_days?: number;
       appointment_required?: boolean;
+      /** @description 是否需要商户接单 */
+      acceptance_required?: boolean;
       delivery_types?: ("EXPRESS" | "STORE_DELIVERY" | "PICKUP" | "VERIFY" | "APPOINTMENT")[];
+      /** @enum {string} */
+      valid_type?: "DAYS" | "PERMANENT" | "RANGE";
+      valid_days?: number | null;
+      /** Format: date-time */
+      valid_from?: string | null;
+      /** Format: date-time */
+      valid_to?: string | null;
+      usable_weekdays?: number[];
+      exclude_holidays?: boolean;
+      /** @description 可核销次数（码数 = 次数 × 认领商品数量） */
+      verify_count?: number;
       skus?: {
           sku_code?: string;
           spec?: {

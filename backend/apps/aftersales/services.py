@@ -29,6 +29,13 @@ ACTIVE_STATUSES = {
 }
 
 
+def coupon_pending_verify(order) -> bool:
+    """卡券订单尚未履约完成（无结算项）：此阶段售后仅支持全额退款。"""
+    if order.order_type != Order.Type.COUPON:
+        return False
+    return not SettlementItem.objects.filter(order=order).exists()
+
+
 def apply_after_sale(
     user,
     order_id,
@@ -53,11 +60,7 @@ def apply_after_sale(
         remaining = order.paid_amount - order.refunded_amount
         if request_amount <= 0 or request_amount > remaining:
             raise ApiError("REFUND_AMOUNT_EXCEEDED", "申请金额超过可退金额", 409, {"refundable_amount": remaining})
-        if (
-            order.order_type == Order.Type.COUPON
-            and order.status == Order.Status.PENDING_FULFILL
-            and request_amount < remaining
-        ):
+        if coupon_pending_verify(order) and request_amount < remaining:
             # 卡券未核销完成前仅支持全额售后，避免部分退款后剩余码与资金不一致
             raise ApiError(
                 "REFUND_AMOUNT_EXCEEDED",
@@ -179,7 +182,7 @@ def decide_after_sale(user, after_sale_id, decision, approved_amount=None, reaso
             after_sale.merchant_decision = AfterSale.MerchantDecision.REJECTED
             after_sale.merchant_reason = reason
             after_sale.save(update_fields=["status", "merchant_decision", "merchant_reason", "updated_at"])
-            if order.order_type == Order.Type.COUPON:
+            if order.order_type == Order.Type.COUPON and coupon_pending_verify(order):
                 # 卡券未核销完成，驳回后退回待核销，剩余核销码继续有效
                 transit_order(
                     order.id, "MERCHANT_REJECT_BACK_TO_FULFILL", operator_type="MERCHANT", operator_id=user.id
@@ -287,14 +290,25 @@ def rule_arbitration(admin_user, case_id, liability, refund_amount=0, ruling="")
             after_sale.approved_amount = 0
             after_sale.closed_at = timezone.now()
             after_sale.save(update_fields=["status", "approved_amount", "closed_at", "updated_at"])
-            transit_order(
-                order.id,
-                "ARBITRATION_REJECT",
-                operator_type="SYSTEM",
-                operator_id=admin_user.id,
-                operator_name=case.decided_by_name,
-                reason=ruling,
-            )
+            if order.order_type == Order.Type.COUPON and coupon_pending_verify(order):
+                # 卡券未核销完成，仲裁驳回后退回待核销，剩余核销码继续有效
+                transit_order(
+                    order.id,
+                    "MERCHANT_REJECT_BACK_TO_FULFILL",
+                    operator_type="SYSTEM",
+                    operator_id=admin_user.id,
+                    operator_name=case.decided_by_name,
+                    reason=ruling,
+                )
+            else:
+                transit_order(
+                    order.id,
+                    "ARBITRATION_REJECT",
+                    operator_type="SYSTEM",
+                    operator_id=admin_user.id,
+                    operator_name=case.decided_by_name,
+                    reason=ruling,
+                )
             _unfreeze(order, after_sale)
 
     after_sale.refresh_from_db()

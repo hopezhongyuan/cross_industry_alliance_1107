@@ -8,7 +8,8 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import AppUser
-from apps.aftersales.models import AfterSale
+from apps.aftersales.models import AfterSale, ArbitrationCase
+from apps.aftersales.services import escalate_due_after_sales, rule_arbitration
 from apps.catalog.models import Category, Product, ProductSku
 from apps.fulfillment.models import VerifyCode
 from apps.merchants.models import Merchant, MerchantStaff
@@ -239,6 +240,87 @@ class ProductTypeFlowTests(TestCase):
             order.merchant_income_amount,
             order.product_amount - order.commission_amount + order.delivery_fee,
         )
+
+    def test_coupon_arbitration_reject_returns_to_pending_fulfill(self):
+        order = self._create_order("COUPON", self.coupon, self.coupon_sku)
+        self._pay(order)
+        response = self.client.post(
+            "/api/v1/after-sales/",
+            {
+                "order_id": order.id,
+                "type": "REFUND_ONLY",
+                "reason_code": "OTHER",
+                "request_amount": order.paid_amount,
+                "description": "退款",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        after_sale = AfterSale.objects.get(order=order)
+        after_sale.deadline_at = timezone.now() - timedelta(hours=1)
+        after_sale.save(update_fields=["deadline_at"])
+        self.assertEqual(escalate_due_after_sales(), 1)
+        case = ArbitrationCase.objects.get(after_sale=after_sale)
+        admin = AppUser.objects.create_user(phone="13900000112", password="pass12345", is_staff=True)
+        rule_arbitration(admin, case.id, ArbitrationCase.Liability.USER, refund_amount=0, ruling="用户责任")
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.PENDING_FULFILL)
+        code = VerifyCode.objects.filter(order=order).first()
+        verify = self.merchant_client.post("/api/v1/merchant/verify/", {"code": code.code}, format="json")
+        self.assertEqual(verify.status_code, 200, verify.data)
+
+    def test_coupon_codes_use_each_product_validity(self):
+        coupon_b = Product.objects.create(
+            merchant=self.merchant,
+            category=self.category,
+            type=Product.Type.COUPON,
+            title="月卡",
+            price=3000,
+            status=Product.Status.ON_SALE,
+            delivery_types=["VERIFY"],
+            verify_count=2,
+            valid_type=Product.ValidType.DAYS,
+            valid_days=30,
+        )
+        sku_b = ProductSku.objects.create(product=coupon_b, sku_code="EXT-C2", price=3000, stock=10)
+        payload = {
+            "merchant_id": self.merchant.id,
+            "order_type": "COUPON",
+            "items": [
+                {"product_id": self.coupon.id, "sku_id": self.coupon_sku.id, "quantity": 1},
+                {"product_id": coupon_b.id, "sku_id": sku_b.id, "quantity": 1},
+            ],
+            "contact": {"name": "李四", "phone": "13800138001", "address_detail": "测试地址"},
+        }
+        response = self.client.post("/api/v1/orders/", payload, format="json", HTTP_IDEMPOTENCY_KEY=uuid4().hex)
+        self.assertEqual(response.status_code, 201, response.data)
+        order = Order.objects.get(pk=response.data["data"]["id"])
+        self._pay(order)
+        codes = list(VerifyCode.objects.filter(order=order))
+        self.assertEqual(len(codes), 5)
+        short = [c for c in codes if abs((c.valid_to - order.paid_at).days - 7) <= 1]
+        long = [c for c in codes if abs((c.valid_to - order.paid_at).days - 30) <= 1]
+        self.assertEqual((len(short), len(long)), (3, 2))
+
+    def test_completed_coupon_allows_partial_after_sale(self):
+        order = self._create_order("COUPON", self.coupon, self.coupon_sku)
+        self._pay(order)
+        for code in VerifyCode.objects.filter(order=order):
+            self.merchant_client.post("/api/v1/merchant/verify/", {"code": code.code}, format="json")
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.COMPLETED)
+        response = self.client.post(
+            "/api/v1/after-sales/",
+            {
+                "order_id": order.id,
+                "type": "REFUND_ONLY",
+                "reason_code": "OTHER",
+                "request_amount": 100,
+                "description": "部分退款",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
 
     # ---------- 配送费 ----------
     def test_store_delivery_charges_merchant_delivery_fee(self):

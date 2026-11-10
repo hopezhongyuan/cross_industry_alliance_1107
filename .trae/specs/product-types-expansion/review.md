@@ -44,3 +44,14 @@
   - F6（Medium，advisory）：`verify_count` 未乘购买数量，多商品组合仅取首个快照，语义未定义。
   - F7（Advisory）：下单未校验订单类型是否在商品 delivery_types 内；建单时 `merchant_income_amount` 未含配送费。
 - **Recommended Issues**: I-1..I-7，见 tasks.md
+
+### Review R2
+- **Result**: `fail`
+- **Evidence**: 评审者阅读 bedeb19 全量 diff，运行 `pytest apps/{orders,catalog,merchants,payments,aftersales}` 与 `make verify`（267 passed / 91.66%）。I-1..I-5、I-7 判定 fixed；I-6 部分 fixed（数量已乘，但多张不同卡券共用首个有效期）。
+- **Findings**:
+  - N-1（High，actionable）：仲裁驳回对卡券订单走 `ARBITRATION_REJECT → COMPLETED`，绕过待核销状态，剩余码无法核销、货款滞留。
+  - N-2（Medium，actionable）：已完成卡券订单可提交部分售后申请，但商户同意时被全额退款守卫拦截（申请可建、审批必败）。
+  - N-3（Medium，advisory）：部分核销后仍按全额退款，已消费码不扣减（规则 TBD，已在契约标注）。
+  - N-4（Low，actionable）：多张不同卡券同单时核销码有效期统一取首个快照。
+  - N-5（Low，actionable）：ProductTemplate 响应 schema 缺 acceptance_required / valid_* / verify_count。
+- **Recommended Issues**: I-8..I-12，见 tasks.md

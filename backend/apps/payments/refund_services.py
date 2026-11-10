@@ -43,18 +43,6 @@ def refund_order(
         remaining = order.paid_amount - order.refunded_amount
         if amount <= 0 or amount > remaining:
             raise ApiError("REFUND_AMOUNT_EXCEEDED", "退款金额超过可退金额", 409, {"refundable_amount": remaining})
-        if order.order_type == Order.Type.COUPON and order.status in (
-            Order.Status.PENDING_FULFILL,
-            Order.Status.AFTER_SALE,
-        ):
-            # 卡券尚未履约完成：仅支持全额退款，避免部分退款后资金悬空与剩余码失效
-            if amount < remaining:
-                raise ApiError(
-                    "REFUND_AMOUNT_EXCEEDED",
-                    "卡券未核销完成前仅支持全额退款",
-                    409,
-                    {"refundable_amount": remaining},
-                )
 
         payment = (
             PaymentOrder.objects.filter(
@@ -72,6 +60,14 @@ def refund_order(
             raise ApiError("PAYMENT_NOT_FOUND", "支付单不存在", 404)
 
         item = SettlementItem.objects.select_for_update().filter(order=order).first()
+        if order.order_type == Order.Type.COUPON and item is None and amount < remaining:
+            # 卡券尚未履约完成（无结算项）：仅支持全额退款
+            raise ApiError(
+                "REFUND_AMOUNT_EXCEEDED",
+                "卡券未核销完成前仅支持全额退款",
+                409,
+                {"refundable_amount": remaining},
+            )
 
         was_pending_accept = order.status == Order.Status.PENDING_ACCEPT
         if was_pending_accept:
