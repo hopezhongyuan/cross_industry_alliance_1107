@@ -922,7 +922,7 @@ export interface components {
       valid_to?: string | null;
       usable_weekdays?: number[];
       exclude_holidays?: boolean;
-      /** @description 可核销次数（码数 = 次数 × 认领商品数量） */
+      /** @description 可核销次数（码数 = 次数 × 认领商品数量）；待核销订单退款按未核销码数占比计算 */
       verify_count?: number;
       skus?: {
           sku_code?: string;
@@ -989,7 +989,7 @@ export interface components {
        */
       exclude_holidays?: boolean;
       /**
-       * @description 可核销次数；实际生成码数 = 次数 × 购买数量。TBD：部分核销后的退款金额规则待确认
+       * @description 可核销次数；实际生成码数 = 次数 × 购买数量。卡券待核销订单可退金额 = 实付 × 未核销码数 ÷ 总码数（向下取整），即只退未消费部分；退款后作废剩余未核销码
        * @default 1
        */
       verify_count?: number;
@@ -1734,7 +1734,7 @@ export interface components {
        */
       exclude_holidays?: boolean;
       /**
-       * @description 可核销次数；实际生成码数 = 次数 × 购买数量。TBD：部分核销后的退款金额规则待确认
+       * @description 可核销次数；实际生成码数 = 次数 × 购买数量。卡券待核销订单可退金额 = 实付 × 未核销码数 ÷ 总码数（向下取整），即只退未消费部分；退款后作废剩余未核销码
        * @default 1
        */
       verify_count?: number;

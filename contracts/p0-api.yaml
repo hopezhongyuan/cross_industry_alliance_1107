@@ -513,7 +513,7 @@ components:
           type: array
           items: { type: integer, minimum: 1, maximum: 7 }
         exclude_holidays: { type: boolean }
-        verify_count: { type: integer, description: 可核销次数（码数 = 次数 × 认领商品数量） }
+        verify_count: { type: integer, description: '可核销次数（码数 = 次数 × 认领商品数量）；待核销订单退款按未核销码数占比计算' }
         skus:
           type: array
           items:
@@ -566,7 +566,9 @@ components:
           minimum: 1
           maximum: 999
           default: 1
-          description: 可核销次数；实际生成码数 = 次数 × 购买数量。TBD：部分核销后的退款金额规则待确认
+          description: >-
+            可核销次数；实际生成码数 = 次数 × 购买数量。卡券待核销订单可退金额 =
+            实付 × 未核销码数 ÷ 总码数（向下取整），即只退未消费部分；退款后作废剩余未核销码
         skus:
           type: array
           items:
@@ -1359,7 +1361,9 @@ components:
           minimum: 1
           maximum: 999
           default: 1
-          description: 可核销次数；实际生成码数 = 次数 × 购买数量。TBD：部分核销后的退款金额规则待确认
+          description: >-
+            可核销次数；实际生成码数 = 次数 × 购买数量。卡券待核销订单可退金额 =
+            实付 × 未核销码数 ÷ 总码数（向下取整），即只退未消费部分；退款后作废剩余未核销码
         product_code: { type: string, description: 商户货号，商户内唯一，可为空 }
         merchant_category_id: { type: integer, format: int64, nullable: true, description: 商户自有分类，仅一级 }
         skus:

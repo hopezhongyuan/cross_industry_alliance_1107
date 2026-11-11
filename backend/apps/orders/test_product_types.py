@@ -322,6 +322,78 @@ class ProductTypeFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 201, response.data)
 
+    def test_expired_range_coupon_cannot_be_ordered(self):
+        self.coupon.valid_type = Product.ValidType.RANGE
+        self.coupon.valid_days = None
+        self.coupon.valid_from = timezone.now() - timedelta(days=30)
+        self.coupon.valid_to = timezone.now() - timedelta(days=1)
+        self.coupon.save(update_fields=["valid_type", "valid_days", "valid_from", "valid_to"])
+        payload = {
+            "merchant_id": self.merchant.id,
+            "order_type": "COUPON",
+            "items": [{"product_id": self.coupon.id, "sku_id": self.coupon_sku.id, "quantity": 1}],
+            "contact": {"name": "李四", "phone": "13800138001", "address_detail": "测试地址"},
+        }
+        response = self.client.post("/api/v1/orders/", payload, format="json", HTTP_IDEMPOTENCY_KEY=uuid4().hex)
+        self.assertEqual(response.status_code, 409, response.data)
+        self.assertEqual(response.data["code"], "PRODUCT_NOT_AVAILABLE")
+
+    def test_partially_verified_coupon_refunds_unverified_portion(self):
+        order = self._create_order("COUPON", self.coupon, self.coupon_sku)
+        self._pay(order)
+        first = VerifyCode.objects.filter(order=order).order_by("id").first()
+        self.merchant_client.post("/api/v1/merchant/verify/", {"code": first.code}, format="json")
+        order.refresh_from_db()
+
+        refundable = order.paid_amount * 2 // 3
+        wrong = self.client.post(
+            "/api/v1/after-sales/",
+            {
+                "order_id": order.id,
+                "type": "REFUND_ONLY",
+                "reason_code": "OTHER",
+                "request_amount": order.paid_amount,
+                "description": "想全退",
+            },
+            format="json",
+        )
+        self.assertEqual(wrong.status_code, 409, wrong.data)
+        self.assertEqual(wrong.data["details"]["refundable_amount"], refundable)
+
+        response = self.client.post(
+            "/api/v1/after-sales/",
+            {
+                "order_id": order.id,
+                "type": "REFUND_ONLY",
+                "reason_code": "OTHER",
+                "request_amount": refundable,
+                "description": "退未消费部分",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+
+        after_sale_id = response.data["data"]["id"]
+        decision = self.merchant_client.post(
+            f"/api/v1/merchant/after-sales/{after_sale_id}/decision/",
+            {"decision": "AGREE", "reason": "同意"},
+            format="json",
+        )
+        self.assertEqual(decision.status_code, 200, decision.data)
+
+        order.refresh_from_db()
+        self.assertEqual(order.refunded_amount, refundable)
+        self.assertEqual(order.status, Order.Status.COMPLETED)
+        self.assertEqual(
+            VerifyCode.objects.filter(order=order, status=VerifyCode.Status.ACTIVE).count(),
+            0,
+        )
+        self.assertEqual(VerifyCode.objects.filter(order=order, status=VerifyCode.Status.INVALID).count(), 2)
+        from apps.ledger.models import SettlementItem
+
+        item = SettlementItem.objects.get(order=order)
+        self.assertEqual(item.refund_amount, refundable)
+
     # ---------- 配送费 ----------
     def test_store_delivery_charges_merchant_delivery_fee(self):
         order = self._create_order("STORE_DELIVERY", self.physical, self.physical_sku)

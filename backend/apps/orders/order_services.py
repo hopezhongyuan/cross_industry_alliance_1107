@@ -57,6 +57,13 @@ def _validate_products(merchant_id, order_type, items):
         # 历史商品可能未配置履约方式，空列表不做拦截
         if required and product_deliveries and not (product_deliveries & required):
             raise ApiError("DELIVERY_TYPE_NOT_SUPPORTED", "商品不支持该履约方式", 409)
+        if (
+            product.type == Product.Type.COUPON
+            and product.valid_type == Product.ValidType.RANGE
+            and product.valid_to is not None
+            and product.valid_to <= timezone.now()
+        ):
+            raise ApiError("PRODUCT_NOT_AVAILABLE", "卡券已过有效期，暂不可购买", 409)
         contexts.append({"item": item, "product": product, "sku": None})
     return contexts
 
@@ -693,6 +700,19 @@ def _parse_dt(value):
     if timezone.is_naive(parsed):
         parsed = timezone.make_aware(parsed)
     return parsed
+
+
+def coupon_refundable_amount(order) -> int:
+    """卡券待核销订单的可退金额：实付 × 未核销码数 ÷ 总码数（向下取整）。
+
+    即只退未消费部分；已核销部分的金额随核销结算给商户。
+    全部未核销时等于实付金额（等价于全额退款）。
+    """
+    total = VerifyCode.objects.filter(order=order).count()
+    if total == 0:
+        return order.paid_amount
+    active = VerifyCode.objects.filter(order=order, status=VerifyCode.Status.ACTIVE).count()
+    return order.paid_amount * active // total
 
 
 def mark_order_paid(order):

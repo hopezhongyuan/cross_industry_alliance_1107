@@ -337,3 +337,32 @@
   - `rule` TR-I-12.1: 契约存在 TBD 说明且 contract-check 通过
 - **Completion Evidence**:
   - TR-I-12.1 通过：p0-api.yaml verify_count description 含 TBD，contract-check 通过
+
+## Issue I-13: 部分核销后的退款金额比例（原 TBD）
+- **Status**: `completed`
+- **Priority**: high
+- **Depends On**: None
+- **Discovered By**: Review R3 (A4) / 用户指定处理
+- **Description**:
+  - 规则落地：待核销卡券可退金额 = 实付 × 未核销码数 ÷ 总码数（向下取整）
+  - 部分退款成功后作废剩余 ACTIVE 码，订单按已核销部分 COMPLETED 并生成结算项
+  - 契约移除 TBD，写入规则
+- **Acceptance Criteria Addressed**: AC-7, AC-10
+- **Test Requirements**:
+  - `rule` TR-I-13.1: 3 码核销 1 个后可退 = 实付×2÷3；申请全额被拒 409
+  - `rule` TR-I-13.2: 按可退金额申请并商户同意后，剩余 2 码 INVALID、订单 COMPLETED、结算项 refund_amount 一致
+- **Completion Evidence**:
+  - TR-I-13.1/13.2 通过：`test_partially_verified_coupon_refunds_unverified_portion`
+
+## Issue I-14: RANGE 卡券过期后仍可下单（原 TBD）
+- **Status**: `completed`
+- **Priority**: medium
+- **Depends On**: None
+- **Discovered By**: Review R3 (A4) / 用户指定处理
+- **Description**:
+  - 下单校验：COUPON 且 valid_type=RANGE 且 valid_to 已过 → 409 PRODUCT_NOT_AVAILABLE
+- **Acceptance Criteria Addressed**: AC-3
+- **Test Requirements**:
+  - `rule` TR-I-14.1: 过期 RANGE 卡券下单返回 409
+- **Completion Evidence**:
+  - TR-I-14.1 通过：`test_expired_range_coupon_cannot_be_ordered`

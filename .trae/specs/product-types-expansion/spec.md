@@ -53,7 +53,8 @@
 - **FR-13**: 服务订单：保持 PENDING_ACCEPT（商户审核），商户拒绝走 REFUNDING → 原路退款（现有能力，确认闭环）。
 - **FR-14**: 核销码有效期按商品 `valid_type` 计算：DAYS → 支付时间+N天；PERMANENT → 不过期（valid_to=null）；RANGE → 商品配置的 valid_from/valid_to。
 - **FR-15**: 卡券订单多次核销：每次核销一个独立码，最后一个码核销完成时订单转为 COMPLETED。
-- **FR-16**: 卡券订单允许发起售后（未核销/部分核销可退），走现有售后流程。
+- **FR-16**: 卡券订单允许发起售后（未核销/部分核销可退），走现有售后流程。待核销阶段的退款金额 = 实付 × 未核销码数 ÷ 总码数（向下取整），只退未消费部分；退款成功后作废剩余未核销码，并按已核销部分生成结算项。已核销完成后的售后按常规售后规则处理。
+- **FR-17**: RANGE 类型卡券在 `valid_to` 之后禁止下单（返回 `PRODUCT_NOT_AVAILABLE`）。
 
 ## Non-Functional Requirements
 - **NFR-1**: 订单状态迁移只能经 `transit_order`，不新增旁路。

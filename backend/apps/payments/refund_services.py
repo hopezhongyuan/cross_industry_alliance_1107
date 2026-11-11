@@ -13,7 +13,7 @@ from apps.ledger.constants import AccountType, Direction
 from apps.ledger.models import SettlementItem
 from apps.ledger.services import post_transaction
 from apps.orders.models import Order
-from apps.orders.order_services import restore_order_resources
+from apps.orders.order_services import coupon_refundable_amount, restore_order_resources
 from apps.orders.services import transit_order
 from apps.orders.split_services import apply_refund
 
@@ -60,14 +60,16 @@ def refund_order(
             raise ApiError("PAYMENT_NOT_FOUND", "支付单不存在", 404)
 
         item = SettlementItem.objects.select_for_update().filter(order=order).first()
-        if order.order_type == Order.Type.COUPON and item is None and amount < remaining:
-            # 卡券尚未履约完成（无结算项）：仅支持全额退款
-            raise ApiError(
-                "REFUND_AMOUNT_EXCEEDED",
-                "卡券未核销完成前仅支持全额退款",
-                409,
-                {"refundable_amount": remaining},
-            )
+        if order.order_type == Order.Type.COUPON and item is None:
+            # 卡券待核销：只能退未核销部分（实付 × 未核销码数 ÷ 总码数）
+            refundable = coupon_refundable_amount(order)
+            if amount != refundable:
+                raise ApiError(
+                    "REFUND_AMOUNT_EXCEEDED",
+                    f"卡券待核销订单仅支持按未核销部分退款，可退 {refundable} 分",
+                    409,
+                    {"refundable_amount": refundable},
+                )
 
         was_pending_accept = order.status == Order.Status.PENDING_ACCEPT
         if was_pending_accept:
@@ -218,11 +220,20 @@ def refund_order(
             restore_order_resources(order)
 
         full_refund = order.refunded_amount >= order.paid_amount
-        transit_order(
+        order = transit_order(
             order.id,
             "REFUND_SUCCESS_FULL" if full_refund else "REFUND_SUCCESS_PARTIAL",
             operator_type="SYSTEM",
         )
+        if order.order_type == Order.Type.COUPON and not full_refund:
+            # 部分核销后的部分退款：作废剩余未核销码，并按已核销部分生成结算项
+            from apps.fulfillment.models import VerifyCode
+            from apps.ledger.services import create_settlement_item
+
+            VerifyCode.objects.filter(order=order, status=VerifyCode.Status.ACTIVE).update(
+                status=VerifyCode.Status.INVALID
+            )
+            create_settlement_item(order)
         if full_refund:
             from apps.coupons.services import release_user_coupon_by_order
 

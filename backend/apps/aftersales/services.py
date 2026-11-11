@@ -13,6 +13,7 @@ from apps.ledger.models import SettlementItem
 from apps.ledger.services import post_transaction
 from apps.merchants.services import get_active_staff_merchant
 from apps.orders.models import Order
+from apps.orders.order_services import coupon_refundable_amount
 from apps.orders.services import transit_order
 from apps.payments.refund_services import Funding, refund_order
 
@@ -60,14 +61,16 @@ def apply_after_sale(
         remaining = order.paid_amount - order.refunded_amount
         if request_amount <= 0 or request_amount > remaining:
             raise ApiError("REFUND_AMOUNT_EXCEEDED", "申请金额超过可退金额", 409, {"refundable_amount": remaining})
-        if coupon_pending_verify(order) and request_amount < remaining:
-            # 卡券未核销完成前仅支持全额售后，避免部分退款后剩余码与资金不一致
-            raise ApiError(
-                "REFUND_AMOUNT_EXCEEDED",
-                "卡券未核销完成前仅支持全额退款",
-                409,
-                {"refundable_amount": remaining},
-            )
+        if coupon_pending_verify(order):
+            # 卡券待核销：只能退未核销部分（实付 × 未核销码数 ÷ 总码数），不支持自定义金额
+            refundable = coupon_refundable_amount(order)
+            if request_amount != refundable:
+                raise ApiError(
+                    "REFUND_AMOUNT_EXCEEDED",
+                    f"卡券待核销订单仅支持按未核销部分退款，可退 {refundable} 分",
+                    409,
+                    {"refundable_amount": refundable},
+                )
 
         after_sale = AfterSale.objects.create(
             order=order,
