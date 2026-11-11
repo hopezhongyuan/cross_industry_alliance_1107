@@ -1066,7 +1066,11 @@ components:
         evidence:
           type: array
           items: { type: string, format: uri }
-        request_amount: { type: integer, description: 申请金额（分） }
+        request_amount:
+          type: integer
+          description: >-
+            申请金额（分）。卡券待核销订单必须精确等于未核销部分金额
+            （实付 × 未核销码数 ÷ 总码数，向下取整），否则返回 REFUND_AMOUNT_EXCEEDED
     AfterSale:
       type: object
       properties:

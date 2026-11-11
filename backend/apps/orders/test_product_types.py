@@ -384,6 +384,7 @@ class ProductTypeFlowTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.refunded_amount, refundable)
         self.assertEqual(order.status, Order.Status.COMPLETED)
+        self.assertEqual(order.fulfillment_status, Order.FulfillmentStatus.DONE)
         self.assertEqual(
             VerifyCode.objects.filter(order=order, status=VerifyCode.Status.ACTIVE).count(),
             0,
@@ -393,6 +394,54 @@ class ProductTypeFlowTests(TestCase):
 
         item = SettlementItem.objects.get(order=order)
         self.assertEqual(item.refund_amount, refundable)
+        gross = item.product_amount - item.merchant_discount_amount + item.delivery_fee - item.refund_amount
+        self.assertEqual(item.net_amount, gross - item.commission_amount)
+
+    def test_platform_liability_coupon_refund_settles_consumed_portion(self):
+        order = self._create_order("COUPON", self.coupon, self.coupon_sku)
+        self._pay(order)
+        first = VerifyCode.objects.filter(order=order).order_by("id").first()
+        self.merchant_client.post("/api/v1/merchant/verify/", {"code": first.code}, format="json")
+        order.refresh_from_db()
+        refundable = order.paid_amount * 2 // 3
+        response = self.client.post(
+            "/api/v1/after-sales/",
+            {
+                "order_id": order.id,
+                "type": "REFUND_ONLY",
+                "reason_code": "OTHER",
+                "request_amount": refundable,
+                "description": "平台责任退款",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        after_sale = AfterSale.objects.get(order=order)
+        after_sale.deadline_at = timezone.now() - timedelta(hours=1)
+        after_sale.save(update_fields=["deadline_at"])
+        self.assertEqual(escalate_due_after_sales(), 1)
+        case = ArbitrationCase.objects.get(after_sale=after_sale)
+        admin = AppUser.objects.create_user(phone="13900000113", password="pass12345", is_staff=True)
+        rule_arbitration(
+            admin,
+            case.id,
+            ArbitrationCase.Liability.PLATFORM,
+            refund_amount=refundable,
+            ruling="平台责任",
+        )
+        order.refresh_from_db()
+        self.assertEqual(order.refunded_amount, refundable)
+        # 未核销部分不属于商户收入，即使平台责任也由商户待结算冲回；
+        # 平台仅放弃该部分对应佣金（platform_refund_amount）
+        self.assertEqual(order.platform_refund_amount + order.merchant_refund_amount, refundable)
+        self.assertGreater(order.merchant_refund_amount, 0)
+        from apps.ledger.models import SettlementItem
+
+        item = SettlementItem.objects.get(order=order)
+        gross = item.product_amount - item.merchant_discount_amount + item.delivery_fee - item.refund_amount
+        self.assertEqual(item.net_amount, gross - item.commission_amount)
+        self.assertGreaterEqual(item.commission_amount, 0)
+        self.assertEqual(VerifyCode.objects.filter(order=order, status=VerifyCode.Status.ACTIVE).count(), 0)
 
     # ---------- 配送费 ----------
     def test_store_delivery_charges_merchant_delivery_fee(self):

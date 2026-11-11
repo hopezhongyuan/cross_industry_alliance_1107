@@ -43,7 +43,6 @@ def refund_order(
         remaining = order.paid_amount - order.refunded_amount
         if amount <= 0 or amount > remaining:
             raise ApiError("REFUND_AMOUNT_EXCEEDED", "退款金额超过可退金额", 409, {"refundable_amount": remaining})
-
         payment = (
             PaymentOrder.objects.filter(
                 order=order,
@@ -61,7 +60,10 @@ def refund_order(
 
         item = SettlementItem.objects.select_for_update().filter(order=order).first()
         if order.order_type == Order.Type.COUPON and item is None:
-            # 卡券待核销：只能退未核销部分（实付 × 未核销码数 ÷ 总码数）
+            # 卡券待核销：未核销部分不属于商户收入，统一由商户待结算冲回；
+            # 若仲裁判定平台责任，平台补偿另行处理，不走本退款通路
+            funding = Funding.MERCHANT
+            # 只能退未核销部分（实付 × 未核销码数 ÷ 总码数）
             refundable = coupon_refundable_amount(order)
             if amount != refundable:
                 raise ApiError(
@@ -228,12 +230,20 @@ def refund_order(
         if order.order_type == Order.Type.COUPON and not full_refund:
             # 部分核销后的部分退款：作废剩余未核销码，并按已核销部分生成结算项
             from apps.fulfillment.models import VerifyCode
-            from apps.ledger.services import create_settlement_item
+            from apps.ledger.services import create_settlement_item, effective_commission
 
             VerifyCode.objects.filter(order=order, status=VerifyCode.Status.ACTIVE).update(
                 status=VerifyCode.Status.INVALID
             )
-            create_settlement_item(order)
+            settlement = create_settlement_item(order)
+            gross = (
+                settlement.product_amount
+                - settlement.merchant_discount_amount
+                + settlement.delivery_fee
+                - settlement.refund_amount
+            )
+            settlement.net_amount = gross - effective_commission(settlement)
+            settlement.save(update_fields=["net_amount", "updated_at"])
         if full_refund:
             from apps.coupons.services import release_user_coupon_by_order
 

@@ -69,3 +69,15 @@
   - A2 TBD 说明仅写于 Input schema 的 verify_count，ProductTemplate 响应描述未标。
   - A3 openapi.yaml 无模板响应 schema 属既有空白，非本次引入。
   - A4 既有范围外：部分核销后按全额退款（TBD）、RANGE 卡券过期商品仍可下单。
+
+### Review R4
+- **Result**: `fail`
+- **Evidence**: 评审者审阅 da3761f，运行 orders/test_product_types + aftersales + payments（37 passed）、全量 pytest、`make schema-check`、`make audit`。
+- **Findings**:
+  - F1（High，actionable）：仲裁「平台责任」+ 卡券部分核销时，退款未冲减商户待结算，`create_settlement_item` 用含平台退款的 `refunded_amount` 生成负数佣金，商户少结且 `MERCHANT_PENDING` 残留。
+  - F2（Medium，advisory）：负数 `commission_amount` 落库。
+  - F3（Medium，advisory）：核销与退款锁序相反，MySQL 生产环境有死锁风险。
+  - F4（Low，advisory）：errors.md / p0-api 未说明卡券退款精确金额规则；docstring 过时。
+  - F5（Low，advisory）：部分退款完成后 `fulfillment_status` 仍为 VERIFY_READY。
+  - F6（Low，advisory）：RANGE 校验仅判 `valid_to`。
+- **Remediation**: I-15（统一商户承担 + 结算项净额修正 + 回归测试）、I-16（履约状态收尾、契约与错误码说明）；F3 作为已知风险记录，F6 保持 valid_from 预购语义。

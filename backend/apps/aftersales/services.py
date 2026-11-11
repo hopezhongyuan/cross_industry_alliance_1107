@@ -31,7 +31,7 @@ ACTIVE_STATUSES = {
 
 
 def coupon_pending_verify(order) -> bool:
-    """卡券订单尚未履约完成（无结算项）：此阶段售后仅支持全额退款。"""
+    """卡券订单尚未履约完成（无结算项）：此阶段退款按未核销码数占比计算。"""
     if order.order_type != Order.Type.COUPON:
         return False
     return not SettlementItem.objects.filter(order=order).exists()

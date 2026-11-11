@@ -366,3 +366,33 @@
   - `rule` TR-I-14.1: 过期 RANGE 卡券下单返回 409
 - **Completion Evidence**:
   - TR-I-14.1 通过：`test_expired_range_coupon_cannot_be_ordered`
+
+## Issue I-15: 卡券部分核销平台责任退款资金错误
+- **Status**: `completed`
+- **Priority**: high
+- **Depends On**: None
+- **Discovered By**: Review R4 (F1/F2)
+- **Description**:
+  - 卡券待核销退款统一由商户待结算冲回（未核销部分非商户收入），平台责任补偿不走该通路
+  - 部分退款生成结算项后按 gross - effective_commission 修正 net_amount，避免负数佣金与错结
+- **Acceptance Criteria Addressed**: AC-10
+- **Test Requirements**:
+  - `rule` TR-I-15.1: 平台责任仲裁退款后 platform+merchant 冲回合计等于退款额，commission 非负，net=gross-commission
+- **Completion Evidence**:
+  - TR-I-15.1 通过：`test_platform_liability_coupon_refund_settles_consumed_portion`；`test_partially_verified_coupon_refunds_unverified_portion` 补充 net/commission 断言
+
+## Issue I-16: 退款后履约状态与规则文档
+- **Status**: `completed`
+- **Priority**: medium
+- **Depends On**: None
+- **Discovered By**: Review R4 (F4/F5)
+- **Description**:
+  - 退款成功事件将 fulfillment_status 置为 DONE
+  - errors.md 与 p0-api 明确卡券待核销退款金额规则；更新过时 docstring
+- **Acceptance Criteria Addressed**: AC-10, AC-11
+- **Test Requirements**:
+  - `rule` TR-I-16.1: 部分退款完成后 fulfillment_status=DONE
+  - `rule` TR-I-16.2: 契约与 errors.md 说明规则且 contract-check 通过
+- **Completion Evidence**:
+  - TR-I-16.1 通过：`test_partially_verified_coupon_refunds_unverified_portion` 断言 DONE
+  - TR-I-16.2 通过：p0-api request_amount / verify_count 描述与 errors.md 已更新，contract-check 通过

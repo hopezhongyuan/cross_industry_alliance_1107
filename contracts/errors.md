@@ -40,7 +40,7 @@
 | `SLOT_FULL` | 409 | 预约时段已满 | 预约服务 |
 | `VERIFY_CODE_INVALID` | 409 | 核销码无效 / 过期 / 非本店 | 核销服务 |
 | `AFTER_SALE_NOT_ALLOWED` | 409 | 当前状态不支持售后 | 售后服务 |
-| `REFUND_AMOUNT_EXCEEDED` | 409 | 退款超过可退金额 | 售后/退款服务 |
+| `REFUND_AMOUNT_EXCEEDED` | 409 | 退款超过可退金额；卡券待核销订单必须精确等于未核销部分金额（实付 × 未核销码数 ÷ 总码数） | 售后/退款服务 |
 | `WITHDRAW_BALANCE_NOT_ENOUGH` | 409 | 可提现余额不足 | 提现服务 |
 | `SETTLEMENT_NOT_DUE` | 409 | 结算项未到 `due_at` | 结算服务 |
 | `IDEMPOTENCY_CONFLICT` | 409 | 幂等键复用但请求体不一致 | 幂等中间件 |
@@ -57,7 +57,7 @@
 | `SETTLEMENT_STATE_CONFLICT` | 409 | 结算项状态不允许冻结/解冻 | 资金服务 |
 | `SETTLEMENT_BATCH_CLOSED` | 409 | 结算批次已关闭 | 结算服务 |
 | `WITHDRAWAL_STATE_CONFLICT` | 409 | 提现单状态不允许打款/驳回 | 提现服务 |
-| `PRODUCT_NOT_AVAILABLE` | 409 | 商品不存在或已下架 | 购物车/下单 |
+| `PRODUCT_NOT_AVAILABLE` | 409 | 商品不存在、已下架，或卡券已过有效期 | 购物车/下单 |
 | `PRODUCT_STATE_CONFLICT` | 409 | 商品状态或版本不接受该编辑/审核/上下架 | 商品服务 |
 | `MERCHANT_NOT_AVAILABLE` | 409 | 商户不存在或未营业 | 下单 |
 | `MERCHANT_MISMATCH` | 409 | 商品不属于订单商户 | 下单 |
