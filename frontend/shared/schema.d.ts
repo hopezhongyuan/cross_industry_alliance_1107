@@ -1446,7 +1446,7 @@ export interface components {
       reason_code: string;
       description?: string;
       evidence?: string[];
-      /** @description 申请金额（分）。卡券待核销订单必须精确等于未核销部分金额 （实付 × 未核销码数 ÷ 总码数，向下取整），否则返回 REFUND_AMOUNT_EXCEEDED */
+      /** @description 申请金额（分）。卡券待核销订单必须精确等于未核销部分金额 （实付 × 未核销码数 ÷ 总码数，向下取整），否则返回 REFUND_AMOUNT_EXCEEDED。 该阶段退款统一由商户待结算冲回；平台责任补偿另行走独立流程（TBD） */
       request_amount: number;
     };
     AfterSale: {

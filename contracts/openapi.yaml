@@ -3968,6 +3968,7 @@ components:
         request_amount:
           type: integer
           minimum: 1
+          description: 申请金额（分）。卡券待核销订单必须等于未核销部分金额（实付 × 未核销码数 ÷ 总码数）
       required:
       - order_id
       - reason_code

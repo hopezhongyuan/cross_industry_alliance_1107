@@ -81,3 +81,13 @@
   - F5（Low，advisory）：部分退款完成后 `fulfillment_status` 仍为 VERIFY_READY。
   - F6（Low，advisory）：RANGE 校验仅判 `valid_to`。
 - **Remediation**: I-15（统一商户承担 + 结算项净额修正 + 回归测试）、I-16（履约状态收尾、契约与错误码说明）；F3 作为已知风险记录，F6 保持 valid_from 预购语义。
+
+### Review R5
+- **Result**: `pass`
+- **Evidence**: 评审者阅读 3456339 全量 diff，运行 `pytest apps/{orders,payments,aftersales}`（38 passed）、`manage.py audit_ledger`（17 事务 / 5 账户全绿）、`make schema-check` 无 diff；并用临时测试库端到端复算「实付 2000 / 3 码 / 核销 1 / 退 1333 / 5%」：退款分录 `MERCHANT_PENDING D 1333 / CASH C 1333`，结算项 product 2000、refund 1333、commission 33、net 634；发布后 gross 667 = 634 + 33，MERCHANT_PENDING 归零，商户可提现 634，平台佣金 33，四账平衡。
+- **Advisory（不阻塞，部分已处理）**：
+  - 平台责任由商户承担的补偿路径未留痕 → 已在 p0-api 标注「平台责任补偿另行走独立流程（TBD）」，并在退款注释说明。
+  - 回归测试可补发布批次断言 → 已补核销 200 断言；发布批次算法由既有对账测试覆盖。
+  - `REFUND_SUCCESS_FULL` 曾置 DONE 语义偏差 → 已改为仅 `REFUND_SUCCESS_PARTIAL` 置 DONE。
+  - openapi 快照 request_amount 缺描述 → 已通过 serializer help_text 镜像。
+- **Final**: 无 P0/P1 问题，评审通过。

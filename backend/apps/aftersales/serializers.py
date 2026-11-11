@@ -14,7 +14,10 @@ class AfterSaleInputSerializer(serializers.Serializer):
     reason_code = serializers.CharField(max_length=32)
     description = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
     evidence = serializers.ListField(child=serializers.URLField(), required=False, allow_empty=True)
-    request_amount = serializers.IntegerField(min_value=1)
+    request_amount = serializers.IntegerField(
+        min_value=1,
+        help_text="申请金额（分）。卡券待核销订单必须等于未核销部分金额（实付 × 未核销码数 ÷ 总码数）",
+    )
 
 
 class AfterSaleDecisionSerializer(serializers.Serializer):

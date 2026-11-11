@@ -94,7 +94,7 @@ def transit_order(
             order.fulfillment_status = _direct_fulfillment_status(order)
         elif event == "SERVICE_VERIFY" or event in ("CONFIRM_RECEIVE", "PICKUP_VERIFY"):
             order.fulfillment_status = Order.FulfillmentStatus.DONE
-        elif event in ("REFUND_SUCCESS_FULL", "REFUND_SUCCESS_PARTIAL"):
+        elif event == "REFUND_SUCCESS_PARTIAL":
             order.fulfillment_status = Order.FulfillmentStatus.DONE
 
         stamp_field = TIMESTAMP_BY_STATUS.get(target)

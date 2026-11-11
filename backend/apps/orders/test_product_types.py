@@ -342,7 +342,8 @@ class ProductTypeFlowTests(TestCase):
         order = self._create_order("COUPON", self.coupon, self.coupon_sku)
         self._pay(order)
         first = VerifyCode.objects.filter(order=order).order_by("id").first()
-        self.merchant_client.post("/api/v1/merchant/verify/", {"code": first.code}, format="json")
+        verified = self.merchant_client.post("/api/v1/merchant/verify/", {"code": first.code}, format="json")
+        self.assertEqual(verified.status_code, 200, verified.data)
         order.refresh_from_db()
 
         refundable = order.paid_amount * 2 // 3
